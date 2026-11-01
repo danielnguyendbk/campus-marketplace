@@ -1,0 +1,22 @@
+{
+  "name": "@campus/api-contract",
+  "version": "1.2.0-draft",
+  "description": "OpenAPI 3.x API Contract for Campus Marketplace v1.2",
+  "main": "index.ts",
+  "types": "index.ts",
+  "files": [
+    "openapi.yaml",
+    "index.ts"
+  ],
+  "scripts": {
+    "dev": "echo @campus/api-contract: no dev server needed",
+    "lint": "echo @campus/api-contract: no lint required",
+    "typecheck": "tsc --noEmit",
+    "test": "echo @campus/api-contract: no tests required",
+    "build": "echo @campus/api-contract: ready"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "typescript": "^5.6.3"
+  }
+}

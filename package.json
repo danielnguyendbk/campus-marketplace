@@ -1,0 +1,19 @@
+{
+  "name": "campus-marketplace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Campus Marketplace Monorepo - Student Second-hand Trading Platform",
+  "packageManager": "pnpm@10.14.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"@campus/*\" dev",
+    "build": "pnpm --filter \"@campus/*\" run build",
+    "lint": "pnpm --filter \"@campus/*\" run lint",
+    "typecheck": "pnpm --filter \"@campus/*\" run typecheck",
+    "test": "pnpm --filter \"@campus/*\" run test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  }
+}
