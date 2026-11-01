@@ -51,20 +51,25 @@ campus-marketplace/
 
 ---
 
-## 4. Quy tắc Git & Phối hợp nhóm (Git Workflow)
+## 4. Quy tắc Git & Phối hợp nhóm (Gitflow Workflow)
 
-- **Nhánh chính:**
-  - `main`: Nhánh ổn định, luôn luôn ở trạng thái pass CI. Mọi thay đổi vào `main` phải qua Pull Request.
-- **Quy ước đặt tên nhánh:**
-  - `feat/fe-<tên-tính-năng>`: Tính năng Frontend (ví dụ: `feat/fe-login-page`)
-  - `feat/be-<tên-tính-năng>`: Tính năng Backend (ví dụ: `feat/be-auth-otp`)
-  - `fix/<mô-tả-lỗi>`: Sửa lỗi (ví dụ: `fix/token-expiration`)
-  - `docs/<nội-dung>`: Tài liệu (ví dụ: `docs/update-adr-002`)
-  - `chore/<công-việc>`: Cấu hình, CI, tooling, dependency update.
-- **Cam kết commit:**
+Dự án áp dụng mô hình **Gitflow** tiêu chuẩn để phân tách rõ ràng giữa mã nguồn ổn định sẵn sàng phát hành và mã nguồn đang phát triển tích hợp:
+
+- **Hai nhánh vĩnh viễn (Permanent Branches):**
+  - `main`: Nhánh sản phẩm chính thức (Production). Chỉ chứa các phiên bản phát hành đã được kiểm thử toàn diện, luôn gắn tag phiên bản (ví dụ: `v1.0.0`). Mọi thay đổi vào `main` phải thông qua Pull Request từ `release/*` hoặc `hotfix/*`.
+  - `develop`: Nhánh tích hợp phát triển (Active Integration). Là nhánh mặc định cho toàn bộ hoạt động phát triển tính năng. Mọi PR tính năng mới đều hướng về `develop`.
+- **Các nhánh hỗ trợ (Supporting Branches):**
+  - `feat/fe-<tên-tính-năng>`: Tính năng Frontend rẽ nhánh từ `develop` và merge về `develop`.
+  - `feat/be-<tên-tính-năng>`: Tính năng Backend rẽ nhánh từ `develop` và merge về `develop`.
+  - `fix/<mô-tả-lỗi>`: Sửa lỗi phát sinh trong quá trình dev, rẽ nhánh từ `develop`.
+  - `release/vX.Y.Z`: Chuẩn bị phát hành, rẽ nhánh từ `develop`, sau khi ổn định sẽ merge vào cả `main` và `develop`.
+  - `hotfix/<mô-tả-lỗi>`: Vá lỗi khẩn cấp trên production, rẽ nhánh trực tiếp từ `main` và sau đó merge về cả `main` và `develop`.
+  - `docs/<nội-dung>`, `chore/<công-việc>`: Tài liệu hoặc cấu hình công cụ.
+- **Cam kết commit & Pull Request:**
   - Commit message tuân thủ Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`.
   - Tuyệt đối KHÔNG commit `node_modules`, file build `dist/`, hoặc secret credentials (`.env`).
-  - KHÔNG tự ý force-push (`git push --force`) vào `main` hoặc ghi đè nhánh của thành viên khác.
+  - Mọi PR vào `develop` hoặc `main` phải có đầy đủ review và vượt qua CI GitHub Actions.
+  - KHÔNG tự ý force-push (`git push --force`) vào `main` hoặc `develop`.
 
 ---
 
