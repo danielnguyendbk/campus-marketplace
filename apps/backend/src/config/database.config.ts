@@ -1,15 +1,25 @@
 import { PoolConfig } from 'pg';
 
 export const getDatabaseConfig = (): PoolConfig => {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_URL?.trim();
 
-  if (connectionString && connectionString.trim() !== '') {
+  // If explicit PGSSL is set to false, disable SSL; otherwise default to SSL for Supabase or remote hosts
+  const isSslDisabled = process.env.PGSSL === 'false';
+  const isRemoteOrSupabase =
+    Boolean(connectionString && (connectionString.includes('supabase') || !connectionString.includes('localhost'))) ||
+    Boolean(process.env.PGHOST && process.env.PGHOST !== 'localhost' && process.env.PGHOST !== '127.0.0.1');
+
+  const shouldUseSsl = !isSslDisabled && (process.env.PGSSL === 'true' || isRemoteOrSupabase);
+
+  const sslConfig = shouldUseSsl ? { rejectUnauthorized: false } : undefined;
+
+  if (connectionString && connectionString !== '') {
     return {
       connectionString,
-      ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      ssl: sslConfig,
       max: 10,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 10000,
     };
   }
 
@@ -19,9 +29,9 @@ export const getDatabaseConfig = (): PoolConfig => {
     user: process.env.PGUSER || 'postgres',
     password: process.env.PGPASSWORD || 'postgres',
     database: process.env.PGDATABASE || 'postgres',
-    ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    ssl: sslConfig,
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: 10000,
   };
 };
