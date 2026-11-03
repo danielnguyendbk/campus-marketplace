@@ -2,7 +2,8 @@ openapi: 3.0.3
 info:
   title: Campus Marketplace API
   version: 1.2.0-draft
-  description: 'API Contract để import vào Apidog và thống nhất giữa Frontend/Backend. Cơ sở: DBML Campus Marketplace
+  description:
+    'API Contract để import vào Apidog và thống nhất giữa Frontend/Backend. Cơ sở: DBML Campus Marketplace
     v1.2 (18 bảng) và hồ sơ nghiệp vụ v1.2. Đây là THIẾT KẾ, không phải backend đang chạy. Những endpoint ghi
     x-source=Proposed extension cần nhóm phê duyệt. Bảo mật: không công bố password_hash, otp.code_hash, card_image_ref,
     storage_key; các URL file là short-lived/signed. Role và verificationStatus được backend enforce, không
@@ -10,46 +11,46 @@ info:
     phải được đặc tả riêng. Tất cả trường JSON dạng camelCase; DBML lưu snake_case. API sử dụng /api/v1 prefix.
     Đơn vị giá: VND; cân nhắc chuyển sang integer nếu hệ thống quyết định giá chỉ là số nguyên.'
 servers:
-- url: http://localhost:3000/api/v1
-  description: Local backend (chưa triển khai)
+  - url: http://localhost:3000/api/v1
+    description: Local backend (chưa triển khai)
 tags:
-- name: Authentication
-  description: OTP email trường và đăng ký/đăng nhập
-- name: Profile
-  description: Hồ sơ người dùng
-- name: Verification
-  description: Minh chứng sinh viên
-- name: Admin Verification
-  description: Duyệt hồ sơ riêng tư
-- name: Preferences
-  description: Sở thích feed
-- name: Categories
-  description: Danh mục
-- name: Posts & Search
-  description: Đăng tin và tìm kiếm
-- name: Post Lifecycle
-  description: Trạng thái tin
-- name: Feed & Matching
-  description: Feed giới hạn và matching rule-based
-- name: Contact
-  description: Xem số điện thoại có audit
-- name: Conversations & Chat
-  description: Chat và tệp đính kèm
-- name: Reports & Reputation
-  description: Báo cáo buyer và phản hồi seller
-- name: Admin Reports
-  description: Admin quản lý report
-- name: Admin Users & Audit
-  description: Quản trị, cấu hình và audit
-- name: Notifications
-  description: Thông báo
+  - name: Authentication
+    description: OTP email trường và đăng ký/đăng nhập
+  - name: Profile
+    description: Hồ sơ người dùng
+  - name: Verification
+    description: Minh chứng sinh viên
+  - name: Admin Verification
+    description: Duyệt hồ sơ riêng tư
+  - name: Preferences
+    description: Sở thích feed
+  - name: Categories
+    description: Danh mục
+  - name: Posts & Search
+    description: Đăng tin và tìm kiếm
+  - name: Post Lifecycle
+    description: Trạng thái tin
+  - name: Feed & Matching
+    description: Feed giới hạn và matching rule-based
+  - name: Contact
+    description: Xem số điện thoại có audit
+  - name: Conversations & Chat
+    description: Chat và tệp đính kèm
+  - name: Reports & Reputation
+    description: Báo cáo buyer và phản hồi seller
+  - name: Admin Reports
+    description: Admin quản lý report
+  - name: Admin Users & Audit
+    description: Quản trị, cấu hình và audit
+  - name: Notifications
+    description: Thông báo
 security:
-- BearerAuth: []
+  - BearerAuth: []
 paths:
   /auth/request-otp:
     post:
       tags:
-      - Authentication
+        - Authentication
       summary: Gửi OTP email trường
       operationId: requestOtp
       description: Chỉ domain allowlist, không tiết lộ trạng thái email tồn tại; rate limit; OTP lưu hash.
@@ -67,9 +68,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/SimpleMessageResponse'
               example:
+                success: true
                 data:
                   success: true
                   message: Nếu email hợp lệ, hướng dẫn xác minh sẽ được gửi.
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -87,7 +90,7 @@ paths:
   /auth/verify-otp:
     post:
       tags:
-      - Authentication
+        - Authentication
       summary: Xác thực OTP
       operationId: verifyOtp
       description: OTP đúng mới trả otpTicket ngắn hạn; không trả codeHash.
@@ -105,9 +108,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/VerifyOtpResponse'
               example:
+                success: true
                 data:
                   otpTicket: otp_ticket_example_only
                   expiresIn: 600
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -131,7 +136,7 @@ paths:
   /auth/register:
     post:
       tags:
-      - Authentication
+        - Authentication
       summary: Đăng ký sau OTP
       operationId: register
       description: Chỉ chấp nhận otpTicket valid/chưa dùng. Account tạo PENDING; schoolEmail lấy từ ticket.
@@ -149,6 +154,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthSessionResponse'
               example:
+                success: true
                 data:
                   accessToken: mock-access-token-not-real
                   tokenType: Bearer
@@ -158,6 +164,7 @@ paths:
                     displayName: Sinh viên A
                     role: USER
                     verificationStatus: PENDING
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -181,7 +188,7 @@ paths:
   /auth/login:
     post:
       tags:
-      - Authentication
+        - Authentication
       summary: Đăng nhập
       operationId: login
       description: PENDING và REJECTED vẫn có thể đăng nhập để xem hồ sơ; SUSPENDED bị chặn theo chính sách.
@@ -199,6 +206,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthSessionResponse'
               example:
+                success: true
                 data:
                   accessToken: mock-access-token-not-real
                   tokenType: Bearer
@@ -208,6 +216,7 @@ paths:
                     displayName: Sinh viên A
                     role: USER
                     verificationStatus: APPROVED
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -237,7 +246,7 @@ paths:
   /me:
     get:
       tags:
-      - Profile
+        - Profile
       summary: Lấy hồ sơ của tôi
       operationId: getMyProfile
       description: Không trả cardImageRef, passwordHash, codeHash; PENDING/REJECTED được xem.
@@ -249,6 +258,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/MeResponse'
               example:
+                success: true
                 data:
                   id: 0d8d830e-11bd-440a-b72e-24c8bd3a519a
                   schoolEmail: student@example.edu.vn
@@ -257,6 +267,7 @@ paths:
                   verificationStatus: APPROVED
                   reputationScore: 5.0
                   createdAt: '2026-11-01T09:00:00Z'
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -267,7 +278,7 @@ paths:
       x-required-role: AUTHENTICATED (xem thêm quy tắc APPROVED/PENDING)
     patch:
       tags:
-      - Profile
+        - Profile
       summary: Cập nhật thông tin liên hệ
       operationId: patchMyProfile
       description: Không sửa email trường, role, reputation, trạng thái xét duyệt.
@@ -307,7 +318,7 @@ paths:
   /me/evidence:
     post:
       tags:
-      - Verification
+        - Verification
       summary: Nộp/nộp lại minh chứng sinh viên
       operationId: submitEvidence
       description: PENDING hoặc REJECTED; multipart, ảnh thẻ private. Nộp lại REJECTED chuyển PENDING.
@@ -359,7 +370,7 @@ paths:
   /me/verification:
     get:
       tags:
-      - Verification
+        - Verification
       summary: Xem trạng thái xét duyệt
       operationId: getMyVerification
       description: Chỉ thông tin trạng thái/lý do; không trả URL minh chứng.
@@ -371,9 +382,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/VerificationResponse'
               example:
+                success: true
                 data:
                   status: PENDING
                   submittedAt: '2026-11-01T09:00:00Z'
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -385,33 +398,33 @@ paths:
   /admin/verifications:
     get:
       tags:
-      - Admin Verification
+        - Admin Verification
       summary: Danh sách hồ sơ chờ xét duyệt
       operationId: listVerifications
       description: Chỉ ADMIN; có phân trang, lọc trạng thái.
       parameters:
-      - &id002
-        name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-      - &id003
-        name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 20
-      - name: status
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/VerificationStatus'
+        - &id002
+          name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - &id003
+          name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/VerificationStatus'
       responses:
         '200':
           description: Thành công
@@ -420,15 +433,24 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
                       $ref: '#/components/schemas/AdminVerification'
                   meta:
                     $ref: '#/components/schemas/PageMeta'
+                  timestamp:
+                    type: string
+                    format: date-time
                 required:
-                - data
-                - meta
+                  - success
+                  - data
+                  - meta
+                  - timestamp
+                additionalProperties: false
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -446,18 +468,18 @@ paths:
   /admin/verifications/{verificationId}:
     get:
       tags:
-      - Admin Verification
+        - Admin Verification
       summary: Xem hồ sơ và ảnh thẻ (Admin)
       operationId: getVerification
       description: Chỉ Admin; cardImageUrl là signed URL ngắn hạn; audit truy cập minh chứng.
       parameters:
-      - &id001
-        name: verificationId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - &id001
+          name: verificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Thành công
@@ -487,12 +509,12 @@ paths:
       x-required-role: ADMIN
     patch:
       tags:
-      - Admin Verification
+        - Admin Verification
       summary: Duyệt/từ chối minh chứng
       operationId: reviewVerification
       description: REJECTED yêu cầu reason; APPROVED cấp quyền Marketplace. Ghi audit.
       parameters:
-      - *id001
+        - *id001
       requestBody:
         required: true
         content:
@@ -547,7 +569,7 @@ paths:
   /me/preferences:
     get:
       tags:
-      - Preferences
+        - Preferences
       summary: Xem sở thích
       operationId: getPreferences
       description: APPROVED; categories và keywords dùng cho rule-based feed.
@@ -559,12 +581,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/PreferenceResponse'
               example:
+                success: true
                 data:
                   favoriteCategoryIds:
-                  - TEXTBOOK
+                    - TEXTBOOK
                   interestKeywords:
-                  - Java
+                    - Java
                   updatedAt: '2026-11-01T09:00:00Z'
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -581,7 +605,7 @@ paths:
       x-required-role: AUTHENTICATED (xem thêm quy tắc APPROVED/PENDING)
     patch:
       tags:
-      - Preferences
+        - Preferences
       summary: Cập nhật sở thích
       operationId: setPreferences
       description: Chuẩn hóa từ khóa, khử trùng lặp và kiểm categoryIds đang active.
@@ -627,13 +651,13 @@ paths:
   /categories:
     get:
       tags:
-      - Categories
+        - Categories
       summary: Danh mục sản phẩm đang hoạt động
       operationId: getCategories
       description: Cấu trúc lấy từ bảng categories; không cho public sửa danh mục.
       parameters: &id008
-      - *id002
-      - *id003
+        - *id002
+        - *id003
       responses:
         '200':
           description: Thành công
@@ -642,16 +666,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryPage'
               example:
+                success: true
                 data:
-                - id: TEXTBOOK
-                  name: Sách và giáo trình
-                  slug: textbooks
-                  sortOrder: 1
+                  - id: TEXTBOOK
+                    name: Sách và giáo trình
+                    slug: textbooks
+                    sortOrder: 1
                 meta: &id004
                   page: 1
                   limit: 20
                   total: 1
                   totalPages: 1
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -669,46 +695,47 @@ paths:
   /posts:
     get:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Tìm kiếm và lọc tin ACTIVE
       operationId: searchPosts
-      description: APPROVED only; không trả post của owner chưa APPROVED, không trả HIDDEN/SOLD/CLOSED; matchedReasons
+      description:
+        APPROVED only; không trả post của owner chưa APPROVED, không trả HIDDEN/SOLD/CLOSED; matchedReasons
         trả về khi có match.
       parameters:
-      - *id002
-      - *id003
-      - name: q
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: type
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/PostType'
-      - name: categoryId
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: min
-        in: query
-        required: false
-        schema:
-          type: number
-          minimum: 0
-      - name: max
-        in: query
-        required: false
-        schema:
-          type: number
-          minimum: 0
-      - name: province
-        in: query
-        required: false
-        schema:
-          type: string
+        - *id002
+        - *id003
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PostType'
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: min
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: max
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: province
+          in: query
+          required: false
+          schema:
+            type: string
       responses:
         '200':
           description: Thành công
@@ -718,18 +745,18 @@ paths:
                 $ref: '#/components/schemas/PostPage'
               example:
                 data:
-                - &id009
-                  id: a23ef463-1a6b-4b2d-a330-0e47edff0217
-                  postType: SELL
-                  title: Giáo trình Java còn mới
-                  categoryId: TEXTBOOK
-                  province: TP. Hồ Chí Minh
-                  status: ACTIVE
-                  price: 120000
-                  thumbnailUrl: https://example.com/mock/post-images/java-book.jpg
-                  createdAt: '2026-11-01T09:00:00Z'
-                  matchedReasons:
-                  - Phù hợp danh mục yêu thích
+                  - &id009
+                    id: a23ef463-1a6b-4b2d-a330-0e47edff0217
+                    postType: SELL
+                    title: Giáo trình Java còn mới
+                    categoryId: TEXTBOOK
+                    province: TP. Hồ Chí Minh
+                    status: ACTIVE
+                    price: 120000
+                    thumbnailUrl: https://example.com/mock/post-images/java-book.jpg
+                    createdAt: '2026-11-01T09:00:00Z'
+                    matchedReasons:
+                      - Phù hợp danh mục yêu thích
                 meta: *id004
         '400':
           description: Dữ liệu đầu vào không hợp lệ
@@ -753,10 +780,11 @@ paths:
       x-required-role: AUTHENTICATED (xem thêm quy tắc APPROVED/PENDING)
     post:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Đăng tin SELL / BUY_REQUEST
       operationId: createPost
-      description: APPROVED only. Đề xuất multipart để SELL nộp ít nhất một ảnh ngay khi tạo; SELL yêu cầu
+      description:
+        APPROVED only. Đề xuất multipart để SELL nộp ít nhất một ảnh ngay khi tạo; SELL yêu cầu
         price>0 và condition; BUY_REQUEST yêu cầu budgetMin <= budgetMax. Owner/status do server tính.
       requestBody:
         required: true
@@ -775,6 +803,7 @@ paths:
                 Sell:
                   summary: Tin SELL kèm ảnh
                   value:
+                    success: true
                     data: &id006
                       id: a23ef463-1a6b-4b2d-a330-0e47edff0217
                       owner: &id005
@@ -794,14 +823,16 @@ paths:
                         condition: Tốt
                         allowPhoneReveal: true
                       images:
-                      - id: e5b6ad01-60ad-4428-9739-fb020c2bfaf3
-                        url: https://example.com/mock/post-images/java-book.jpg
-                        sortOrder: 0
+                        - id: e5b6ad01-60ad-4428-9739-fb020c2bfaf3
+                          url: https://example.com/mock/post-images/java-book.jpg
+                          sortOrder: 0
                       createdAt: '2026-11-01T09:00:00Z'
                       updatedAt: '2026-11-01T09:00:00Z'
+                    timestamp: '2026-11-01T09:00:00Z'
                 BuyRequest:
                   summary: Tin BUY_REQUEST
                   value:
+                    success: true
                     data:
                       id: f1c37d02-01f6-4125-983a-a743df8785e3
                       owner: *id005
@@ -817,6 +848,7 @@ paths:
                       images: []
                       createdAt: '2026-11-01T09:00:00Z'
                       updatedAt: '2026-11-01T09:00:00Z'
+                    timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -858,18 +890,18 @@ paths:
   /posts/{id}:
     get:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Chi tiết tin đăng
       operationId: getPost
       description: Chỉ APPROVED mới xem detail; không expose phone trừ khi gọi reveal-phone riêng.
       parameters:
-      - &id007
-        name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - &id007
+          name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Thành công
@@ -878,7 +910,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/PostResponse'
               example:
+                success: true
                 data: *id006
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -901,12 +935,12 @@ paths:
       x-required-role: AUTHENTICATED (xem thêm quy tắc APPROVED/PENDING)
     patch:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Sửa bài đăng của tôi
       operationId: patchPost
       description: Chỉ owner; không đổi postType; không dùng PATCH này để bypass state machine.
       parameters:
-      - *id007
+        - *id007
       requestBody:
         required: true
         content:
@@ -961,18 +995,18 @@ paths:
   /me/posts:
     get:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Các tin tôi đã đăng
       operationId: getMyPosts
       description: Danh sách bài của owner, kể cả HIDDEN/SOLD/CLOSED; APPROVED.
       parameters:
-      - *id002
-      - *id003
-      - name: status
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/PostStatus'
+        - *id002
+        - *id003
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PostStatus'
       responses:
         '200':
           description: Thành công
@@ -997,12 +1031,12 @@ paths:
   /posts/{id}/hide:
     post:
       tags:
-      - Post Lifecycle
+        - Post Lifecycle
       summary: Ẩn tin
       operationId: hidePost
       description: Chỉ owner và theo state machine; loại ngay khỏi feed/search.
       parameters:
-      - *id007
+        - *id007
       responses:
         '200':
           description: Thành công
@@ -1039,13 +1073,14 @@ paths:
   /posts/{id}/activate:
     post:
       tags:
-      - Post Lifecycle
+        - Post Lifecycle
       summary: Hiện lại tin HIDDEN
       operationId: activatePost
-      description: Chỉ HIDDEN -> ACTIVE, owner APPROVED. Chức năng có trong state machine; đường dẫn là đề
+      description:
+        Chỉ HIDDEN -> ACTIVE, owner APPROVED. Chức năng có trong state machine; đường dẫn là đề
         xuất.
       parameters:
-      - *id007
+        - *id007
       responses:
         '200':
           description: Thành công
@@ -1082,12 +1117,12 @@ paths:
   /posts/{id}/sold:
     post:
       tags:
-      - Post Lifecycle
+        - Post Lifecycle
       summary: Đánh dấu đã bán
       operationId: markPostSold
       description: Chỉ SELL ACTIVE; là trạng thái do seller xác nhận, không phải thanh toán.
       parameters:
-      - *id007
+        - *id007
       responses:
         '200':
           description: Thành công
@@ -1124,12 +1159,12 @@ paths:
   /posts/{id}/close:
     post:
       tags:
-      - Post Lifecycle
+        - Post Lifecycle
       summary: Đóng tin
       operationId: closePost
       description: SELL/BUY_REQUEST có thể CLOSED; ghi reason và endedAt.
       parameters:
-      - *id007
+        - *id007
       requestBody:
         required: true
         content:
@@ -1178,13 +1213,14 @@ paths:
   /posts/{id}/images:
     post:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Thêm ảnh bài đăng
       operationId: addPostImage
-      description: Chỉ owner; file private object-storage và trả delivery URL; upload image ngay khi tạo SELL
+      description:
+        Chỉ owner; file private object-storage và trả delivery URL; upload image ngay khi tạo SELL
         đã ở POST /posts.
       parameters:
-      - *id007
+        - *id007
       requestBody:
         required: true
         content:
@@ -1239,18 +1275,18 @@ paths:
   /posts/{id}/images/{imageId}:
     delete:
       tags:
-      - Posts & Search
+        - Posts & Search
       summary: Xóa ảnh bài đăng
       operationId: removePostImage
       description: Chỉ owner; từ chối nếu sẽ làm SELL vi phạm quy tắc tối thiểu một ảnh.
       parameters:
-      - *id007
-      - name: imageId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - *id007
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '204':
           description: Thành công, không có nội dung
@@ -1283,10 +1319,11 @@ paths:
   /feed:
     get:
       tags:
-      - Feed & Matching
+        - Feed & Matching
       summary: Bảng tin gợi ý
       operationId: getFeed
-      description: PENDING chỉ xem feed ACTIVE giới hạn, KHÔNG query tìm kiếm/lọc/detail. APPROVED nhận feed
+      description:
+        PENDING chỉ xem feed ACTIVE giới hạn, KHÔNG query tìm kiếm/lọc/detail. APPROVED nhận feed
         cá nhân hóa, loại post owner chưa duyệt.
       parameters: *id008
       responses:
@@ -1300,19 +1337,23 @@ paths:
                 Approved:
                   summary: APPROVED - feed cá nhân hóa
                   value:
+                    success: true
                     data:
-                    - *id009
+                      - *id009
                     meta: *id004
+                    timestamp: '2026-11-01T09:00:00Z'
                 Pending:
                   summary: PENDING - chỉ feed giới hạn, không cho detail/search
                   value:
+                    success: true
                     data:
-                    - id: a23ef463-1a6b-4b2d-a330-0e47edff0217
-                      title: Giáo trình Java còn mới
-                      postType: SELL
-                      thumbnailUrl: https://example.com/mock/post-images/java-book.jpg
-                      createdAt: '2026-11-01T09:00:00Z'
+                      - id: a23ef463-1a6b-4b2d-a330-0e47edff0217
+                        title: Giáo trình Java còn mới
+                        postType: SELL
+                        thumbnailUrl: https://example.com/mock/post-images/java-book.jpg
+                        createdAt: '2026-11-01T09:00:00Z'
                     meta: *id004
+                    timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -1330,14 +1371,14 @@ paths:
   /posts/{id}/matches:
     get:
       tags:
-      - Feed & Matching
+        - Feed & Matching
       summary: Gợi ý tin đối ứng SELL ↔ BUY_REQUEST
       operationId: getMatches
       description: Rule-based theo category, giá/ngân sách, khu vực, từ khóa; chỉ ACTIVE + owner APPROVED.
       parameters:
-      - *id007
-      - *id002
-      - *id003
+        - *id007
+        - *id002
+        - *id003
       responses:
         '200':
           description: Thành công
@@ -1346,22 +1387,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/PostPage'
               example:
+                success: true
                 data:
-                - id: a23ef463-1a6b-4b2d-a330-0e47edff0217
-                  postType: BUY_REQUEST
-                  title: Giáo trình Java còn mới
-                  categoryId: TEXTBOOK
-                  province: TP. Hồ Chí Minh
-                  status: ACTIVE
-                  price: null
-                  thumbnailUrl: https://example.com/mock/post-images/java-book.jpg
-                  createdAt: '2026-11-01T09:00:00Z'
-                  matchedReasons:
-                  - Khớp danh mục
-                  - Giá phù hợp ngân sách
-                  budgetMin: 100000
-                  budgetMax: 150000
+                  - id: a23ef463-1a6b-4b2d-a330-0e47edff0217
+                    postType: BUY_REQUEST
+                    title: Giáo trình Java còn mới
+                    categoryId: TEXTBOOK
+                    province: TP. Hồ Chí Minh
+                    status: ACTIVE
+                    price: null
+                    thumbnailUrl: https://example.com/mock/post-images/java-book.jpg
+                    createdAt: '2026-11-01T09:00:00Z'
+                    matchedReasons:
+                      - Khớp danh mục
+                      - Giá phù hợp ngân sách
+                    budgetMin: 100000
+                    budgetMax: 150000
                 meta: *id004
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -1385,13 +1428,14 @@ paths:
   /posts/{id}/reveal-phone:
     post:
       tags:
-      - Contact
+        - Contact
       summary: Xem số điện thoại người bán
       operationId: revealSellerPhone
-      description: APPROVED only; SELL còn hợp lệ; seller phải cho phép; ghi phone_reveal_events ở server cho
+      description:
+        APPROVED only; SELL còn hợp lệ; seller phải cho phép; ghi phone_reveal_events ở server cho
         điều kiện report.
       parameters:
-      - *id007
+        - *id007
       responses:
         '200':
           description: Thành công
@@ -1434,10 +1478,11 @@ paths:
   /conversations:
     post:
       tags:
-      - Conversations & Chat
+        - Conversations & Chat
       summary: Mở chat với seller
       operationId: createConversation
-      description: Chỉ buyer APPROVED mở chat với seller của tin SELL ACTIVE; backend tạo/lấy conversation
+      description:
+        Chỉ buyer APPROVED mở chat với seller của tin SELL ACTIVE; backend tạo/lấy conversation
         duy nhất.
       requestBody:
         required: true
@@ -1453,19 +1498,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConversationResponse'
               example:
+                success: true
                 data: &id010
                   id: b2be2422-20e7-4cab-8a68-153b2321361c
                   postId: a23ef463-1a6b-4b2d-a330-0e47edff0217
                   status: OPEN
                   members:
-                  - *id005
-                  - id: f355bcb9-d090-4c08-a82e-28b5f4c85121
-                    displayName: Sinh viên B
-                    verificationStatus: APPROVED
-                    reputationScore: 5.0
-                    province: TP. Hồ Chí Minh
+                    - *id005
+                    - id: f355bcb9-d090-4c08-a82e-28b5f4c85121
+                      displayName: Sinh viên B
+                      verificationStatus: APPROVED
+                      reputationScore: 5.0
+                      province: TP. Hồ Chí Minh
                   createdAt: '2026-11-01T09:00:00Z'
                   canSend: true
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -1500,7 +1547,7 @@ paths:
       x-required-role: AUTHENTICATED (xem thêm quy tắc APPROVED/PENDING)
     get:
       tags:
-      - Conversations & Chat
+        - Conversations & Chat
       summary: Danh sách hội thoại của tôi
       operationId: listConversations
       description: Chỉ member; không trả conversation của người khác.
@@ -1513,9 +1560,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ConversationPage'
               example:
+                success: true
                 data:
-                - *id010
+                  - *id010
                 meta: *id004
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -1533,20 +1582,20 @@ paths:
   /conversations/{conversationId}/messages:
     get:
       tags:
-      - Conversations & Chat
+        - Conversations & Chat
       summary: Danh sách tin nhắn
       operationId: listMessages
       description: Chỉ member; nội dung quá hạn không được trả kể cả khi storage chưa cleanup.
       parameters:
-      - &id011
-        name: conversationId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - *id002
-      - *id003
+        - &id011
+          name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - *id002
+        - *id003
       responses:
         '200':
           description: Thành công
@@ -1555,16 +1604,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessagePage'
               example:
+                success: true
                 data:
-                - &id012
-                  id: c29a133a-d2fb-4bb6-a8a1-a84f64e53066
-                  conversationId: b2be2422-20e7-4cab-8a68-153b2321361c
-                  senderId: 0d8d830e-11bd-440a-b72e-24c8bd3a519a
-                  type: TEXT
-                  content: Bạn còn sách không?
-                  createdAt: '2026-11-01T09:00:00Z'
-                  expiresAt: '2027-02-01T09:00:00Z'
+                  - &id012
+                    id: c29a133a-d2fb-4bb6-a8a1-a84f64e53066
+                    conversationId: b2be2422-20e7-4cab-8a68-153b2321361c
+                    senderId: 0d8d830e-11bd-440a-b72e-24c8bd3a519a
+                    type: TEXT
+                    content: Bạn còn sách không?
+                    createdAt: '2026-11-01T09:00:00Z'
+                    expiresAt: '2027-02-01T09:00:00Z'
                 meta: *id004
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -1587,13 +1638,14 @@ paths:
       x-required-role: AUTHENTICATED (xem thêm quy tắc APPROVED/PENDING)
     post:
       tags:
-      - Conversations & Chat
+        - Conversations & Chat
       summary: Gửi tin nhắn văn bản
       operationId: sendTextMessage
-      description: Chỉ member + APPROVED + conversation được phép gửi; text giữ 3 tháng từ message.createdAt;
+      description:
+        Chỉ member + APPROVED + conversation được phép gửi; text giữ 3 tháng từ message.createdAt;
         WS phát message.created.
       parameters:
-      - *id011
+        - *id011
       requestBody:
         required: true
         content:
@@ -1608,7 +1660,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
               example:
+                success: true
                 data: *id012
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -1644,13 +1698,14 @@ paths:
   /conversations/{conversationId}/attachments:
     post:
       tags:
-      - Conversations & Chat
+        - Conversations & Chat
       summary: Gửi tệp chat
       operationId: sendAttachment
-      description: Chỉ member; <=10MB; MIME allowlist, file lưu private; tạo Message ATTACHMENT, hết hạn 1
+      description:
+        Chỉ member; <=10MB; MIME allowlist, file lưu private; tạo Message ATTACHMENT, hết hạn 1
         tháng từ message.createdAt; lỗi file lớn gợi ý Google Drive.
       parameters:
-      - *id011
+        - *id011
       requestBody:
         required: true
         content:
@@ -1711,18 +1766,18 @@ paths:
   /conversations/{conversationId}/attachments/{attachmentId}/download:
     get:
       tags:
-      - Conversations & Chat
+        - Conversations & Chat
       summary: Lấy URL tải tệp còn hiệu lực
       operationId: getAttachmentDownload
       description: Chỉ member; từ chối nếu attachment hết hạn ngay cả khi job chưa xóa.
       parameters:
-      - *id011
-      - name: attachmentId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - *id011
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Thành công
@@ -1759,10 +1814,11 @@ paths:
   /reports:
     post:
       tags:
-      - Reports & Reputation
+        - Reports & Reputation
       summary: Buyer gửi báo cáo SELL
       operationId: createReport
-      description: Buyer APPROVED có conversation hợp lệ hoặc phone_reveal_events; chống report trùng cùng
+      description:
+        Buyer APPROVED có conversation hợp lệ hoặc phone_reveal_events; chống report trùng cùng
         buyer+post+reason còn mở; seller phản hồi trước deadline.
       requestBody:
         required: true
@@ -1778,6 +1834,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReportResponse'
               example:
+                success: true
                 data: &id013
                   id: d1d253d6-26f0-49e5-940e-e14a9a24234f
                   postId: a23ef463-1a6b-4b2d-a330-0e47edff0217
@@ -1788,6 +1845,7 @@ paths:
                   status: WAITING_SELLER_RESPONSE
                   responseDeadlineAt: '2026-11-03T09:00:00Z'
                   createdAt: '2026-11-01T09:00:00Z'
+                timestamp: '2026-11-01T09:00:00Z'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -1829,7 +1887,7 @@ paths:
   /me/reports:
     get:
       tags:
-      - Reports & Reputation
+        - Reports & Reputation
       summary: Báo cáo tôi đã gửi
       operationId: getMyReports
       description: Buyer xem báo cáo của chính mình.
@@ -1842,9 +1900,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ReportPage'
               example:
+                success: true
                 data:
-                - *id013
+                  - *id013
                 meta: *id004
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -1862,19 +1922,20 @@ paths:
   /reports/{reportId}:
     get:
       tags:
-      - Reports & Reputation
+        - Reports & Reputation
       summary: Chi tiết báo cáo liên quan đến tôi
       operationId: getReport
-      description: Chỉ buyer/seller thuộc report; Admin dùng /admin/reports/{id}. Không expose thông tin private
+      description:
+        Chỉ buyer/seller thuộc report; Admin dùng /admin/reports/{id}. Không expose thông tin private
         ngoài quyền.
       parameters:
-      - &id014
-        name: reportId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - &id014
+          name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Thành công
@@ -1905,12 +1966,12 @@ paths:
   /reports/{reportId}/seller-response:
     post:
       tags:
-      - Reports & Reputation
+        - Reports & Reputation
       summary: Seller phản hồi báo cáo
       operationId: respondToReport
       description: Chỉ seller bị report, đúng hạn; WAITING_SELLER_RESPONSE -> UNDER_REVIEW; gửi thông báo Admin.
       parameters:
-      - *id014
+        - *id014
       requestBody:
         required: true
         content:
@@ -1965,18 +2026,18 @@ paths:
   /admin/reports:
     get:
       tags:
-      - Admin Reports
+        - Admin Reports
       summary: Danh sách báo cáo cần xử lý
       operationId: listAdminReports
       description: ADMIN only; ưu tiên UNDER_REVIEW/NO_RESPONSE, early review phải có lý do.
       parameters:
-      - *id002
-      - *id003
-      - name: status
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/ReportStatus'
+        - *id002
+        - *id003
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ReportStatus'
       responses:
         '200':
           description: Thành công
@@ -2001,12 +2062,12 @@ paths:
   /admin/reports/{reportId}:
     get:
       tags:
-      - Admin Reports
+        - Admin Reports
       summary: Chi tiết báo cáo (Admin)
       operationId: getAdminReport
       description: ADMIN only; quyền xem bối cảnh tin/chat theo chính sách và retention.
       parameters:
-      - *id014
+        - *id014
       responses:
         '200':
           description: Thành công
@@ -2036,13 +2097,14 @@ paths:
       x-required-role: ADMIN
     patch:
       tags:
-      - Admin Reports
+        - Admin Reports
       summary: Giải quyết/bác bỏ báo cáo
       operationId: resolveReport
-      description: ADMIN only; RESOLVED/DISMISSED; early review phải ghi lý do và audit; NO_RESPONSE không
+      description:
+        ADMIN only; RESOLVED/DISMISSED; early review phải ghi lý do và audit; NO_RESPONSE không
         suy ra seller sai.
       parameters:
-      - *id014
+        - *id014
       requestBody:
         required: true
         content:
@@ -2097,18 +2159,18 @@ paths:
   /admin/users:
     get:
       tags:
-      - Admin Users & Audit
+        - Admin Users & Audit
       summary: Danh sách tài khoản
       operationId: listAdminUsers
       description: ADMIN only; filter theo verificationStatus.
       parameters:
-      - *id002
-      - *id003
-      - name: status
-        in: query
-        required: false
-        schema:
-          $ref: '#/components/schemas/VerificationStatus'
+        - *id002
+        - *id003
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/VerificationStatus'
       responses:
         '200':
           description: Thành công
@@ -2133,17 +2195,17 @@ paths:
   /admin/users/{userId}/status:
     patch:
       tags:
-      - Admin Users & Audit
+        - Admin Users & Audit
       summary: Thay đổi trạng thái tài khoản
       operationId: setAdminUserStatus
       description: ADMIN only; lý do và audit; SUSPENDED bị loại khỏi feed/chat mới.
       parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -2156,7 +2218,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUser'
+                $ref: '#/components/schemas/AdminUserResponse'
         '400':
           description: Dữ liệu đầu vào không hợp lệ
           content:
@@ -2192,24 +2254,24 @@ paths:
   /admin/audit-logs:
     get:
       tags:
-      - Admin Users & Audit
+        - Admin Users & Audit
       summary: Xem nhật ký audit
       operationId: getAuditLogs
       description: ADMIN only; log không được giữ nội dung tin chat sau khi hết hạn retention.
       parameters:
-      - *id002
-      - *id003
-      - name: targetType
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: targetId
-        in: query
-        required: false
-        schema:
-          type: string
-          format: uuid
+        - *id002
+        - *id003
+        - name: targetType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: targetId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Thành công
@@ -2234,20 +2296,21 @@ paths:
   /admin/reputation-events:
     get:
       tags:
-      - Admin Users & Audit
+        - Admin Users & Audit
       summary: Lịch sử thay đổi uy tín
       operationId: getReputationEvents
-      description: ADMIN only. Event giảm uy tín do job tạo duy nhất theo reportCycleKey; không cho client
+      description:
+        ADMIN only. Event giảm uy tín do job tạo duy nhất theo reportCycleKey; không cho client
         POST/DELETE.
       parameters:
-      - *id002
-      - *id003
-      - name: sellerId
-        in: query
-        required: false
-        schema:
-          type: string
-          format: uuid
+        - *id002
+        - *id003
+        - name: sellerId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
           description: Thành công
@@ -2272,7 +2335,7 @@ paths:
   /admin/configs:
     get:
       tags:
-      - Admin Users & Audit
+        - Admin Users & Audit
       summary: Danh sách cấu hình nghiệp vụ (Admin)
       operationId: listAdminConfigs
       description: ADMIN only; không trả secret hoặc password từ system_configs.
@@ -2301,16 +2364,16 @@ paths:
   /admin/configs/{configKey}:
     patch:
       tags:
-      - Admin Users & Audit
+        - Admin Users & Audit
       summary: Cập nhật cấu hình nghiệp vụ (Admin)
       operationId: setAdminConfig
       description: ADMIN only; reason, audit, kiểm miền giá trị và giới hạn hệ thống.
       parameters:
-      - name: configKey
-        in: path
-        required: true
-        schema:
-          type: string
+        - name: configKey
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -2359,18 +2422,18 @@ paths:
   /me/notifications:
     get:
       tags:
-      - Notifications
+        - Notifications
       summary: Thông báo của tôi
       operationId: getNotifications
       description: Chỉ recipient; tạo từ event report/admin/message.
       parameters:
-      - *id002
-      - *id003
-      - name: isRead
-        in: query
-        required: false
-        schema:
-          type: boolean
+        - *id002
+        - *id003
+        - name: isRead
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: Thành công
@@ -2379,14 +2442,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationPage'
               example:
+                success: true
                 data:
-                - id: d8d1300e-39a2-4c73-904a-0a82b22a3952
-                  type: REPORT_CREATED
-                  title: Báo cáo mới
-                  content: Có báo cáo mới cần phản hồi
-                  isRead: false
-                  createdAt: '2026-11-01T09:00:00Z'
+                  - id: d8d1300e-39a2-4c73-904a-0a82b22a3952
+                    type: REPORT_CREATED
+                    title: Báo cáo mới
+                    content: Có báo cáo mới cần phản hồi
+                    isRead: false
+                    createdAt: '2026-11-01T09:00:00Z'
                 meta: *id004
+                timestamp: '2026-11-01T09:00:00Z'
         '401':
           description: Chưa đăng nhập hoặc token không hợp lệ
           content:
@@ -2404,12 +2469,12 @@ paths:
   /me/notifications/{id}/read:
     patch:
       tags:
-      - Notifications
+        - Notifications
       summary: Đánh dấu thông báo đã đọc
       operationId: markNotificationRead
       description: Chỉ người nhận, update is_read=true.
       parameters:
-      - *id007
+        - *id007
       responses:
         '200':
           description: Thành công
@@ -2448,64 +2513,64 @@ components:
     UserRole:
       type: string
       enum:
-      - USER
-      - ADMIN
+        - USER
+        - ADMIN
     VerificationStatus:
       type: string
       enum:
-      - PENDING
-      - APPROVED
-      - REJECTED
-      - SUSPENDED
+        - PENDING
+        - APPROVED
+        - REJECTED
+        - SUSPENDED
     PostType:
       type: string
       enum:
-      - SELL
-      - BUY_REQUEST
+        - SELL
+        - BUY_REQUEST
     PostStatus:
       type: string
       enum:
-      - ACTIVE
-      - HIDDEN
-      - SOLD
-      - CLOSED
+        - ACTIVE
+        - HIDDEN
+        - SOLD
+        - CLOSED
     ConversationStatus:
       type: string
       enum:
-      - OPEN
-      - ARCHIVED
+        - OPEN
+        - ARCHIVED
     MessageType:
       type: string
       enum:
-      - TEXT
-      - ATTACHMENT
+        - TEXT
+        - ATTACHMENT
     AttachmentStatus:
       type: string
       enum:
-      - ACTIVE
-      - EXPIRED
-      - DELETED
+        - ACTIVE
+        - EXPIRED
+        - DELETED
     ReportReasonCode:
       type: string
       enum:
-      - STALE_SOLD_POST
-      - MISLEADING_INFO
-      - INAPPROPRIATE_CONTENT
-      - OTHER
+        - STALE_SOLD_POST
+        - MISLEADING_INFO
+        - INAPPROPRIATE_CONTENT
+        - OTHER
     ReportStatus:
       type: string
       enum:
-      - SUBMITTED
-      - WAITING_SELLER_RESPONSE
-      - UNDER_REVIEW
-      - RESOLVED
-      - DISMISSED
-      - NO_RESPONSE
+        - SUBMITTED
+        - WAITING_SELLER_RESPONSE
+        - UNDER_REVIEW
+        - RESOLVED
+        - DISMISSED
+        - NO_RESPONSE
     ReviewDecision:
       type: string
       enum:
-      - APPROVED
-      - REJECTED
+        - APPROVED
+        - REJECTED
     ErrorEnvelope:
       type: object
       properties:
@@ -2528,13 +2593,13 @@ components:
                 additionalProperties: false
               additional: false
           required:
-          - code
-          - message
+            - code
+            - message
           additionalProperties: false
         requestId:
           type: string
       required:
-      - error
+        - error
       description: Dạng lỗi đề xuất, FE/BE phải chốt trước khi triển khai.
       additionalProperties: false
     PageMeta:
@@ -2553,10 +2618,10 @@ components:
           type: integer
           minimum: 0
       required:
-      - page
-      - limit
-      - total
-      - totalPages
+        - page
+        - limit
+        - total
+        - totalPages
       additionalProperties: false
     SimpleMessage:
       type: object
@@ -2566,16 +2631,24 @@ components:
         message:
           type: string
       required:
-      - success
-      - message
+        - success
+        - message
       additionalProperties: false
     SimpleMessageResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/SimpleMessage'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     UserSummary:
       type: object
@@ -2594,9 +2667,9 @@ components:
         province:
           type: string
       required:
-      - id
-      - displayName
-      - verificationStatus
+        - id
+        - displayName
+        - verificationStatus
       description: Chỉ public fields; KHÔNG có schoolEmail, phoneNumber, cardImageRef, passwordHash.
       additionalProperties: false
     MeProfile:
@@ -2643,21 +2716,29 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - schoolEmail
-      - displayName
-      - role
-      - verificationStatus
-      - createdAt
+        - id
+        - schoolEmail
+        - displayName
+        - role
+        - verificationStatus
+        - createdAt
       description: Response riêng tư của chính chủ, không chứa passwordHash, cardImageRef.
       additionalProperties: false
     MeResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/MeProfile'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     UpdateMeRequest:
       type: object
@@ -2687,10 +2768,10 @@ components:
         verificationStatus:
           $ref: '#/components/schemas/VerificationStatus'
       required:
-      - id
-      - displayName
-      - role
-      - verificationStatus
+        - id
+        - displayName
+        - role
+        - verificationStatus
       additionalProperties: false
     AuthSession:
       type: object
@@ -2700,25 +2781,33 @@ components:
         tokenType:
           type: string
           enum:
-          - Bearer
+            - Bearer
         expiresIn:
           type: integer
           minimum: 1
         user:
           $ref: '#/components/schemas/AuthUser'
       required:
-      - accessToken
-      - tokenType
-      - expiresIn
-      - user
+        - accessToken
+        - tokenType
+        - expiresIn
+        - user
       additionalProperties: false
     AuthSessionResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/AuthSession'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     RequestOtpBody:
       type: object
@@ -2728,7 +2817,7 @@ components:
           format: email
           description: Email thuộc domain trường trong ALLOWED_SCHOOL_DOMAINS.
       required:
-      - email
+        - email
       additionalProperties: false
     VerifyOtpBody:
       type: object
@@ -2741,8 +2830,8 @@ components:
           minLength: 4
           maxLength: 12
       required:
-      - email
-      - code
+        - email
+        - code
       additionalProperties: false
     VerifyOtpResult:
       type: object
@@ -2754,16 +2843,24 @@ components:
           type: integer
           minimum: 1
       required:
-      - otpTicket
-      - expiresIn
+        - otpTicket
+        - expiresIn
       additionalProperties: false
     VerifyOtpResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/VerifyOtpResult'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     RegisterBody:
       type: object
@@ -2779,9 +2876,9 @@ components:
           format: password
           minLength: 8
       required:
-      - otpTicket
-      - displayName
-      - password
+        - otpTicket
+        - displayName
+        - password
       description: Email phải suy ra từ otpTicket đã verify; không tin client tự gán role/status.
       additionalProperties: false
     LoginBody:
@@ -2794,8 +2891,8 @@ components:
           type: string
           format: password
       required:
-      - email
-      - password
+        - email
+        - password
       additionalProperties: false
     VerificationState:
       type: object
@@ -2809,16 +2906,24 @@ components:
           type: string
           format: date-time
       required:
-      - status
+        - status
       description: Trạng thái hiển thị cho chính chủ; không trả đường dẫn ảnh thẻ.
       additionalProperties: false
     VerificationResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/VerificationState'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     EvidenceSubmission:
       type: object
@@ -2846,9 +2951,9 @@ components:
           format: binary
           description: Ảnh thẻ sinh viên; lưu private, chỉ Admin được xem.
       required:
-      - school
-      - studentCode
-      - cardImage
+        - school
+        - studentCode
+        - cardImage
       additionalProperties: false
     AdminVerification:
       type: object
@@ -2886,21 +2991,29 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - userId
-      - status
-      - schoolEmail
-      - displayName
-      - cardImageUrl
-      - submittedAt
+        - id
+        - userId
+        - status
+        - schoolEmail
+        - displayName
+        - cardImageUrl
+        - submittedAt
       additionalProperties: false
     AdminVerificationResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/AdminVerification'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     ReviewVerificationBody:
       type: object
@@ -2911,7 +3024,7 @@ components:
           type: string
           description: Bắt buộc khi REJECTED; phải ghi audit.
       required:
-      - decision
+        - decision
       additionalProperties: false
     Preference:
       type: object
@@ -2928,8 +3041,8 @@ components:
           type: string
           format: date-time
       required:
-      - favoriteCategoryIds
-      - interestKeywords
+        - favoriteCategoryIds
+        - interestKeywords
       additionalProperties: false
     UpdatePreferenceBody:
       type: object
@@ -2943,16 +3056,24 @@ components:
           items:
             type: string
       required:
-      - favoriteCategoryIds
-      - interestKeywords
+        - favoriteCategoryIds
+        - interestKeywords
       additionalProperties: false
     PreferenceResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/Preference'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     Category:
       type: object
@@ -2966,22 +3087,30 @@ components:
         sortOrder:
           type: integer
       required:
-      - id
-      - name
-      - slug
+        - id
+        - name
+        - slug
       additionalProperties: false
     CategoryPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/Category'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     SellDetail:
       type: object
@@ -2995,9 +3124,9 @@ components:
         allowPhoneReveal:
           type: boolean
       required:
-      - price
-      - condition
-      - allowPhoneReveal
+        - price
+        - condition
+        - allowPhoneReveal
       additionalProperties: false
     BuyRequestDetail:
       type: object
@@ -3009,8 +3138,8 @@ components:
           type: number
           minimum: 0
       required:
-      - budgetMin
-      - budgetMax
+        - budgetMin
+        - budgetMax
       additionalProperties: false
     PostImage:
       type: object
@@ -3025,9 +3154,9 @@ components:
         sortOrder:
           type: integer
       required:
-      - id
-      - url
-      - sortOrder
+        - id
+        - url
+        - sortOrder
       additionalProperties: false
     PostSummary:
       type: object
@@ -3066,13 +3195,13 @@ components:
           items:
             type: string
       required:
-      - id
-      - postType
-      - title
-      - categoryId
-      - province
-      - status
-      - createdAt
+        - id
+        - postType
+        - title
+        - categoryId
+        - province
+        - status
+        - createdAt
       additionalProperties: false
     PostDetail:
       type: object
@@ -3115,38 +3244,54 @@ components:
           type: string
           nullable: true
       required:
-      - id
-      - owner
-      - postType
-      - title
-      - description
-      - categoryId
-      - province
-      - status
-      - images
-      - createdAt
+        - id
+        - owner
+        - postType
+        - title
+        - description
+        - categoryId
+        - province
+        - status
+        - images
+        - createdAt
       description: SELL có sellDetail, BUY_REQUEST có buyRequestDetail; không trả storageKey.
       additionalProperties: false
     PostResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/PostDetail'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     PostPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/PostSummary'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     PendingFeedItem:
       type: object
@@ -3166,29 +3311,37 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - title
-      - postType
-      - createdAt
+        - id
+        - title
+        - postType
+        - createdAt
       description: 'Bản rút gọn cho PENDING: không có seller contact, detail link và các trường nhạy cảm.'
       additionalProperties: false
     PendingFeedPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/PendingFeedItem'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     FeedResponse:
       oneOf:
-      - $ref: '#/components/schemas/PostPage'
-      - $ref: '#/components/schemas/PendingFeedPage'
+        - $ref: '#/components/schemas/PostPage'
+        - $ref: '#/components/schemas/PendingFeedPage'
       description: APPROVED nhận PostPage; PENDING chỉ nhận PendingFeedPage, không hỗ trợ search/filter.
     CreatePostMultipart:
       type: object
@@ -3226,12 +3379,13 @@ components:
           minItems: 1
           description: SELL cần ít nhất 1 ảnh; định dạng/dung lượng cần PM/BE thống nhất.
       required:
-      - postType
-      - title
-      - description
-      - categoryId
-      - province
-      description: 'Thiết kế đề xuất: multipart để đảm bảo tạo SELL kèm ảnh nguyên tử. SELL: price,condition,images
+        - postType
+        - title
+        - description
+        - categoryId
+        - province
+      description:
+        'Thiết kế đề xuất: multipart để đảm bảo tạo SELL kèm ảnh nguyên tử. SELL: price,condition,images
         bắt buộc; BUY_REQUEST: budgetMin,budgetMax bắt buộc; kiểm tra điều kiện ở backend.'
       additionalProperties: false
     PatchPostBody:
@@ -3269,7 +3423,7 @@ components:
           type: string
           maxLength: 100
       required:
-      - reason
+        - reason
       additionalProperties: false
     PostImageUpload:
       type: object
@@ -3278,15 +3432,23 @@ components:
           type: string
           format: binary
       required:
-      - image
+        - image
       additionalProperties: false
     PostImageResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/PostImage'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     PhoneReveal:
       type: object
@@ -3298,16 +3460,24 @@ components:
           type: string
           format: date-time
       required:
-      - revealedAt
+        - revealedAt
       description: Trả phoneNumber chỉ nếu seller cho phép; ghi sự kiện trên server.
       additionalProperties: false
     PhoneRevealResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/PhoneReveal'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     Conversation:
       type: object
@@ -3333,33 +3503,49 @@ components:
         canSend:
           type: boolean
       required:
-      - id
-      - postId
-      - status
-      - members
-      - createdAt
-      - canSend
+        - id
+        - postId
+        - status
+        - members
+        - createdAt
+        - canSend
       additionalProperties: false
     ConversationResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/Conversation'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     ConversationPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/Conversation'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     CreateConversationBody:
       type: object
@@ -3368,7 +3554,7 @@ components:
           type: string
           format: uuid
       required:
-      - postId
+        - postId
       description: Chỉ với SELL ACTIVE của seller khác; server tính memberLowId/memberHighId, chống trùng.
       additionalProperties: false
     Attachment:
@@ -3396,11 +3582,11 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - mimeType
-      - sizeBytes
-      - status
-      - expiresAt
+        - id
+        - mimeType
+        - sizeBytes
+        - status
+        - expiresAt
       description: Chỉ thành viên hội thoại được nhận signed URL còn hiệu lực; không lộ storageKey.
       additionalProperties: false
     Message:
@@ -3429,35 +3615,52 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - conversationId
-      - senderId
-      - type
-      - createdAt
-      - expiresAt
-      description: Nội dung text hết hạn sau 3 tháng; attachment hết hạn sau 1 tháng. Không trả nội dung khi
+        - id
+        - conversationId
+        - senderId
+        - type
+        - createdAt
+        - expiresAt
+      description:
+        Nội dung text hết hạn sau 3 tháng; attachment hết hạn sau 1 tháng. Không trả nội dung khi
         hết hạn.
       additionalProperties: false
     MessageResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/Message'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     MessagePage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/Message'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     CreateMessageBody:
       type: object
@@ -3467,7 +3670,7 @@ components:
           minLength: 1
           maxLength: 10000
       required:
-      - content
+        - content
       description: Gửi tin nhắn TEXT; message.type do server xác định.
       additionalProperties: false
     AttachmentUpload:
@@ -3477,8 +3680,9 @@ components:
           type: string
           format: binary
       required:
-      - file
-      description: Multipart file <=10MB, MIME allowlist, kiểm membership. Tạo message ATTACHMENT cùng transaction;
+        - file
+      description:
+        Multipart file <=10MB, MIME allowlist, kiểm membership. Tạo message ATTACHMENT cùng transaction;
         file lưu private.
       additionalProperties: false
     Report:
@@ -3518,36 +3722,52 @@ components:
           type: string
           nullable: true
       required:
-      - id
-      - postId
-      - buyerId
-      - sellerId
-      - reasonCode
-      - description
-      - status
-      - responseDeadlineAt
-      - createdAt
+        - id
+        - postId
+        - buyerId
+        - sellerId
+        - reasonCode
+        - description
+        - status
+        - responseDeadlineAt
+        - createdAt
       additionalProperties: false
     ReportResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/Report'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     ReportPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/Report'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     CreateReportBody:
       type: object
@@ -3561,10 +3781,11 @@ components:
           type: string
           minLength: 1
       required:
-      - postId
-      - reasonCode
-      - description
-      description: buyerId/sellerId lấy từ token và SELL post, không tin client; cần conversation hợp lệ hoặc
+        - postId
+        - reasonCode
+        - description
+      description:
+        buyerId/sellerId lấy từ token và SELL post, không tin client; cần conversation hợp lệ hoặc
         PHONE_REVEALED ở server.
       additionalProperties: false
     SellerResponseBody:
@@ -3575,7 +3796,7 @@ components:
           minLength: 1
           maxLength: 10000
       required:
-      - response
+        - response
       description: Seller duy nhất được phản hồi trước deadline.
       additionalProperties: false
     AdminReportDecision:
@@ -3584,8 +3805,8 @@ components:
         decision:
           type: string
           enum:
-          - RESOLVED
-          - DISMISSED
+            - RESOLVED
+            - DISMISSED
         resolutionNote:
           type: string
           minLength: 1
@@ -3593,8 +3814,8 @@ components:
           type: string
           description: Bắt buộc nếu review trước seller phản hồi hoặc hết hạn.
       required:
-      - decision
-      - resolutionNote
+        - decision
+        - resolutionNote
       description: Quyết định kèm audit bắt buộc. Không tự suy đoán lỗi ngoài đời.
       additionalProperties: false
     AdminUser:
@@ -3620,24 +3841,48 @@ components:
           type: integer
           minimum: 0
       required:
-      - id
-      - schoolEmail
-      - displayName
-      - role
-      - verificationStatus
+        - id
+        - schoolEmail
+        - displayName
+        - role
+        - verificationStatus
+      additionalProperties: false
+    AdminUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/AdminUser'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     AdminUserPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/AdminUser'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     AdminUserStatusBody:
       type: object
@@ -3645,15 +3890,15 @@ components:
         verificationStatus:
           type: string
           enum:
-          - APPROVED
-          - REJECTED
-          - SUSPENDED
+            - APPROVED
+            - REJECTED
+            - SUSPENDED
         reason:
           type: string
           minLength: 1
       required:
-      - verificationStatus
-      - reason
+        - verificationStatus
+        - reason
       description: Chỉ Admin; audit actor/target/reason/time.
       additionalProperties: false
     AuditLog:
@@ -3665,8 +3910,8 @@ components:
         actorType:
           type: string
           enum:
-          - USER
-          - SYSTEM
+            - USER
+            - SYSTEM
         actorId:
           type: string
           format: uuid
@@ -3684,26 +3929,34 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - actorType
-      - action
-      - targetType
-      - targetId
-      - createdAt
+        - id
+        - actorType
+        - action
+        - targetType
+        - targetId
+        - createdAt
       description: Không ghi nội dung text đã quá hạn hoặc thông tin bí mật vào audit.
       additionalProperties: false
     AuditLogPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/AuditLog'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     ReputationEvent:
       type: object
@@ -3728,27 +3981,35 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - sellerId
-      - reportCycleKey
-      - delta
-      - beforeScore
-      - afterScore
-      - reason
-      - createdAt
+        - id
+        - sellerId
+        - reportCycleKey
+        - delta
+        - beforeScore
+        - afterScore
+        - reason
+        - createdAt
       additionalProperties: false
     ReputationEventPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/ReputationEvent'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     Notification:
       type: object
@@ -3774,33 +4035,49 @@ components:
           type: string
           format: date-time
       required:
-      - id
-      - type
-      - title
-      - content
-      - isRead
-      - createdAt
+        - id
+        - type
+        - title
+        - content
+        - isRead
+        - createdAt
       additionalProperties: false
     NotificationPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/Notification'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     NotificationResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/Notification'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
     SystemConfig:
       type: object
@@ -3816,22 +4093,30 @@ components:
           type: string
           format: date-time
       required:
-      - configKey
-      - configValue
+        - configKey
+        - configValue
       description: Chỉ Admin; không chứa credentials/secret trong response.
       additionalProperties: false
     SystemConfigPage:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           type: array
           items:
             $ref: '#/components/schemas/SystemConfig'
         meta:
           $ref: '#/components/schemas/PageMeta'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
-      - meta
+        - success
+        - data
+        - meta
+        - timestamp
       additionalProperties: false
     ConfigUpdateBody:
       type: object
@@ -3842,43 +4127,52 @@ components:
           type: string
           minLength: 1
       required:
-      - configValue
-      - reason
+        - configValue
+        - reason
       description: Admin only; guardrails cho report K 3..5, retention, domain list, etc.
       additionalProperties: false
     SystemConfigResponse:
       type: object
       properties:
+        success:
+          type: boolean
+          example: true
         data:
           $ref: '#/components/schemas/SystemConfig'
+        timestamp:
+          type: string
+          format: date-time
       required:
-      - data
+        - success
+        - data
+        - timestamp
       additionalProperties: false
 x-realtime:
   path: /ws
   authentication: Bearer access token qua handshake an toàn (tránh lộ trong query/log).
   events:
-  - message.created
-  - notification.created
-  - report.updated
-  notes: Chỉ authenticated APPROVED. Chỉ subscribe conversation của member. Đây là mô tả mở rộng, không phải
+    - message.created
+    - notification.created
+    - report.updated
+  notes:
+    Chỉ authenticated APPROVED. Chỉ subscribe conversation của member. Đây là mô tả mở rộng, không phải
     HTTP endpoint.
 x-source-database-tables:
-- users
-- otp_verifications
-- student_evidences
-- categories
-- user_preferences
-- posts
-- sell_details
-- buy_request_details
-- post_images
-- conversations
-- messages
-- attachments
-- reputation_events
-- reports
-- audit_logs
-- phone_reveal_events
-- notifications
-- system_configs
+  - users
+  - otp_verifications
+  - student_evidences
+  - categories
+  - user_preferences
+  - posts
+  - sell_details
+  - buy_request_details
+  - post_images
+  - conversations
+  - messages
+  - attachments
+  - reputation_events
+  - reports
+  - audit_logs
+  - phone_reveal_events
+  - notifications
+  - system_configs

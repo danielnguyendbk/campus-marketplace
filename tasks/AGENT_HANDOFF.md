@@ -6,14 +6,48 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Final Review - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-03 17:00
+- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Contract Change Proposal - Hoàn tất)
+- **Cập nhật lần cuối:** 2026-11-03 17:15
 - **Người bàn giao:** Senior Backend Engineer & API Contract Reviewer AI Agent
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 24/24, Backend E2E 7/7, Frontend Vitest 15/15, Lint 0 warnings, Typecheck 0 errors, Build thành công).
-- **Trạng thái phê duyệt:** `BLOCKED_PENDING_APPROVAL` (Đối với đề xuất chuẩn hóa Success Envelope trong OpenAPI v1.2; code an toàn HTTP 500 đã sẵn sàng).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Build thành công).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn thành 100% Phương án 1 đã phê duyệt; OpenAPI Contract, Backend Interceptor, Frontend Client và Integration Guide đã đồng bộ hoàn toàn).
+
+---
+
+## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #006: Chuẩn hóa Success Envelope Toàn diện (OpenAPI Contract Phương án 1 & Root-level Pagination)
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & API Contract Reviewer
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Chuẩn hóa Success Envelope trong OpenAPI Contract (`packages/api-contract/openapi.yaml`):**
+     - Cập nhật 15 Single-entity Response schemas: Thêm `success: { type: boolean, example: true }`, `timestamp: { type: string, format: date-time }`, yêu cầu `required: [success, data, timestamp]` và `additionalProperties: false`.
+     - Cập nhật 11 Paginated Page schemas (`CategoryPage`, `PostPage`, `PendingFeedPage`, `ConversationPage`, `MessagePage`, `ReportPage`, `AdminUserPage`, `AuditLogPage`, `ReputationEventPage`, `NotificationPage`, `SystemConfigPage`): Giữ `data` (mảng) và `meta` (`PageMeta`) ở root level, bổ sung `success` và `timestamp`, yêu cầu `required: [success, data, meta, timestamp]` và `additionalProperties: false`. Tuyệt đối không lồng `data: { data, meta }`.
+     - Cập nhật schema phân trang inline của `GET /admin/verifications` và bổ sung `AdminUserResponse` cho `PATCH /admin/users/{userId}/status`.
+     - Đồng bộ toàn bộ 20 response examples trong `openapi.yaml` chứa đầy đủ `success: true` và `timestamp`. Prettier format hoàn hảo.
+  2. **Nâng cấp Backend Interceptor & TypeScript Interfaces:**
+     - `apps/backend/src/common/interfaces/api-response.interface.ts`: Định nghĩa `PageMeta`, `ApiResponse<T>`, `PaginatedResponse<T>`, `PaginatedResult<T>`.
+     - `apps/backend/src/common/interceptors/transform.interceptor.ts`: Tự động nhận diện dữ liệu phân trang (`data` là mảng và có `meta` hợp lệ) để bọc thành `{ success: true, data, meta, timestamp }` ở root; các phản hồi thông thường được bọc `{ success: true, data, timestamp }`.
+     - Viết bộ unit test `apps/backend/src/common/interceptors/transform.interceptor.spec.ts` kiểm thử đầy đủ single entity, paginated payload, null, primitive, edge cases và bảo đảm không có trường thừa.
+  3. **Đồng bộ Frontend `ApiClient` & Vitest Suites:**
+     - `apps/frontend/src/services/api.ts`: Thêm `PageMeta`, `ApiPaginatedEnvelope<T>`, `PaginatedResult<T>`, và phương thức `requestPaginated<T>()`.
+     - Bổ sung kiểm thử nghiêm ngặt trong `apps/frontend/src/test/api.test.ts` kiểm chứng bóc tách phân trang và từ chối các phản hồi phân trang sai envelope.
+  4. **Tài liệu hóa Tích hợp (`docs/api/integration_guide.md`):**
+     - Cập nhật mục 1.1 và mục 3 tài liệu hóa kiến trúc envelope đơn và phân trang root-level chuẩn OpenAPI v1.2.
+  5. **Bộ Kiểm thử Contract Tự động E2E (`contract-schemas.e2e-spec.ts`):**
+     - Kiểm tra tĩnh toàn bộ các schemas trong `openapi.yaml` bảo đảm có đủ `success`, `timestamp`, `additionalProperties: false`.
+     - Kiểm tra runtime qua HTTP Supertest xác nhận phản hồi thực tế tuân thủ 100% contract và không có trường thừa (`Object.keys` strictly match).
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm --filter @campus/backend test`: **PASS** (5 suites, 31/31 tests passed).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (3 suites, 38/38 tests passed).
+  - `pnpm --filter @campus/frontend test`: **PASS** (2 suites, 19/19 tests passed).
+  - `pnpm lint`: **PASS** (0 warnings across workspace).
+  - `pnpm typecheck`: **PASS** (0 errors across workspace).
+  - `pnpm build`: **PASS** (Toàn bộ apps và packages build thành công).
 
 ---
 

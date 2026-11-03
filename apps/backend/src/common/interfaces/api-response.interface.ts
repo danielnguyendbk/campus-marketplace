@@ -1,8 +1,39 @@
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+/**
+ * Standard Single-Entity Success Envelope conforming to OpenAPI v1.2:
+ * { success: true, data: T, timestamp: string }
+ * Note: additionalProperties: false is enforced in OpenAPI contract.
+ */
 export interface ApiResponse<T> {
-  success: boolean;
+  success: true;
   data: T;
-  message?: string;
   timestamp: string;
+}
+
+/**
+ * Standard Paginated Success Envelope conforming to OpenAPI v1.2:
+ * { success: true, data: T[], meta: PageMeta, timestamp: string }
+ * Note: data and meta are siblings at root level (not nested inside data: { data, meta }).
+ */
+export interface PaginatedResponse<T> {
+  success: true;
+  data: T[];
+  meta: PageMeta;
+  timestamp: string;
+}
+
+/**
+ * Input structure returned by controllers/services for paginated results before interceptor wrapping.
+ */
+export interface PaginatedResult<T> {
+  data: T[];
+  meta: PageMeta;
 }
 
 export interface ApiErrorDetail {

@@ -259,5 +259,108 @@ describe('ApiClient Request & Envelope Validation Tests', () => {
       );
     });
   });
+
+  describe('requestPaginated Envelope Validation', () => {
+    it('unwraps valid root-level { success: true, data, meta, timestamp } paginated envelope', async () => {
+      const mockPaginatedEnvelope = {
+        success: true,
+        data: [
+          { id: 'p1', title: 'Sách 1' },
+          { id: 'p2', title: 'Sách 2' },
+        ],
+        meta: {
+          page: 1,
+          limit: 10,
+          total: 2,
+          totalPages: 1,
+        },
+        timestamp: '2026-11-03T12:00:00.000Z',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => mockPaginatedEnvelope,
+        }),
+      );
+
+      const result = await client.requestPaginated<{ id: string; title: string }>('/posts');
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].title).toBe('Sách 1');
+      expect(result.meta).toEqual({
+        page: 1,
+        limit: 10,
+        total: 2,
+        totalPages: 1,
+      });
+    });
+
+    it('rejects paginated response if meta is missing', async () => {
+      const invalidEnvelope = {
+        success: true,
+        data: [{ id: 'p1', title: 'Sách 1' }],
+        timestamp: '2026-11-03T12:00:00.000Z',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => invalidEnvelope,
+        }),
+      );
+
+      await expect(client.requestPaginated('/posts')).rejects.toThrow(ApiError);
+      try {
+        await client.requestPaginated('/posts');
+      } catch (err) {
+        const apiErr = err as ApiError;
+        expect(apiErr.code).toBe('INVALID_RESPONSE_ENVELOPE');
+      }
+    });
+
+    it('rejects paginated response if data is not an array', async () => {
+      const invalidEnvelope = {
+        success: true,
+        data: { id: 'single-item' },
+        meta: { page: 1, limit: 10, total: 1, totalPages: 1 },
+        timestamp: '2026-11-03T12:00:00.000Z',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => invalidEnvelope,
+        }),
+      );
+
+      await expect(client.requestPaginated('/posts')).rejects.toThrow(ApiError);
+    });
+
+    it('rejects paginated response if meta fields are incomplete', async () => {
+      const invalidEnvelope = {
+        success: true,
+        data: [{ id: 'p1' }],
+        meta: { page: 1 }, // missing limit, total, totalPages
+        timestamp: '2026-11-03T12:00:00.000Z',
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => invalidEnvelope,
+        }),
+      );
+
+      await expect(client.requestPaginated('/posts')).rejects.toThrow(ApiError);
+    });
+  });
 });
 

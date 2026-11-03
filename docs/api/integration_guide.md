@@ -10,7 +10,10 @@ Backend áp dụng kiến trúc **Response Envelope** đồng nhất thông qua 
 
 ### 1.1. Cấu trúc Thành công (Success Envelope)
 
-Mọi HTTP Status `2xx` đều tuân thủ cấu trúc:
+Mọi HTTP Status `2xx` đều tuân thủ kiến trúc Success Envelope chuẩn OpenAPI v1.2 (`additionalProperties: false`):
+
+#### 1. Phản hồi thực thể đơn (Single Entity Response):
+Áp dụng cho các endpoint trả về một thực thể (ví dụ: `GET /me`, `POST /auth/login`, `GET /posts/{id}`):
 
 ```typescript
 export interface ApiEnvelope<T> {
@@ -38,6 +41,29 @@ export interface ApiEnvelope<T> {
   "timestamp": "2026-11-03T06:30:00.000Z"
 }
 ```
+
+#### 2. Phản hồi phân trang (Paginated Page Response - Root-level Data & Meta):
+Áp dụng cho tất cả endpoint danh sách (ví dụ: `GET /categories`, `GET /posts`, `GET /feed`, `GET /me/reports`, `GET /admin/users`):
+
+```typescript
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface ApiPaginatedEnvelope<T> {
+  success: true;
+  data: T[];
+  meta: PageMeta;
+  timestamp: string; // ISO 8601 string
+}
+```
+
+> [!IMPORTANT]
+> **Quy tắc phân trang chuẩn OpenAPI v1.2 (Root-level `data` và `meta`):**
+> Trong các phản hồi phân trang, `data` (mảng các thực thể) và `meta` (`PageMeta`) nằm cùng cấp ở root bên cạnh `success: true` và `timestamp`. Tuyệt đối **KHÔNG** tạo cấu trúc lồng `data: { data, meta }`. Cả hai dạng phản hồi đều áp dụng ràng buộc nghiêm ngặt `additionalProperties: false`.
 
 ### 1.2. Cấu trúc Lỗi (Error Envelope) - Tuân thủ nghiêm ngặt OpenAPI v1.2
 
@@ -204,26 +230,49 @@ console.log(fullResponse.timestamp);
 
 ---
 
-## 3. Chuẩn phân trang (Pagination Envelope)
+## 3. Chuẩn phân trang (Pagination Envelope - Root Level)
 
-Dữ liệu danh sách (Feed, Tìm kiếm, Lịch sử giao dịch) luôn sử dụng cấu trúc phân trang đồng nhất:
+Dữ liệu danh sách (Categories, Posts, Feed, Messages, Reports, Admin Users, v.v.) tuân thủ tuyệt đối OpenAPI Contract v1.2 (Phương án 1): `data` và `meta` nằm cùng cấp ở root bên cạnh `success` và `timestamp`, tuyệt đối **KHÔNG** lồng `data: { data, meta }`.
 
 ```typescript
-export interface PaginatedResult<T> {
-  items: T[];
+export interface PageMeta {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
 }
+
+export interface ApiPaginatedEnvelope<T> {
+  success: true;
+  data: T[];
+  meta: PageMeta;
+  timestamp: string;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  meta: PageMeta;
+}
 ```
 
-Trong envelope, cấu trúc phản hồi sẽ là:
+**Ví dụ JSON thực tế (`PostPage` / `GET /posts`):**
 ```json
 {
   "success": true,
-  "data": {
-    "items": [ /* Danh sách thực thể */ ],
+  "data": [
+    {
+      "id": "a23ef463-1a6b-4b2d-a330-0e47edff0217",
+      "postType": "SELL",
+      "title": "Giáo trình Java còn mới",
+      "categoryId": "TEXTBOOK",
+      "province": "TP. Hồ Chí Minh",
+      "status": "ACTIVE",
+      "price": 120000,
+      "thumbnailUrl": "https://example.com/mock/post-images/java-book.jpg",
+      "createdAt": "2026-11-01T09:00:00Z"
+    }
+  ],
+  "meta": {
     "page": 1,
     "limit": 20,
     "total": 45,
@@ -231,6 +280,15 @@ Trong envelope, cấu trúc phản hồi sẽ là:
   },
   "timestamp": "2026-11-03T06:30:00.000Z"
 }
+```
+
+### Sử dụng ở Frontend Client (`requestPaginated`):
+```typescript
+// Component gọi qua ApiClient đã bóc tách dữ liệu danh sách và metadata phân trang
+const { data, meta } = await apiClient.requestPaginated<PostSummary>('/posts?page=1&limit=20');
+console.log(data);       // PostSummary[]
+console.log(meta.total); // 45
+console.log(meta.page);  // 1
 ```
 
 ---
