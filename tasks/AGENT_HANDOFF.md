@@ -6,13 +6,14 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Final Polish - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-03 16:25
-- **Người bàn giao:** Senior Backend Engineer & Software QA Specialist AI Agent
-- **Người tiếp nhận:** Frontend Team / Backend Team / Database Agent / Reviewer
+- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Final Review - Hoàn tất)
+- **Cập nhật lần cuối:** 2026-11-03 17:00
+- **Người bàn giao:** Senior Backend Engineer & API Contract Reviewer AI Agent
+- **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 20/20, Backend E2E 6/6, Frontend Vitest 15/15, Lint 0 warnings, Typecheck 0 errors, Build thành công).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 24/24, Backend E2E 7/7, Frontend Vitest 15/15, Lint 0 warnings, Typecheck 0 errors, Build thành công).
+- **Trạng thái phê duyệt:** `BLOCKED_PENDING_APPROVAL` (Đối với đề xuất chuẩn hóa Success Envelope trong OpenAPI v1.2; code an toàn HTTP 500 đã sẵn sàng).
 
 ---
 
@@ -20,7 +21,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ### Handoff #005: Khắc phục Triệt để Schema ErrorEnvelope (additionalProperties: false) & An toàn Lỗi 500
 - **Ngày:** 2026-11-03
-- **Người thực hiện:** Senior Backend Engineer & Software QA Specialist
+- **Người thực hiện:** Senior Backend Engineer & API Contract Reviewer
 - **Branch:** `fix/be-foundation-audit` (PR #1)
 - **Mục tiêu đạt được:**
   1. **Đối chiếu và Chuẩn hóa Error Envelope theo OpenAPI v1.2:**
@@ -28,16 +29,22 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
      - Phản hồi lỗi chỉ chứa duy nhất `error: { code, message, details? }` và `requestId` (tùy chọn). Mã HTTP status được trả qua HTTP header chuẩn.
      - Cập nhật `apps/backend/src/common/interfaces/api-response.interface.ts` và `apps/backend/src/common/filters/http-exception.filter.ts`.
      - Bổ sung bộ contract tests E2E chuyên sâu `apps/backend/test/error-envelope.e2e-spec.ts` kiểm chứng trực tiếp tính tương thích với OpenAPI `ErrorEnvelope`.
-  2. **Bảo mật Tối đa Lỗi Máy chủ (HTTP 500 - Security Directives):**
-     - Sửa `AllExceptionsFilter`: Mọi lỗi không phải `HttpException` (lỗi PostgreSQL, lỗi crash runtime, `TypeError`) đều trả về HTTP 500 với thông điệp công khai an toàn: `code: "INTERNAL_SERVER_ERROR"`, `message: "Internal server error"`, không trả `details`.
-     - Tuyệt đối không để lộ `exception.message`, connection string, thông tin tài khoản Supabase hay stack trace ra ngoài response JSON. Toàn bộ chi tiết được ghi an toàn vào server logs.
-     - Bổ sung regression tests trong `apps/backend/src/common/filters/http-exception.filter.spec.ts` và `apps/backend/test/error-envelope.e2e-spec.ts` mô phỏng lỗi kết nối PostgreSQL chứa mật khẩu nhạy cảm và lỗi runtime `TypeError`.
-  3. **Đồng bộ Frontend & Tài liệu Kỹ thuật:**
-     - Cập nhật mock trong `apps/frontend/src/test/api.test.ts` và `apps/frontend/src/test/App.test.tsx` khớp 100% với schema `ErrorEnvelope`.
-     - Cập nhật `docs/api/integration_guide.md` và `AGENTS.md` (DoD).
+  2. **Bảo mật Tối đa Toàn bộ Lỗi HTTP 500 (Security Directives):**
+     - Sửa `AllExceptionsFilter`: TẤT CẢ lỗi có status 500 (bao gồm cả `InternalServerErrorException`, `HttpException` có status 500, lỗi PostgreSQL, lỗi crash runtime, `TypeError`) đều bắt buộc trả về HTTP 500 với thông điệp công khai an toàn: `code: "INTERNAL_SERVER_ERROR"`, `message: "Internal server error"`, không trả `details`.
+     - Không trả stack trace, database credentials, SQL query hoặc thông tin nội bộ trong response.
+     - Tích hợp hàm `sanitizeLogMessage` tự động lọc và làm sạch (redact) mật khẩu, chuỗi kết nối database (`postgresql://...`), bearer tokens và secrets trước khi ghi vào server logs.
+     - Bổ sung regression tests trong `apps/backend/src/common/filters/http-exception.filter.spec.ts` và `apps/backend/test/error-envelope.e2e-spec.ts` mô phỏng:
+       + `InternalServerErrorException` chứa câu lệnh SQL và mật khẩu.
+       + Lỗi kết nối PostgreSQL chứa URL và mật khẩu database.
+       + Lỗi runtime `TypeError` chứa tên biến nhạy cảm và stack trace.
+  3. **Đối chiếu Success Envelope & Đề xuất Chuẩn hóa OpenAPI:**
+     - Thực hiện audit toàn bộ 48 operations 2xx trong OpenAPI v1.2.
+     - Phát hiện 26 schema response mang thuộc tính `{ data }` và `additionalProperties: false` nhưng thiếu `{ success, timestamp }`.
+     - Phân tích ảnh hưởng toàn diện (Frontend, Backend, Apidog Mock).
+     - Lập Contract Change Proposal riêng, đánh dấu `BLOCKED_PENDING_APPROVAL` chờ Backend Lead phê duyệt.
 - **Kết quả kiểm thử thực tế:**
-  - `pnpm --filter @campus/backend test`: **PASS** (4 suites, 20/20 tests passed).
-  - `pnpm --filter @campus/backend test:e2e`: **PASS** (2 suites, 6/6 tests passed).
+  - `pnpm --filter @campus/backend test`: **PASS** (4 suites, 24/24 tests passed).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (2 suites, 7/7 tests passed).
   - `pnpm --filter @campus/frontend test`: **PASS** (2 suites, 15/15 tests passed).
   - `pnpm lint`: **PASS** (0 warnings across workspace).
   - `pnpm typecheck`: **PASS** (0 errors across workspace).

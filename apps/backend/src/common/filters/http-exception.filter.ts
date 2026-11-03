@@ -13,6 +13,25 @@ import {
   ErrorEnvelope,
 } from '../interfaces/api-response.interface';
 
+/**
+ * Sanitizes log messages by masking passwords, database credentials, secret keys, and auth tokens.
+ */
+export function sanitizeLogMessage(input: string): string {
+  if (!input) return '';
+  return input
+    // Mask PostgreSQL / database URLs credentials: protocol://user:password@host
+    .replace(/((?:postgres|postgresql|mysql|mongodb):\/\/[^:]+:)([^@\s]+)(@)/gi, '$1****$3')
+    // Mask password in query parameters: ?password=secret or &password=secret
+    .replace(/([?&](?:password|passwd|pwd|secret)=)[^&\s]+/gi, '$1****')
+    // Mask common sensitive key-values: password="xyz", "secret": "xyz", token: xyz
+    .replace(
+      /(["']?(?:password|passwd|pwd|secret|api_?key|token|authorization)["']?\s*[:=]\s*["']?)([^"',\s&]+)(["']?)/gi,
+      '$1****$3',
+    )
+    // Mask Bearer tokens
+    .replace(/(Bearer\s+)[A-Za-z0-9\-._~+/]+=*/gi, '$1****');
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
@@ -27,8 +46,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let errorCode: string;
     let details: ApiErrorDetail[] | undefined = undefined;
 
-    if (exception instanceof HttpException) {
-      status = exception.getStatus();
+    const isHttpException = exception instanceof HttpException;
+    const rawStatus = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+
+    // All errors with HTTP status 500 (including InternalServerErrorException and non-HttpExceptions)
+    // must strictly return safe generic messages and hide all internal diagnostics.
+    if (isHttpException && rawStatus !== HttpStatus.INTERNAL_SERVER_ERROR) {
+      status = rawStatus;
       const exceptionResponse = exception.getResponse();
 
       resolvedMessage = 'Request failed';
@@ -89,23 +113,31 @@ export class AllExceptionsFilter implements ExceptionFilter {
         }
       }
 
-      this.logger.warn(
-        `[${request.method}] ${request.url} Status: ${status} [${errorCode}] - ${resolvedMessage}`,
-      );
+      const rawLog = `[${request.method}] ${request.url} Status: ${status} [${errorCode}] - ${resolvedMessage}`;
+      this.logger.warn(sanitizeLogMessage(rawLog));
     } else {
-      // NON-HTTP EXCEPTION (PostgreSQL errors, TypeError, internal runtime crashes)
-      // SECURITY DIRECTIVE: All non-HttpExceptions MUST return HTTP 500 with a safe public message.
-      // Under no circumstances should exception.message, database connection info, or stack traces leak to the client.
+      // ALL HTTP 500 ERRORS (InternalServerErrorException, non-HttpExceptions, PostgreSQL errors, runtime crashes)
+      // SECURITY DIRECTIVE:
+      // 1. HTTP Status MUST be 500.
+      // 2. error.code MUST be "INTERNAL_SERVER_ERROR".
+      // 3. error.message MUST be "Internal server error".
+      // 4. error.details MUST be undefined.
+      // 5. Never expose stack traces, database credentials, SQL queries, or internal details in response.
+      // 6. Server logs record error details with secrets sanitized.
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       resolvedMessage = 'Internal server error';
       errorCode = 'INTERNAL_SERVER_ERROR';
       details = undefined;
 
+      const rawMessage = exception instanceof Error ? exception.message : String(exception);
+      const rawStack = exception instanceof Error ? exception.stack : undefined;
+
+      const sanitizedMessage = sanitizeLogMessage(rawMessage);
+      const sanitizedStack = rawStack ? sanitizeLogMessage(rawStack) : undefined;
+
       this.logger.error(
-        `[${request.method}] ${request.url} Status: 500 - Internal Server Error: ${
-          exception instanceof Error ? exception.message : String(exception)
-        }`,
-        exception instanceof Error ? exception.stack : undefined,
+        `[${request.method}] ${request.url} Status: 500 - Internal Server Error: ${sanitizedMessage}`,
+        sanitizedStack,
       );
     }
 

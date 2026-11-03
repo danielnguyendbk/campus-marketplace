@@ -1,11 +1,19 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Controller, Get, INestApplication } from '@nestjs/common';
+import { Controller, Get, INestApplication, InternalServerErrorException } from '@nestjs/common';
 import request from 'supertest';
 import { AllExceptionsFilter } from '../src/common/filters/http-exception.filter';
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 
 @Controller('test-errors')
 class TestErrorController {
+  @Get('internal-server-error-exception')
+  throwInternalServerErrorException() {
+    // Simulates an InternalServerErrorException containing SQL queries and internal hash
+    throw new InternalServerErrorException(
+      'SELECT * FROM "users" WHERE password_hash = "super_secret_hash_987"',
+    );
+  }
+
   @Get('database-failure')
   throwDatabaseError() {
     // Simulates an internal PostgreSQL failure with leaked credentials
@@ -122,6 +130,27 @@ describe('ErrorEnvelope Contract & Security Directives (e2e)', () => {
   });
 
   describe('Security Directives: Protection Against Sensitive Information Leaks', () => {
+    it('returns safe HTTP 500 for InternalServerErrorException and conceals sensitive messages and SQL', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/test-errors/internal-server-error-exception')
+        .set('x-request-id', 'req-ise-500')
+        .expect(500);
+
+      assertConformsToOpenApiErrorEnvelope(response.body);
+      expect(response.body).toEqual({
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Internal server error',
+        },
+        requestId: 'req-ise-500',
+      });
+
+      const rawText = response.text;
+      expect(rawText).not.toContain('super_secret_hash_987');
+      expect(rawText).not.toContain('password_hash');
+      expect(rawText).not.toContain('SELECT');
+    });
+
     it('returns safe HTTP 500 for database error and conceals credentials and DB URLs', async () => {
       const response = await request(app.getHttpServer())
         .get('/test-errors/database-failure')
