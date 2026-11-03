@@ -6,14 +6,48 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Core Integration (Giai đoạn 2 - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-03 15:15
-- **Người bàn giao:** Senior Backend Engineer & Software Architect AI Agent
-- **Người tiếp nhận:** Frontend Team / Backend Team / Database Agent
-- **Branch hiện tại:** `fix/be-foundation-audit` (Sẵn sàng mở Pull Request vào `develop`)
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests, Backend E2E, Frontend Vitest, Lint, Typecheck, Build, Supabase DB Test).
-- **Scripts kiểm thử phân lập (Condition 7):** Bổ sung `test:unit`, `test:frontend`, `test:e2e` vào root `package.json`.
+- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Refinement - Hoàn tất)
+- **Cập nhật lần cuối:** 2026-11-03 15:45
+- **Người bàn giao:** Senior Backend Engineer & Software QA Specialist AI Agent
+- **Người tiếp nhận:** Frontend Team / Backend Team / Database Agent / Reviewer
+- **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 18/18, Backend E2E 2/2, Frontend Vitest 15/15 bao gồm negative envelope tests, Lint 0 warnings, Typecheck 0 errors, Build thành công).
+- **CI GitHub Actions:** Tích hợp Backend E2E (`pnpm test:e2e`), ghi chú phân biệt rõ giữa test tự động trên CI và live database test (`pnpm db:test`).
+
+---
+
+## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #004: Tinh chỉnh Toàn diện & Đồng bộ Nghiệp vụ PR #1
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & Software QA Specialist
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:** Hoàn thành 6 yêu cầu kỹ thuật & kiểm toán khắt khe trên PR #1 mà không tạo PR mới hay tự merge.
+- **Các nội dung đã hoàn thành:**
+  1. **Strict Envelope Validation (`ApiClient.request<T>`):**
+     - Sửa `apps/frontend/src/services/api.ts`: Bắt buộc response HTTP 2xx phải tuân thủ nghiêm ngặt `{ success: true, data, timestamp }`.
+     - Tuyệt đối không fallback trả về payload dạng phẳng hay `null`. Ném `ApiError` với mã `INVALID_RESPONSE_ENVELOPE` hoặc `INVALID_JSON`.
+     - Bổ sung file test chuyên dụng `apps/frontend/src/test/api.test.ts` gồm 10 tests bao quát toàn bộ negative cases (payload phẳng, missing data, missing timestamp, success=false trên HTTP 200, invalid JSON text, HTTP 403 error envelope, 400 validation error details, HTTP 502 HTML error).
+  2. **Đồng bộ Error Envelope (Backend - OpenAPI - Guide):**
+     - Cập nhật `apps/backend/src/common/interfaces/api-response.interface.ts` và `apps/backend/src/common/filters/http-exception.filter.ts`: Đối tượng `error` trong phản hồi HTTP lỗi luôn có `{ code: string, message: string, details?: ApiErrorDetail[] }`, tương thích 100% với schema `error` trong OpenAPI `ErrorEnvelope`.
+     - Bổ sung unit test `apps/backend/src/common/filters/http-exception.filter.spec.ts` kiểm thử 4 kịch bản lỗi (NotFound, BadRequest validation, Forbidden, generic Error).
+     - Cập nhật `docs/api/integration_guide.md` mục 1.2 và bổ sung mục 1.3 "Báo cáo Đồng bộ Hóa & Contract Mismatch Analysis với OpenAPI v1.2", giải trình chi tiết về kiến trúc envelope mở rộng bảo đảm đối xứng.
+  3. **Khắc phục Điểm Uy tín & Ngưỡng Khóa Tài khoản (`state_machines.md`):**
+     - Loại bỏ hoàn toàn các giả định sai lệch về khởi tạo 100 điểm, trừ -5 điểm và ngưỡng khóa $\le 20$.
+     - Khôi phục chính xác theo Hồ sơ nghiệp vụ v1.2 và SQL baseline: Thang điểm `0.0 <= reputation_score <= 5.0`, mặc định `5.0`. Trừ đúng `-0.1` điểm khi người bán không phản hồi báo cáo (`NO_RESPONSE`) đạt ngưỡng chu kỳ $K$ ($K=3..5$, mặc định $K=3$), chặn dưới tại `0.0`, chống trừ trùng bằng `report_cycle_key`.
+     - Khẳng định trạng thái `SUSPENDED` là quyết định hành chính có chủ đích của Quản trị viên (`ADMIN`), được ghi nhận vào `audit_logs` (BR-18), không tự động kích hoạt theo ngưỡng điểm.
+  4. **Chuẩn hóa Endpoint Method & Path với OpenAPI:**
+     - Xây dựng script kiểm toán tự động `scripts/audit_endpoints.py` đối chiếu toàn bộ endpoint trong `authorization_matrix.md`, `integration_guide.md` và `state_machines.md` với 49 operations của `packages/api-contract/openapi.yaml`.
+     - Thay thế toàn bộ endpoint nội bộ bằng canonical OpenAPI path (ví dụ: `POST /me/evidence`, `GET /me/verification`, `POST /posts/{id}/activate`, `POST /reports/{reportId}/seller-response`, `PATCH /admin/users/{userId}/status`).
+     - Đánh dấu rõ ràng các endpoint chưa có trong contract v1.2 (`[Chưa có trong OpenAPI v1.2 / Đề xuất mở rộng]` như `/auth/logout`, `/users/{id}`, `/auth/refresh`).
+  5. **Thắt chặt An toàn TLS cho Remote PostgreSQL:**
+     - Sửa `apps/backend/src/config/database.config.ts`: Đối với kết nối remote / Supabase, bắt buộc `rejectUnauthorized: true`, hoàn toàn không cho phép biến môi trường `PGSSL_REJECT_UNAUTHORIZED=false` tắt kiểm tra chứng chỉ trên remote DB.
+     - Xác minh chứng chỉ gốc `database/supabase-ca.crt` (Supabase Root CA 2021) và kiểm thử nạp tự động thành công.
+     - Cập nhật unit test `apps/backend/src/config/database.config.spec.ts` chứng minh kết nối Supabase luôn từ chối chứng chỉ không hợp lệ.
+  6. **Cập nhật GitHub Actions CI Workflow:**
+     - Sửa `.github/workflows/ci.yml`: Bổ sung bước chạy Backend E2E (`pnpm test:e2e`).
+     - Phân định rõ ràng trong workflow giữa kiểm thử tự động trên CI (mocked / isolated) và kiểm thử cơ sở dữ liệu thật (`pnpm db:test`) vốn chỉ chạy thủ công trên môi trường được cấp quyền.
 
 ---
 

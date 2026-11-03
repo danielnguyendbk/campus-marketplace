@@ -81,28 +81,45 @@ export class ApiClient {
       payload = await res.json();
     } catch {
       if (!res.ok) {
-        throw new ApiError(`HTTP error ${res.status}: ${res.statusText}`, res.status);
+        throw new ApiError(`HTTP error ${res.status}: ${res.statusText}`, res.status, 'HTTP_ERROR');
       }
-      return null as T;
+      throw new ApiError('Invalid JSON response from server', res.status, 'INVALID_JSON');
     }
 
     if (!res.ok) {
       const errPayload = payload as {
-        error?: { code?: string; message?: string; details?: ApiErrorDetail[] };
+        error?: { code?: string; message?: string; details?: ApiErrorDetail[] } | string;
         message?: string;
       };
       const errorMessage =
-        errPayload?.error?.message || errPayload?.message || `HTTP error ${res.status}: ${res.statusText}`;
-      const errorCode = errPayload?.error?.code || 'REQUEST_FAILED';
-      throw new ApiError(errorMessage, res.status, errorCode, errPayload?.error?.details);
+        (typeof errPayload?.error === 'object' ? errPayload?.error?.message : undefined) ||
+        errPayload?.message ||
+        `HTTP error ${res.status}: ${res.statusText}`;
+      const errorCode =
+        (typeof errPayload?.error === 'object' ? errPayload?.error?.code : undefined) ||
+        (typeof errPayload?.error === 'string' ? errPayload?.error : undefined) ||
+        'REQUEST_FAILED';
+      const details = typeof errPayload?.error === 'object' ? errPayload?.error?.details : undefined;
+      throw new ApiError(errorMessage, res.status, errorCode, details);
     }
 
-    // Automatically unwrap standard response envelope: { success: true, data: T, timestamp: string }
-    if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
-      return (payload as ApiEnvelope<T>).data;
+    // Strictly enforce standard response envelope: { success: true, data: T, timestamp: string }
+    const isEnvelope =
+      Boolean(payload) &&
+      typeof payload === 'object' &&
+      (payload as Record<string, unknown>).success === true &&
+      'data' in (payload as Record<string, unknown>) &&
+      typeof (payload as Record<string, unknown>).timestamp === 'string';
+
+    if (!isEnvelope) {
+      throw new ApiError(
+        'Invalid response envelope: response must adhere to { success: true, data, timestamp }',
+        res.status,
+        'INVALID_RESPONSE_ENVELOPE',
+      );
     }
 
-    return payload as T;
+    return (payload as ApiEnvelope<T>).data;
   }
 
   /**
@@ -118,9 +135,29 @@ export class ApiClient {
   async getRawHealth(): Promise<ApiEnvelope<HealthResponse>> {
     const res = await fetch(`${this.baseUrl}/health`);
     if (!res.ok) {
-      throw new Error(`HTTP error ${res.status}: ${res.statusText}`);
+      throw new ApiError(`HTTP error ${res.status}: ${res.statusText}`, res.status, 'HTTP_ERROR');
     }
-    return res.json();
+    let payload: unknown;
+    try {
+      payload = await res.json();
+    } catch {
+      throw new ApiError('Invalid JSON response from server', res.status, 'INVALID_JSON');
+    }
+    const isEnvelope =
+      Boolean(payload) &&
+      typeof payload === 'object' &&
+      (payload as Record<string, unknown>).success === true &&
+      'data' in (payload as Record<string, unknown>) &&
+      typeof (payload as Record<string, unknown>).timestamp === 'string';
+
+    if (!isEnvelope) {
+      throw new ApiError(
+        'Invalid response envelope: response must adhere to { success: true, data, timestamp }',
+        res.status,
+        'INVALID_RESPONSE_ENVELOPE',
+      );
+    }
+    return payload as ApiEnvelope<HealthResponse>;
   }
 }
 

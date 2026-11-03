@@ -65,8 +65,14 @@ export function getSslConfig(connectionString?: string): DatabaseSslOptions | un
     return undefined;
   }
 
-  // Reject unauthorized certificates by default. Never default to false.
-  const rejectUnauthorized = process.env.PGSSL_REJECT_UNAUTHORIZED !== 'false';
+  // Reject unauthorized certificates.
+  // AUDIT-04 / Condition 5: Remote PostgreSQL MUST verify TLS certificates.
+  // Disabling certificate verification (rejectUnauthorized: false) is strictly forbidden for remote connections.
+  let rejectUnauthorized = true;
+  if (!isRemoteOrSupabase) {
+    // For local non-remote connections testing SSL, allow override if explicitly set
+    rejectUnauthorized = process.env.PGSSL_REJECT_UNAUTHORIZED !== 'false';
+  }
   const ca = resolveCaCertificate();
 
   return {

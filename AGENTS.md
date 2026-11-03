@@ -78,11 +78,11 @@ Dự án áp dụng mô hình **Gitflow** tiêu chuẩn để phân tách rõ r�
 Một nhiệm vụ chỉ được coi là hoàn tất khi đáp ứng đầy đủ:
 
 1. **Clean Code & Type Safety:** TypeScript biên dịch không lỗi (`pnpm typecheck`), ESLint không vi phạm (`pnpm lint`).
-2. **Automated Tests:** Tất cả unit tests và integration tests đều vượt qua (`pnpm test`).
+2. **Automated Tests:** Tất cả unit tests, frontend tests và backend E2E tests đều vượt qua (`pnpm test`, `pnpm test:e2e`).
 3. **Build Success:** Tất cả packages và apps đều build thành công (`pnpm build`).
-4. **Contract Adherence:** Không vi phạm OpenAPI contract đã duyệt.
-5. **No Secret Leaks:** Không lộ password, API key, token bí mật.
-6. **Traceability:** Đã ghi nhận bàn giao vào `tasks/AGENT_HANDOFF.md` và tạo Pull Request theo đúng mẫu `.github/pull_request_template.md`.
+4. **Contract & Envelope Adherence:** Tuân thủ đúng OpenAPI contract đã duyệt và cấu trúc envelope chuẩn `{ success: true, data, timestamp }` cho phản hồi thành công hoặc `{ success: false, statusCode, error: { code, message, details }, timestamp, path }` cho phản hồi lỗi. Frontend `ApiClient` bắt buộc validate envelope nghiêm ngặt (không fallback payload phẳng hay null).
+5. **Security & TLS Verification:** Tuyệt đối không tắt kiểm tra chứng chỉ TLS (`rejectUnauthorized: false`) trên kết nối cơ sở dữ liệu remote/Supabase. Không lộ password, API key, token bí mật.
+6. **Traceability:** Đã ghi nhận bàn giao vào `tasks/AGENT_HANDOFF.md` và tạo/cập nhật Pull Request theo đúng mẫu `.github/pull_request_template.md`.
 
 ---
 

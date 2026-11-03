@@ -37,11 +37,29 @@ describe('DatabaseConfig TLS & SSL verification', () => {
     expect(ssl?.rejectUnauthorized).toBe(true);
   });
 
-  it('should allow setting rejectUnauthorized: false only when explicitly configured via PGSSL_REJECT_UNAUTHORIZED=false', () => {
+  it('should enforce rejectUnauthorized: true for remote / Supabase even if PGSSL_REJECT_UNAUTHORIZED=false', () => {
     process.env.PGSSL_REJECT_UNAUTHORIZED = 'false';
-    const ssl = getSslConfig('postgresql://user:pass@supabase.com:5432/postgres');
+    const ssl = getSslConfig('postgresql://user:pass@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres');
+    expect(ssl).toBeDefined();
+    // Must remain true to forbid disabling certificate verification on remote PostgreSQL
+    expect(ssl?.rejectUnauthorized).toBe(true);
+  });
+
+  it('should allow setting rejectUnauthorized: false only for local connections with PGSSL=true', () => {
+    process.env.PGSSL = 'true';
+    process.env.PGSSL_REJECT_UNAUTHORIZED = 'false';
+    const ssl = getSslConfig('postgresql://user:pass@localhost:5432/mydb');
     expect(ssl).toBeDefined();
     expect(ssl?.rejectUnauthorized).toBe(false);
+  });
+
+  it('should automatically locate and load the repository root CA cert database/supabase-ca.crt', () => {
+    const ca = resolveCaCertificate();
+    expect(ca).toBeDefined();
+    expect(ca).toContain('-----BEGIN CERTIFICATE-----');
+    expect(ca).toContain('-----END CERTIFICATE-----');
+    // Base64 fragment for Supabase Root CA 2021
+    expect(ca).toContain('U3VwYWJh');
   });
 
   it('should support inline CA certificate via PGSSL_CA', () => {

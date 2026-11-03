@@ -13,18 +13,18 @@ Quản lý vòng đời xác minh danh tính sinh viên của tài khoản ngư�
 
 ### Các trạng thái:
 - `PENDING`: Tài khoản mới đăng ký qua email trường (`.edu.vn`), đã nộp ảnh thẻ sinh viên, đang chờ Admin duyệt.
-- `APPROVED`: Admin đã xác minh thẻ sinh viên hợp lệ. Tài khoản có đầy đủ quyền đăng bài, chat, xem chi tiết bài đăng và tìm mua.
-- `REJECTED`: Admin từ chối thẻ sinh viên (ảnh mờ, sai thông tin, không chính chủ). Người dùng được phép upload lại thẻ mới để đưa về `PENDING`.
-- `SUSPENDED`: Tài khoản bị tạm đình chỉ / khóa do điểm uy tín rớt xuống `<= 20` hoặc vi phạm chính sách nghiêm trọng.
+- `APPROVED`: Admin đã xác minh thẻ sinh viên hợp lệ. Tài khoản có đầy đủ quyền đăng bài, chat, xem chi tiết bài đăng và tìm mua. Điểm uy tín khởi tạo mặc định là `5.0` (thang 0.0 - 5.0 theo `schema_v1.2.sql`).
+- `REJECTED`: Admin từ chối thẻ sinh viên (ảnh mờ, sai thông tin, không chính chủ). Người dùng được phép upload lại thẻ mới (`POST /me/evidence`) để đưa về `PENDING`.
+- `SUSPENDED`: Tài khoản bị tạm đình chỉ / khóa theo quyết định của Admin khi người dùng vi phạm nghiêm trọng chính sách hoặc có hành vi gian lận (được ghi nhận trong `audit_logs`). Hệ thống không tự động khóa theo ngưỡng điểm.
 
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING: Đăng ký & nộp thẻ SV (POST /auth/register)
-    PENDING --> APPROVED: Admin duyệt thẻ hợp lệ (PATCH /admin/verifications/{id} - APPROVE)
-    PENDING --> REJECTED: Admin từ chối thẻ (PATCH /admin/verifications/{id} - REJECT)
-    REJECTED --> PENDING: Sinh viên nộp lại minh chứng mới (POST /auth/student-evidence)
-    APPROVED --> SUSPENDED: Điểm uy tín <= 20 hoặc Admin cưỡng chế khóa
-    SUSPENDED --> APPROVED: Admin mở khóa sau khi giải quyết khiếu nại
+    PENDING --> APPROVED: Admin duyệt thẻ hợp lệ (PATCH /admin/verifications/{verificationId})
+    PENDING --> REJECTED: Admin từ chối thẻ (PATCH /admin/verifications/{verificationId})
+    REJECTED --> PENDING: Sinh viên nộp lại minh chứng mới (POST /me/evidence)
+    APPROVED --> SUSPENDED: Admin đình chỉ tài khoản do vi phạm chính sách (PATCH /admin/users/{userId}/status)
+    SUSPENDED --> APPROVED: Admin mở khóa sau khi giải quyết khiếu nại (PATCH /admin/users/{userId}/status)
     APPROVED --> [*]
     SUSPENDED --> [*]
 ```
@@ -33,11 +33,11 @@ stateDiagram-v2
 | Trạng thái hiện tại | Biến cố / Hành động | Tác nhân | Điều kiện / Ràng buộc | Trạng thái tiếp theo |
 |---|---|---|---|---|
 | `*` (Chưa có) | Đăng ký tài khoản | Khách vãng lai | Email `.edu.vn` hợp lệ, upload thẻ SV | `PENDING` |
-| `PENDING` | Phê duyệt thẻ | Admin | Ảnh thẻ rõ nét, khớp MSSV và trường | `APPROVED` (cấp 100 điểm uy tín) |
-| `PENDING` | Từ chối thẻ | Admin | Thẻ không hợp lệ kèm lý do | `REJECTED` |
-| `REJECTED` | Nộp lại thẻ SV | Sinh viên | Upload minh chứng mới | `PENDING` |
-| `APPROVED` | Phạt hạ uy tín / khóa | Hệ thống / Admin | Điểm uy tín `<= 20` hoặc cố tình vi phạm | `SUSPENDED` |
-| `SUSPENDED` | Mở khóa tài khoản | Admin | Khiếu nại thành công | `APPROVED` |
+| `PENDING` | Phê duyệt thẻ | Admin | Ảnh thẻ rõ nét, khớp MSSV và trường (`PATCH /admin/verifications/{verificationId}`) | `APPROVED` (khởi tạo uy tín 5.0 mặc định) |
+| `PENDING` | Từ chối thẻ | Admin | Thẻ không hợp lệ kèm lý do (`PATCH /admin/verifications/{verificationId}`) | `REJECTED` |
+| `REJECTED` | Nộp lại thẻ SV | Sinh viên | Upload minh chứng mới (`POST /me/evidence`) | `PENDING` |
+| `APPROVED` | Đình chỉ tài khoản | Admin | Quyết định Admin khi vi phạm nghiêm trọng (`PATCH /admin/users/{userId}/status`) | `SUSPENDED` |
+| `SUSPENDED` | Mở khóa tài khoản | Admin | Khiếu nại thành công (`PATCH /admin/users/{userId}/status`) | `APPROVED` |
 
 ---
 
@@ -54,12 +54,12 @@ Quản lý trạng thái bài đăng bán đồ cũ (`SELL`) và bài tìm mua (
 ```mermaid
 stateDiagram-v2
     [*] --> ACTIVE: Tạo bài đăng hợp lệ (POST /posts)
-    ACTIVE --> HIDDEN: Chủ bài tự ẩn / Bị ẩn do vi phạm (PATCH /posts/{id}/status)
-    HIDDEN --> ACTIVE: Chủ bài mở lại (nếu không bị Admin khóa)
-    ACTIVE --> SOLD: Đã bán thành công (Bài SELL)
-    ACTIVE --> CLOSED: Đã tìm được đồ / Đóng tin (Bài BUY_REQUEST)
-    HIDDEN --> SOLD: Xác nhận bán khi đang ẩn
-    HIDDEN --> CLOSED: Đóng tin khi đang ẩn
+    ACTIVE --> HIDDEN: Chủ bài tự ẩn (POST /posts/{id}/hide) / Admin ẩn
+    HIDDEN --> ACTIVE: Chủ bài mở lại (POST /posts/{id}/activate)
+    ACTIVE --> SOLD: Đã bán thành công (POST /posts/{id}/sold - Bài SELL)
+    ACTIVE --> CLOSED: Đã tìm được đồ / Đóng tin (POST /posts/{id}/close - Bài BUY_REQUEST)
+    HIDDEN --> SOLD: Xác nhận bán khi đang ẩn (POST /posts/{id}/sold)
+    HIDDEN --> CLOSED: Đóng tin khi đang ẩn (POST /posts/{id}/close)
     SOLD --> [*]
     CLOSED --> [*]
 ```
@@ -67,11 +67,11 @@ stateDiagram-v2
 ### Bảng chuyển trạng thái:
 | Trạng thái hiện tại | Biến cố / Hành động | Tác nhân | Điều kiện / Ràng buộc | Trạng thái tiếp theo |
 |---|---|---|---|---|
-| `*` | Đăng bài | Chủ bài đăng (APPROVED) | Đúng danh mục, giá và hình ảnh | `ACTIVE` |
-| `ACTIVE` | Ẩn bài đăng | Chủ bài / Admin / Bot | Tự ẩn hoặc bị tố cáo quá hạn 24h | `HIDDEN` |
-| `HIDDEN` | Bật lại hiển thị | Chủ bài đăng | Chỉ khi bài tự ẩn (không bị Admin cưỡng chế) | `ACTIVE` |
-| `ACTIVE` / `HIDDEN` | Đánh dấu đã bán | Chủ bài đăng | Áp dụng loại bài `SELL` | `SOLD` |
-| `ACTIVE` / `HIDDEN` | Đóng bài tìm mua | Chủ bài đăng | Áp dụng loại bài `BUY_REQUEST` | `CLOSED` |
+| `*` | Đăng bài | Chủ bài đăng (APPROVED) | Đúng danh mục, giá và hình ảnh (`POST /posts`) | `ACTIVE` |
+| `ACTIVE` | Ẩn bài đăng | Chủ bài / Admin / Bot | Tự ẩn (`POST /posts/{id}/hide`) hoặc bị tố cáo quá hạn | `HIDDEN` |
+| `HIDDEN` | Bật lại hiển thị | Chủ bài đăng | Chỉ khi bài tự ẩn (`POST /posts/{id}/activate`) | `ACTIVE` |
+| `ACTIVE` / `HIDDEN` | Đánh dấu đã bán | Chủ bài đăng | Áp dụng bài `SELL` (`POST /posts/{id}/sold`) | `SOLD` |
+| `ACTIVE` / `HIDDEN` | Đóng bài tìm mua | Chủ bài đăng | Áp dụng bài `BUY_REQUEST` (`POST /posts/{id}/close`) | `CLOSED` |
 
 ---
 
@@ -81,12 +81,12 @@ stateDiagram-v2
 `CREATE TYPE "report_status" AS ENUM ('SUBMITTED', 'WAITING_SELLER_RESPONSE', 'UNDER_REVIEW', 'RESOLVED', 'DISMISSED', 'NO_RESPONSE');`
 
 ### Các trạng thái:
-1. `SUBMITTED`: Tố cáo mới được người mua/người dùng gửi lên hệ thống.
-2. `WAITING_SELLER_RESPONSE`: Áp dụng cho lý do `STALE_SOLD_POST` (hàng ảo, đã bán nhưng cố tình giữ bài để câu tương tác). Hệ thống tự động gửi cảnh báo và hẹn giờ 24h để người bán phản hồi.
-3. `NO_RESPONSE`: Hết hạn 24h mà người bán không phản hồi. Hệ thống tự động chuyển sang `NO_RESPONSE`, ẩn bài đăng và trừ `-5` điểm uy tín.
+1. `SUBMITTED`: Tố cáo mới được người mua/người dùng gửi lên hệ thống (`POST /reports`).
+2. `WAITING_SELLER_RESPONSE`: Áp dụng cho lý do `STALE_SOLD_POST` (hàng ảo, đã bán nhưng cố tình giữ bài để câu tương tác). Hệ thống tự động gửi cảnh báo và hẹn giờ 24h để người bán phản hồi qua `POST /reports/{reportId}/seller-response`.
+3. `NO_RESPONSE`: Hết hạn 24h (`responseDeadlineAt`) mà người bán không phản hồi. Hệ thống tự động chuyển sang `NO_RESPONSE`, tăng bộ đếm `no_response_count`. Khi đạt chu kỳ ngưỡng K (K cấu hình từ 3 đến 5; mặc định K = 3), hệ thống trừ `-0.1` điểm uy tín (không thấp hơn 0.0) và ghi nhận vào bảng `reputation_events` (BR-15, BR-16).
 4. `UNDER_REVIEW`: Admin đang trực tiếp thụ lý, điều tra và xác minh bằng chứng vi phạm.
-5. `RESOLVED`: Admin đã xử lý xong và đưa ra quyết định xử phạt (ẩn bài, hạ uy tín, tạm khóa).
-6. `DISMISSED`: Admin bác bỏ báo cáo do sai sự thật, vu khống hoặc không đủ bằng chứng.
+5. `RESOLVED`: Admin đã xử lý xong và đưa ra quyết định xử phạt (`PATCH /admin/reports/{reportId}`: ẩn bài, trừ uy tín, tạm khóa).
+6. `DISMISSED`: Admin bác bỏ báo cáo do sai sự thật, vu khống hoặc không đủ bằng chứng (`PATCH /admin/reports/{reportId}`).
 
 ```mermaid
 stateDiagram-v2
@@ -95,14 +95,14 @@ stateDiagram-v2
     SUBMITTED --> WAITING_SELLER_RESPONSE: Lý do STALE_SOLD_POST (Kích hoạt đếm ngược 24h)
     SUBMITTED --> UNDER_REVIEW: Các lý do khác (Gian lận, hàng cấm, thông tin sai lệch)
     
-    WAITING_SELLER_RESPONSE --> UNDER_REVIEW: Người bán gửi phản hồi/giải trình
-    WAITING_SELLER_RESPONSE --> NO_RESPONSE: Hết hạn 24h không phản hồi (Auto ẩn bài, trừ 5 uy tín)
+    WAITING_SELLER_RESPONSE --> UNDER_REVIEW: Người bán gửi phản hồi (POST /reports/{reportId}/seller-response)
+    WAITING_SELLER_RESPONSE --> NO_RESPONSE: Hết hạn 24h không phản hồi (Tăng no_response_count; trừ 0.1 uy tín mỗi chu kỳ K)
     
     NO_RESPONSE --> UNDER_REVIEW: Người bán khiếu nại quyết định tự động
     NO_RESPONSE --> RESOLVED: Khép lại hồ sơ xử phạt tự động
     
-    UNDER_REVIEW --> RESOLVED: Admin xác định có vi phạm (Thực thi chế tài)
-    UNDER_REVIEW --> DISMISSED: Admin bác bỏ tố cáo (Không đủ bằng chứng)
+    UNDER_REVIEW --> RESOLVED: Admin xác định có vi phạm (PATCH /admin/reports/{reportId})
+    UNDER_REVIEW --> DISMISSED: Admin bác bỏ tố cáo (PATCH /admin/reports/{reportId})
     
     RESOLVED --> [*]
     DISMISSED --> [*]
@@ -111,15 +111,15 @@ stateDiagram-v2
 ### Bảng chuyển trạng thái Report:
 | Trạng thái hiện tại | Biến cố | Tác nhân | Điều kiện | Trạng thái tiếp theo |
 |---|---|---|---|---|
-| `*` | Gửi tố cáo | Người dùng đã duyệt (`APPROVED`) | Báo cáo bài đăng của người khác | `SUBMITTED` |
+| `*` | Gửi tố cáo | Người dùng đã duyệt (`APPROVED`) | Báo cáo bài đăng của người khác (`POST /reports`) | `SUBMITTED` |
 | `SUBMITTED` | Kích hoạt xác thực 24h | Hệ thống | `reason = STALE_SOLD_POST` | `WAITING_SELLER_RESPONSE` |
 | `SUBMITTED` | Chuyển điều tra | Hệ thống / Admin | `reason != STALE_SOLD_POST` | `UNDER_REVIEW` |
-| `WAITING_SELLER_RESPONSE` | Người bán giải trình | Người bán bị tố cáo | Trong thời hạn 24h | `UNDER_REVIEW` |
-| `WAITING_SELLER_RESPONSE` | Hết hạn 24h | Hệ thống (Cron job) | Không nhận được phản hồi | `NO_RESPONSE` (ẩn bài, -5 uy tín) |
+| `WAITING_SELLER_RESPONSE` | Người bán giải trình | Người bán bị tố cáo | Trong thời hạn 24h (`POST /reports/{reportId}/seller-response`) | `UNDER_REVIEW` |
+| `WAITING_SELLER_RESPONSE` | Hết hạn 24h | Hệ thống (Cron job) | Không nhận được phản hồi | `NO_RESPONSE` (Tăng `no_response_count`; trừ `-0.1` uy tín nếu đạt chu kỳ K theo BR-16) |
 | `NO_RESPONSE` | Khiếu nại lại | Người bán | Cung cấp minh chứng bất khả kháng | `UNDER_REVIEW` |
 | `NO_RESPONSE` | Đóng hồ sơ | Hệ thống | Quá hạn khiếu nại | `RESOLVED` |
-| `UNDER_REVIEW` | Kết luận vi phạm | Admin | Bằng chứng xác đáng | `RESOLVED` (xử phạt tương ứng) |
-| `UNDER_REVIEW` | Bác bỏ tố cáo | Admin | Tố cáo không có căn cứ | `DISMISSED` |
+| `UNDER_REVIEW` | Kết luận vi phạm | Admin | Bằng chứng xác đáng (`PATCH /admin/reports/{reportId}`) | `RESOLVED` (xử phạt tương ứng) |
+| `UNDER_REVIEW` | Bác bỏ tố cáo | Admin | Tố cáo không có căn cứ (`PATCH /admin/reports/{reportId}`) | `DISMISSED` |
 
 ---
 
@@ -134,7 +134,7 @@ Quản lý trạng thái hộp thoại trò chuyện trực tiếp giữa ngư�
 ```mermaid
 stateDiagram-v2
     [*] --> OPEN: Tạo hội thoại mới khi trao đổi bài đăng (POST /conversations)
-    OPEN --> ARCHIVED: Người dùng lưu trữ hội thoại (PATCH /conversations/{id})
+    OPEN --> ARCHIVED: Hệ thống lưu trữ khi bài chuyển SOLD/HIDDEN [hoặc Đề xuất mở rộng: PATCH /conversations/{conversationId}]
     ARCHIVED --> OPEN: Người dùng khôi phục hoặc nhận được tin nhắn mới
     OPEN --> [*]
 ```
@@ -152,10 +152,30 @@ Quản lý tệp đính kèm trong tin nhắn chat (ảnh đồ họa, hình ch�
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ACTIVE: Tải file đính kèm lên tin nhắn
+    [*] --> ACTIVE: Tải file đính kèm lên tin nhắn (POST /conversations/{conversationId}/attachments)
     ACTIVE --> EXPIRED: Hết hạn lưu trữ (chính sách dọn dẹp lưu trữ định kỳ)
     EXPIRED --> DELETED: Hệ thống dọn dẹp xóa tệp vật lý
     ACTIVE --> DELETED: Người dùng xóa tin nhắn / thu hồi
     DELETED --> [*]
 ```
+
+---
+
+## 6. Quy tắc Nghiệp vụ Điểm Uy tín & Đình chỉ Tài khoản (v1.2 Baseline)
+
+Đối chiếu chính xác [Hồ sơ nghiệp vụ v1.2](../../docs/business-rules/README.md) và SQL Baseline [schema_v1.2.sql](../../database/baseline/schema_v1.2.sql):
+
+1. **Thang điểm uy tín (`reputation_score`):**
+   - Ràng buộc CSDL: `0.0 <= reputation_score <= 5.0` (Kiểu dữ liệu `numeric(2,1)`).
+   - Giá trị khởi tạo mặc định: **`5.0`** (Không sử dụng thang điểm 100).
+   - Tuyệt đối không có tính năng chấm sao thủ công hay review tự do giữa người dùng; điểm uy tín hoàn toàn do hệ thống quản lý khách quan.
+2. **Quy tắc trừ điểm theo chu kỳ (BR-15, BR-16):**
+   - Khi báo cáo người bán vi phạm hết hạn phản hồi 24h (`responseDeadlineAt`), trạng thái chuyển thành `NO_RESPONSE` và tăng bộ đếm `users.no_response_count`.
+   - Mỗi khi bộ đếm đạt một chu kỳ ngưỡng $K$ (tham số cấu hình hệ thống từ 3 đến 5; giá trị mặc định là **$K = 3$**), hệ thống kích hoạt trừ đúng **`-0.1`** điểm uy tín (`delta = -0.10`).
+   - Điểm uy tín sau khi trừ bị chặn dưới tại mức sàn **`0.0`**.
+   - Bảng `reputation_events` lưu vết giao dịch: `seller_id`, `report_cycle_key` (duy nhất để chống trừ trùng chu kỳ), `delta`, `before_score`, `after_score`, `reason`, `created_at`.
+3. **Đình chỉ tài khoản (`SUSPENDED`):**
+   - Đình chỉ tài khoản là một quyết định hành chính có chủ đích của Quản trị viên (`ADMIN`), được thực hiện thông qua endpoint `PATCH /admin/users/{userId}/status`.
+   - Mọi hành vi đình chỉ tài khoản phải có căn cứ rõ ràng (hành vi lừa đảo, tái phạm nhiều lần, vi phạm pháp luật) và bắt buộc phải lưu lý do kèm ghi nhật ký kiểm toán vào bảng `audit_logs` (BR-18).
+   - **Không tồn tại cơ chế tự động khóa tài khoản khi điểm uy tín $\le 20$** trong Hồ sơ nghiệp vụ v1.2. Mọi thông tin trước đây nhắc tới ngưỡng 20 điểm hay khởi tạo 100 điểm đều là giả định sai lệch và đã được loại bỏ hoàn toàn.
 
