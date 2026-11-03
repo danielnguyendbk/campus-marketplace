@@ -6,7 +6,43 @@ export interface HealthResponse {
   database: {
     status: 'connected' | 'disconnected' | 'not_configured';
     latencyMs?: number;
+    version?: string;
   };
+}
+
+export interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+  timestamp: string;
+}
+
+export interface ApiErrorDetail {
+  field?: string;
+  message: string;
+}
+
+export interface ApiErrorEnvelope {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: ApiErrorDetail[];
+  };
+  timestamp: string;
+}
+
+export class ApiError extends Error {
+  public status: number;
+  public code: string;
+  public details?: ApiErrorDetail[];
+
+  constructor(message: string, status: number, code: string = 'UNKNOWN_ERROR', details?: ApiErrorDetail[]) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
 }
 
 export const API_BASE_URL: string =
@@ -14,12 +50,72 @@ export const API_BASE_URL: string =
 
 export class ApiClient {
   private baseUrl: string;
+  private token: string | null = null;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl;
   }
 
+  setToken(token: string | null): void {
+    this.token = token;
+  }
+
+  getToken(): string | null {
+    return this.token;
+  }
+
+  /**
+   * Generic request handler with automatic unwrap of standard envelope { success, data, timestamp }.
+   */
+  async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      ...((options.headers as Record<string, string>) || {}),
+    };
+
+    const res = await fetch(url, { ...options, headers });
+    let payload: unknown;
+    try {
+      payload = await res.json();
+    } catch {
+      if (!res.ok) {
+        throw new ApiError(`HTTP error ${res.status}: ${res.statusText}`, res.status);
+      }
+      return null as T;
+    }
+
+    if (!res.ok) {
+      const errPayload = payload as {
+        error?: { code?: string; message?: string; details?: ApiErrorDetail[] };
+        message?: string;
+      };
+      const errorMessage =
+        errPayload?.error?.message || errPayload?.message || `HTTP error ${res.status}: ${res.statusText}`;
+      const errorCode = errPayload?.error?.code || 'REQUEST_FAILED';
+      throw new ApiError(errorMessage, res.status, errorCode, errPayload?.error?.details);
+    }
+
+    // Automatically unwrap standard response envelope: { success: true, data: T, timestamp: string }
+    if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+      return (payload as ApiEnvelope<T>).data;
+    }
+
+    return payload as T;
+  }
+
+  /**
+   * Get health status unwrapped into clean HealthResponse.
+   */
   async getHealth(): Promise<HealthResponse> {
+    return this.request<HealthResponse>('/health');
+  }
+
+  /**
+   * Get full raw envelope for debugging or header verification.
+   */
+  async getRawHealth(): Promise<ApiEnvelope<HealthResponse>> {
     const res = await fetch(`${this.baseUrl}/health`);
     if (!res.ok) {
       throw new Error(`HTTP error ${res.status}: ${res.statusText}`);

@@ -1,23 +1,32 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from '../app/App';
+import { api, ApiError } from '../services/api';
 
-describe('Frontend App Bootstrap Tests', () => {
+describe('Frontend App Bootstrap & Envelope Integration Tests', () => {
+  const mockHealthyEnvelope = {
+    success: true,
+    data: {
+      status: 'ok',
+      timestamp: '2026-11-03T06:00:00.000Z',
+      uptime: 42.5,
+      environment: 'test',
+      database: {
+        status: 'connected' as const,
+        latencyMs: 12,
+        version: 'PostgreSQL 17.11',
+      },
+    },
+    timestamp: '2026-11-03T06:00:00.000Z',
+  };
+
   beforeEach(() => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({
-          status: 'ok',
-          timestamp: new Date().toISOString(),
-          uptime: 12.34,
-          environment: 'test',
-          database: {
-            status: 'connected',
-            latencyMs: 5,
-          },
-        }),
+        status: 200,
+        json: async () => mockHealthyEnvelope,
       }),
     );
   });
@@ -33,7 +42,7 @@ describe('Frontend App Bootstrap Tests', () => {
     });
   });
 
-  it('renders status cards for Monorepo components', async () => {
+  it('renders status cards for Monorepo components with unwrapped database status', async () => {
     render(<App />);
     expect(screen.getByText('Frontend Application')).toBeInTheDocument();
     expect(screen.getByText('Database Foundation')).toBeInTheDocument();
@@ -41,6 +50,56 @@ describe('Frontend App Bootstrap Tests', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Backend NestJS đang phản hồi bình thường/i)).toBeInTheDocument();
+      // Verifies unwrapped database status is displayed
+      expect(screen.getByText('connected')).toBeInTheDocument();
+    });
+  });
+
+  describe('Regression Test: Envelope Unwrapping & Error Handling', () => {
+    it('automatically unwraps { success, data, timestamp } envelope in api.getHealth()', async () => {
+      const data = await api.getHealth();
+      expect(data).toBeDefined();
+      expect(data.status).toBe('ok');
+      expect(data.database.status).toBe('connected');
+      expect(data.database.version).toBe('PostgreSQL 17.11');
+      // Must not contain the envelope keys directly
+      expect((data as unknown as Record<string, unknown>).data).toBeUndefined();
+    });
+
+    it('returns the raw envelope via api.getRawHealth() when requested', async () => {
+      const envelope = await api.getRawHealth();
+      expect(envelope.success).toBe(true);
+      expect(envelope.data.status).toBe('ok');
+      expect(envelope.timestamp).toBe('2026-11-03T06:00:00.000Z');
+    });
+
+    it('handles ApiError envelope when backend returns HTTP error status', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 403,
+          statusText: 'Forbidden',
+          json: async () => ({
+            success: false,
+            error: {
+              code: 'FORBIDDEN',
+              message: 'Tài khoản chưa được duyệt thẻ sinh viên',
+            },
+            timestamp: '2026-11-03T06:00:00.000Z',
+          }),
+        }),
+      );
+
+      await expect(api.getHealth()).rejects.toThrow(ApiError);
+      try {
+        await api.getHealth();
+      } catch (err: unknown) {
+        const apiErr = err as ApiError;
+        expect(apiErr.status).toBe(403);
+        expect(apiErr.code).toBe('FORBIDDEN');
+        expect(apiErr.message).toBe('Tài khoản chưa được duyệt thẻ sinh viên');
+      }
     });
   });
 });

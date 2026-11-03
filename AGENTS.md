@@ -111,7 +111,7 @@ flowchart LR
 - **Bảo vệ dữ liệu nhạy cảm sinh viên:**
   - Mật khẩu phải được hash bằng bcrypt / argon2 trước khi lưu vào CSDL.
   - Mã OTP chỉ lưu bản băm `code_hash`.
-  - Ảnh thẻ sinh viên (`student_evidences.card_image_ref`) là dữ liệu riêng tư, chỉ cho phép Admin và chủ tài khoản xem qua Signed URL có thời hạn ngắn.
+  - Ảnh thẻ sinh viên (`student_evidences.card_image_ref`) là dữ liệu mật. Sau khi upload, ảnh thẻ và chi tiết minh chứng được ẩn hoàn toàn trên giao diện người dùng (kể cả chủ tài khoản sau khi duyệt theo BR-03; `GET /me` không trả `cardImageRef`). CHỈ ADMIN mới có quyền truy cập ảnh thẻ sinh viên qua Signed URL có thời hạn ngắn phục vụ quy trình thẩm duyệt (`GET /api/v1/admin/verifications/{id}`).
   - Số điện thoại người dùng không trả về công khai trong API chi tiết bài đăng; chỉ tiết lộ khi có sự kiện `phone_reveal_events`.
 
 ---

@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getSslConfig } from '../config/database.config';
 
 // Helper to load .env manually if dotenv is not imported
 function loadEnvFile(filePath: string) {
@@ -70,10 +71,11 @@ async function main() {
   const maskedUrl = connectionString.replace(/(:[^:@/]+)(@)/, ':****$2');
   console.log(`🔗 Đang kết nối tới: ${maskedUrl}`);
 
-  const isRemote = connectionString.includes('supabase') || !connectionString.includes('localhost');
+  const ssl = getSslConfig(connectionString);
+  console.log(`🔒 TLS/SSL Verification: ${ssl ? (ssl.rejectUnauthorized ? 'ENFORCED (rejectUnauthorized: true)' : 'DISABLED (rejectUnauthorized: false)') : 'NONE'}`);
   const client = new Client({
     connectionString,
-    ssl: isRemote ? { rejectUnauthorized: false } : undefined,
+    ssl,
     connectionTimeoutMillis: 10000,
   });
 
