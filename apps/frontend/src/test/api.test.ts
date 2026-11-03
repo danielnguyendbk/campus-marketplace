@@ -158,13 +158,11 @@ describe('ApiClient Request & Envelope Validation Tests', () => {
           status: 403,
           statusText: 'Forbidden',
           json: async () => ({
-            success: false,
-            statusCode: 403,
             error: {
               code: 'ACCOUNT_NOT_VERIFIED',
               message: 'Tài khoản chưa được phê duyệt',
             },
-            timestamp: '2026-11-03T12:00:00.000Z',
+            requestId: 'req-403',
           }),
         }),
       );
@@ -188,14 +186,12 @@ describe('ApiClient Request & Envelope Validation Tests', () => {
           status: 400,
           statusText: 'Bad Request',
           json: async () => ({
-            success: false,
-            statusCode: 400,
             error: {
               code: 'VALIDATION_FAILED',
               message: 'email must be an email',
               details: [{ field: 'email', message: 'email must be an email' }],
             },
-            timestamp: '2026-11-03T12:00:00.000Z',
+            requestId: 'req-400',
           }),
         }),
       );
@@ -264,3 +260,4 @@ describe('ApiClient Request & Envelope Validation Tests', () => {
     });
   });
 });
+

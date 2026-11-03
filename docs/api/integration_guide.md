@@ -39,9 +39,9 @@ export interface ApiEnvelope<T> {
 }
 ```
 
-### 1.2. Cấu trúc Lỗi (Error Envelope)
+### 1.2. Cấu trúc Lỗi (Error Envelope) - Tuân thủ nghiêm ngặt OpenAPI v1.2
 
-Mọi HTTP Status `4xx` và `5xx` đều được chuẩn hóa qua `AllExceptionsFilter` (`apps/backend/src/common/filters/http-exception.filter.ts`):
+Mọi HTTP Status `4xx` và `5xx` đều được chuẩn hóa qua `AllExceptionsFilter` (`apps/backend/src/common/filters/http-exception.filter.ts`) tuân thủ tuyệt đối schema `ErrorEnvelope` trong OpenAPI v1.2 (`packages/api-contract/openapi.yaml`), với ràng buộc nghiêm ngặt `additionalProperties: false`:
 
 ```typescript
 export interface ApiErrorDetail {
@@ -50,43 +50,37 @@ export interface ApiErrorDetail {
 }
 
 export interface ApiErrorPayload {
-  code: string;       // Mã lỗi chuẩn (ví dụ: 'UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION_FAILED')
-  message: string;    // Thông điệp người dùng thân thiện
+  code: string;       // Mã lỗi chuẩn (ví dụ: 'UNAUTHORIZED', 'FORBIDDEN', 'NOT_FOUND', 'VALIDATION_FAILED', 'INTERNAL_SERVER_ERROR')
+  message: string;    // Thông điệp người dùng thân thiện, an toàn
   details?: ApiErrorDetail[]; // Danh sách lỗi xác thực chi tiết (nếu có)
 }
 
-export interface ApiErrorResponse {
-  success: false;
-  statusCode: number;
-  message: string;    // Thông điệp cấp cao
-  error: ApiErrorPayload; // Đối tượng lỗi chi tiết tương thích OpenAPI
-  timestamp: string;  // ISO 8601 UTC
-  path: string;       // Request URL
-  requestId?: string; // Request Correlation ID
+export interface ErrorEnvelope {
+  error: ApiErrorPayload; // Đối tượng lỗi chi tiết (BẮT BUỘC)
+  requestId?: string;     // Correlation ID từ x-request-id header (TÙY CHỌN)
 }
 ```
+
+> [!IMPORTANT]
+> **Chuẩn thống nhất OpenAPI v1.2 (Strict Contract Adherence):**
+> 1. Top-level body của phản hồi lỗi **CHỈ CHỨA DUY NHẤT** 2 trường: `error` (bắt buộc) và `requestId` (tùy chọn khi client gửi `x-request-id`).
+> 2. Tuyệt đối **KHÔNG** chứa các trường thừa ở top-level như `success`, `statusCode`, `message`, `timestamp`, `path` do schema OpenAPI đã ấn định `additionalProperties: false`.
+> 3. Mã HTTP Status được gửi nguyên bản qua HTTP Response Status Header (ví dụ: `HTTP/1.1 403 Forbidden`, `HTTP/1.1 500 Internal Server Error`).
 
 **Ví dụ JSON lỗi 403 Forbidden (Tài khoản PENDING cố truy cập bài đăng chi tiết):**
 ```json
 {
-  "success": false,
-  "statusCode": 403,
-  "message": "Tài khoản của bạn đang chờ phê duyệt thẻ sinh viên. Vui lòng quay lại sau.",
   "error": {
     "code": "FORBIDDEN",
     "message": "Tài khoản của bạn đang chờ phê duyệt thẻ sinh viên. Vui lòng quay lại sau."
   },
-  "timestamp": "2026-11-03T06:30:00.000Z",
-  "path": "/api/v1/posts/123e4567-e89b-12d3-a456-426614174000"
+  "requestId": "req-98765"
 }
 ```
 
 **Ví dụ JSON lỗi 400 Bad Request (Lỗi validation dữ liệu đầu vào):**
 ```json
 {
-  "success": false,
-  "statusCode": 400,
-  "message": "title must not be empty, price must be positive",
   "error": {
     "code": "VALIDATION_FAILED",
     "message": "title must not be empty, price must be positive",
@@ -95,36 +89,33 @@ export interface ApiErrorResponse {
       { "field": "price", "message": "price must be positive" }
     ]
   },
-  "timestamp": "2026-11-03T06:30:00.000Z",
-  "path": "/api/v1/posts"
+  "requestId": "req-12345"
 }
 ```
 
-### 1.3. Báo cáo Đồng bộ Hóa & Contract Mismatch Analysis với OpenAPI v1.2
+### 1.3. Chỉ thị Bảo mật An toàn cho Lỗi Máy chủ (HTTP 500 - Security Directive)
 
-- **Đặc tả OpenAPI (`packages/api-contract/openapi.yaml`):**
-  Trong baseline contract, schema `ErrorEnvelope` được định nghĩa sơ khởi như sau:
-  ```yaml
-  ErrorEnvelope:
-    type: object
-    properties:
-      error:
-        type: object
-        properties:
-          code: { type: string }
-          message: { type: string }
-          details: { type: array, items: { type: object, properties: { field: { type: string }, message: { type: string } } } }
-        required: [code, message]
-      requestId: { type: string }
-    required: [error]
-    description: "Dạng lỗi đề xuất, FE/BE phải chốt trước khi triển khai."
-  ```
-- **Thực tế Triển khai Hệ thống (NestJS Backend + React Frontend):**
-  Để bảo đảm tính đối xứng và nhất quán toàn diện với Success Envelope `{ success: true, data, timestamp }`, hệ thống chuẩn hóa tầng nền tảng như sau:
-  1. Trường `error` trong phản hồi HTTP lỗi luôn là một object có `{ code, message, details? }`, hoàn toàn khớp 100% với schema `error` trong OpenAPI.
-  2. Bổ sung các metadata bao bọc cấp hệ thống: `success: false`, `statusCode`, `timestamp`, `path`, và `requestId`.
-  3. Frontend `ApiClient` kiểm tra cả `error.code` và `error.message` lồng nhau để ném `ApiError` chuẩn hóa, không còn bị phụ thuộc vào định dạng phẳng cũ.
-- **Kết luận:** API Contract được tôn trọng tối đa (không tự tiện sửa schema contract gốc khi chưa qua phê duyệt change request), đồng thời tầng triển khai tài liệu hóa rõ ràng phần mở rộng đối xứng này.
+Khi hệ thống phát sinh lỗi không mong muốn không phải là `HttpException` (ví dụ: lỗi kết nối PostgreSQL, lỗi cú pháp truy vấn SQL, lỗi runtime `TypeError` / `NullPointerException`):
+
+1. **Thông điệp công khai an toàn (Safe Public Message):**
+   - Phản hồi trả về client bắt buộc mang mã `500 Internal Server Error`.
+   - `error.code` luôn là `"INTERNAL_SERVER_ERROR"`.
+   - `error.message` luôn là `"Internal server error"`.
+   - `error.details` luôn là `undefined` (không trả về).
+2. **Tuyệt đối không rò rỉ dữ liệu nhạy cảm:**
+   - Nghiêm cấm đưa `exception.message`, connection string (`DATABASE_URL`, mật khẩu CSDL), tên bảng, tên cột SQL hoặc stack trace vào JSON phản hồi.
+   - Toàn bộ thông tin chi tiết lỗi và stack trace chỉ được ghi nhận vào **Server Logs** (`this.logger.error(...)`) để kỹ sư DevOps/Backend phân tích.
+
+**Ví dụ JSON phản hồi an toàn khi có lỗi cơ sở dữ liệu hoặc crash runtime:**
+```json
+{
+  "error": {
+    "code": "INTERNAL_SERVER_ERROR",
+    "message": "Internal server error"
+  },
+  "requestId": "req-crash-safe-001"
+}
+```
 
 ---
 

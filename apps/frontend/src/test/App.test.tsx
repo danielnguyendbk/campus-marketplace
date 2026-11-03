@@ -81,12 +81,11 @@ describe('Frontend App Bootstrap & Envelope Integration Tests', () => {
           status: 403,
           statusText: 'Forbidden',
           json: async () => ({
-            success: false,
             error: {
               code: 'FORBIDDEN',
               message: 'Tài khoản chưa được duyệt thẻ sinh viên',
             },
-            timestamp: '2026-11-03T06:00:00.000Z',
+            requestId: 'req-app-403',
           }),
         }),
       );

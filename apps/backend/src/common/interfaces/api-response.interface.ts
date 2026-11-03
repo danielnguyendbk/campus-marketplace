@@ -16,12 +16,16 @@ export interface ApiErrorPayload {
   details?: ApiErrorDetail[];
 }
 
-export interface ApiErrorResponse {
-  success: false;
-  statusCode: number;
-  message: string;
-  error: ApiErrorPayload | string;
-  timestamp: string;
-  path: string;
+/**
+ * Strict OpenAPI v1.2 ErrorEnvelope.
+ * Conforms 100% to openapi.yaml #/components/schemas/ErrorEnvelope:
+ * - `error` (required): { code, message, details? }
+ * - `requestId` (optional): string
+ * `additionalProperties: false` is strictly enforced.
+ */
+export interface ErrorEnvelope {
+  error: ApiErrorPayload;
   requestId?: string;
 }
+
+export type ApiErrorResponse = ErrorEnvelope;

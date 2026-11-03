@@ -6,18 +6,42 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Refinement - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-03 15:45
+- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Final Polish - Hoàn tất)
+- **Cập nhật lần cuối:** 2026-11-03 16:25
 - **Người bàn giao:** Senior Backend Engineer & Software QA Specialist AI Agent
 - **Người tiếp nhận:** Frontend Team / Backend Team / Database Agent / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 18/18, Backend E2E 2/2, Frontend Vitest 15/15 bao gồm negative envelope tests, Lint 0 warnings, Typecheck 0 errors, Build thành công).
-- **CI GitHub Actions:** Tích hợp Backend E2E (`pnpm test:e2e`), ghi chú phân biệt rõ giữa test tự động trên CI và live database test (`pnpm db:test`).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 20/20, Backend E2E 6/6, Frontend Vitest 15/15, Lint 0 warnings, Typecheck 0 errors, Build thành công).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #005: Khắc phục Triệt để Schema ErrorEnvelope (additionalProperties: false) & An toàn Lỗi 500
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & Software QA Specialist
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Đối chiếu và Chuẩn hóa Error Envelope theo OpenAPI v1.2:**
+     - Loại bỏ toàn bộ các trường dư thừa ở top-level (`success`, `statusCode`, `timestamp`, `path`, root `message`) vốn vi phạm ràng buộc `additionalProperties: false` của schema `ErrorEnvelope`.
+     - Phản hồi lỗi chỉ chứa duy nhất `error: { code, message, details? }` và `requestId` (tùy chọn). Mã HTTP status được trả qua HTTP header chuẩn.
+     - Cập nhật `apps/backend/src/common/interfaces/api-response.interface.ts` và `apps/backend/src/common/filters/http-exception.filter.ts`.
+     - Bổ sung bộ contract tests E2E chuyên sâu `apps/backend/test/error-envelope.e2e-spec.ts` kiểm chứng trực tiếp tính tương thích với OpenAPI `ErrorEnvelope`.
+  2. **Bảo mật Tối đa Lỗi Máy chủ (HTTP 500 - Security Directives):**
+     - Sửa `AllExceptionsFilter`: Mọi lỗi không phải `HttpException` (lỗi PostgreSQL, lỗi crash runtime, `TypeError`) đều trả về HTTP 500 với thông điệp công khai an toàn: `code: "INTERNAL_SERVER_ERROR"`, `message: "Internal server error"`, không trả `details`.
+     - Tuyệt đối không để lộ `exception.message`, connection string, thông tin tài khoản Supabase hay stack trace ra ngoài response JSON. Toàn bộ chi tiết được ghi an toàn vào server logs.
+     - Bổ sung regression tests trong `apps/backend/src/common/filters/http-exception.filter.spec.ts` và `apps/backend/test/error-envelope.e2e-spec.ts` mô phỏng lỗi kết nối PostgreSQL chứa mật khẩu nhạy cảm và lỗi runtime `TypeError`.
+  3. **Đồng bộ Frontend & Tài liệu Kỹ thuật:**
+     - Cập nhật mock trong `apps/frontend/src/test/api.test.ts` và `apps/frontend/src/test/App.test.tsx` khớp 100% với schema `ErrorEnvelope`.
+     - Cập nhật `docs/api/integration_guide.md` và `AGENTS.md` (DoD).
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm --filter @campus/backend test`: **PASS** (4 suites, 20/20 tests passed).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (2 suites, 6/6 tests passed).
+  - `pnpm --filter @campus/frontend test`: **PASS** (2 suites, 15/15 tests passed).
+  - `pnpm lint`: **PASS** (0 warnings across workspace).
+  - `pnpm typecheck`: **PASS** (0 errors across workspace).
+  - `pnpm build`: **PASS** (Frontend và Backend biên dịch thành công).
 
 ### Handoff #004: Tinh chỉnh Toàn diện & Đồng bộ Nghiệp vụ PR #1
 - **Ngày:** 2026-11-03
