@@ -70,3 +70,4 @@ describe('DatabaseConfig TLS & SSL verification', () => {
     expect((config.ssl as { rejectUnauthorized: boolean }).rejectUnauthorized).toBe(true);
   });
 });
+

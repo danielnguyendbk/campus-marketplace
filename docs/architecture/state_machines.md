@@ -158,3 +158,4 @@ stateDiagram-v2
     ACTIVE --> DELETED: Người dùng xóa tin nhắn / thu hồi
     DELETED --> [*]
 ```
+

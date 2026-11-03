@@ -169,3 +169,4 @@ Trong envelope, cấu trúc phản hồi sẽ là:
 - Đối với tài khoản `PENDING`:
   - Cho phép gọi `GET /feed` (nhận danh sách tóm tắt `PendingFeedPage` không có thông tin liên lạc người bán).
   - Nghiêm cấm gọi `GET /posts/{id}` (trả về `403 Forbidden`).
+

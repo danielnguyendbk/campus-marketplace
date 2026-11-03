@@ -94,3 +94,4 @@ Hệ thống phân tách rạch ròi giữa **Role** (Vai trò hệ thống) và
    - Người dùng chưa đăng nhập gọi API cần xác thực: Trả về **`401 Unauthorized`**.
    - Tài khoản `PENDING`, `REJECTED`, hoặc `SUSPENDED` cố tình gọi API yêu cầu `APPROVED`: Trả về **`403 Forbidden`** với mã lỗi `ACCOUNT_NOT_VERIFIED` hoặc `ACCOUNT_SUSPENDED`.
    - Người dùng cố tình truy cập tài nguyên của người khác (bài đăng, hội thoại): Trả về **`403 Forbidden`** với mã lỗi `FORBIDDEN_RESOURCE`.
+

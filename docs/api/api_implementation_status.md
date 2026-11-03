@@ -83,3 +83,4 @@ Tài liệu này theo dõi trạng thái triển khai thực tế của toàn b�
 | # | HTTP Method | Endpoint | Chức năng | Trạng thái triển khai |
 |---|---|---|---|---|
 | 1 | `GET` | `/health` | Kiểm tra trạng thái runtime của NestJS, uptime, latency kết nối PostgreSQL Supabase Pooler qua `rejectUnauthorized: true` TLS | **ĐÃ TRIỂN KHAI & PASS E2E TEST** |
+

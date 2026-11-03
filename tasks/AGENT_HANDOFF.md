@@ -7,12 +7,13 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Trạng thái hệ thống hiện tại
 
 - **Giai đoạn:** Foundation Audit & Core Integration (Giai đoạn 2 - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-03 13:42
+- **Cập nhật lần cuối:** 2026-11-03 15:15
 - **Người bàn giao:** Senior Backend Engineer & Software Architect AI Agent
 - **Người tiếp nhận:** Frontend Team / Backend Team / Database Agent
 - **Branch hiện tại:** `fix/be-foundation-audit` (Sẵn sàng mở Pull Request vào `develop`)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
 - **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests, Backend E2E, Frontend Vitest, Lint, Typecheck, Build, Supabase DB Test).
+- **Scripts kiểm thử phân lập (Condition 7):** Bổ sung `test:unit`, `test:frontend`, `test:e2e` vào root `package.json`.
 
 ---
 
