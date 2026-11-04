@@ -6,14 +6,44 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Strict Contract Alignment (PR #1 Contract Change Proposal - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-03 17:15
-- **Người bàn giao:** Senior Backend Engineer & API Contract Reviewer AI Agent
+- **Giai đoạn:** Foundation Audit & System Architecture Documentation (PR #1 - Hoàn tất)
+- **Cập nhật lần cuối:** 2026-11-04 16:35
+- **Người bàn giao:** Senior Backend Engineer & System Architect AI Agent
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
 - **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Build thành công).
-- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn thành 100% Phương án 1 đã phê duyệt; OpenAPI Contract, Backend Interceptor, Frontend Client và Integration Guide đã đồng bộ hoàn toàn).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, tests, CI và tài liệu kiến trúc kỹ thuật toàn diện `ARCHITECTURE.md` theo biểu mẫu chuẩn).
+
+---
+
+## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #007: Khởi tạo Tài liệu Kiến trúc Hệ thống Toàn diện (ARCHITECTURE.md)
+- **Ngày:** 2026-11-04
+- **Người thực hiện:** Senior Backend Engineer & System Architect
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Khởi tạo Tài liệu Kiến trúc Chuẩn hóa (`docs/ARCHITECTURE.md` & `ARCHITECTURE.md`):**
+     - Xây dựng tài liệu kiến trúc toàn diện gồm 9 phần đúng theo form yêu cầu:
+       1. Overview: Bối cảnh, mục tiêu và bảng công nghệ cốt lõi (`pnpm`, React 18/Vite, NestJS 10, Node-postgres SQL-first, Supabase PostgreSQL v1.2, Cloudflare R2, Socket.IO, OpenAPI v1.2).
+       2. System Architecture: Sơ đồ kiến trúc 4 tầng chi tiết (Client, Application/Gateway, Storage & Realtime, Data Persistence) bằng Mermaid flowchart.
+       3. Monorepo Structure: Cấu trúc thư mục chi tiết, phân định quyền sở hữu (Code Ownership).
+       4. Backend Architecture: Mô hình Modular Monolith 3 tầng, phân rã 7 Domain Modules và Common Kernel.
+       5. Database Design: 18 bảng CSDL PostgreSQL v1.2 kèm sơ đồ ERD trực quan (Mermaid).
+       6. API Design: Chuẩn RESTful `/api/v1`, Success Envelope `{ success, data, [meta], timestamp }`, Error Envelope chuẩn OpenAPI v1.2, Sequence Diagram luồng đăng ký & xác thực OTP email trường.
+       7. Realtime & Storage: Kiến trúc Cloudflare R2 (Private Bucket cho thẻ SV/chat tệp đính kèm với Presigned URLs; Public CDN Bucket cho bài đăng), Socket.IO Realtime Gateway (`/ws`) handshake Bearer token an toàn.
+       8. Security: Quy chuẩn bảo mật thẻ sinh viên (BR-03: chỉ Admin xem ảnh thẻ qua Signed URL, ẩn trên UI), ẩn số điện thoại (BR-07/08), ma trận RBAC, TLS enforcement cho remote DB và HTTP 500 safe guard.
+       9. Development Convention: Gitflow workflow (GitGraph), quy ước đặt tên (Naming Conventions) và Definition of Done (DoD).
+  2. **Đồng bộ Liên kết Tài liệu:**
+     - Cập nhật `README.md` và `docs/architecture/README.md` dẫn trực tiếp tới `docs/ARCHITECTURE.md`.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings across workspace).
+  - `pnpm typecheck`: **PASS** (0 errors across workspace).
+  - `pnpm --filter @campus/backend test`: **PASS** (5/5 suites, 31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (3/3 suites, 38/38 tests).
+  - `pnpm --filter @campus/frontend test`: **PASS** (2/2 suites, 19/19 tests).
+  - `pnpm build`: **PASS** (Toàn bộ workspace build thành công).
 
 ---
 

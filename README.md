@@ -9,6 +9,7 @@ Nền tảng thương mại điện tử sinh viên nội bộ trường đại 
 Dự án áp dụng mô hình **Monorepo (pnpm workspace)** kết hợp kiến trúc **Modular Monolith** cho backend nhằm đảm bảo tính đơn giản trong vận hành, kiểm soát chặt chẽ hợp đồng API và tối ưu hiệu suất phát triển.
 
 ### Công nghệ sử dụng
+
 - **Monorepo:** pnpm workspace (Node.js `20.20.1`, pnpm `10.14.0`)
 - **Frontend (`@campus/frontend`):** React 18, Vite, TypeScript, Vitest, Testing Library.
 - **Backend (`@campus/backend`):** NestJS, TypeScript, Node-postgres (`pg`) SQL-first, Jest, Supertest.
@@ -69,6 +70,7 @@ campus-marketplace/
 │   └── schema/                # Tài liệu chi tiết các bảng
 │
 ├── docs/                      # Tài liệu dự án
+│   ├── ARCHITECTURE.md        # Kiến trúc hệ thống toàn diện (9 phần chuẩn hóa)
 │   ├── architecture/          # Kiến trúc Modular Monolith
 │   ├── business-rules/        # Hồ sơ quy tắc nghiệp vụ v1.2
 │   ├── api/                   # Hợp đồng API OpenAPI v1.2
@@ -90,31 +92,39 @@ campus-marketplace/
 ## 3. Bắt đầu phát triển (Quickstart)
 
 ### Điều kiện tiên quyết
+
 - **Node.js:** `v20.20.1` (hoặc bản `20.x` LTS tương thích)
 - **pnpm:** `10.14.0`
 - **PostgreSQL:** Đã cấu hình trên Supabase (hoặc chạy local PostgreSQL)
 
 ### Cài đặt dependencies
+
 ```bash
 pnpm install
 ```
 
 ### Cấu hình biến môi trường
+
 Sao chép `.env.example` sang `.env` ở thư mục gốc và trong các app nếu cần:
+
 ```bash
 cp .env.example .env
 ```
 
 ### Chạy môi trường phát triển (Development)
+
 Chạy đồng thời cả Frontend và Backend:
+
 ```bash
 pnpm dev
 ```
+
 - **Frontend Web:** [http://localhost:5173](http://localhost:5173)
 - **Backend API:** [http://localhost:3000/api/v1](http://localhost:3000/api/v1)
 - **Health Check Endpoint:** [http://localhost:3000/api/v1/health](http://localhost:3000/api/v1/health)
 
 ### Kiểm thử và kiểm tra mã nguồn
+
 ```bash
 # Kiểm tra linting
 pnpm lint
