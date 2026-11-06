@@ -60,12 +60,7 @@ export class ApiError extends Error {
   public code: string;
   public details?: ApiErrorDetail[];
 
-  constructor(
-    message: string,
-    status: number,
-    code: string = 'UNKNOWN_ERROR',
-    details?: ApiErrorDetail[],
-  ) {
+  constructor(message: string, status: number, code: string = 'UNKNOWN_ERROR', details?: ApiErrorDetail[]) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
@@ -75,7 +70,7 @@ export class ApiError extends Error {
 }
 
 export const API_BASE_URL: string =
-  process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api/v1';
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:3000/api/v1';
 
 export class ApiClient {
   private baseUrl: string;
@@ -129,8 +124,7 @@ export class ApiClient {
         (typeof errPayload?.error === 'object' ? errPayload?.error?.code : undefined) ||
         (typeof errPayload?.error === 'string' ? errPayload?.error : undefined) ||
         'REQUEST_FAILED';
-      const details =
-        typeof errPayload?.error === 'object' ? errPayload?.error?.details : undefined;
+      const details = typeof errPayload?.error === 'object' ? errPayload?.error?.details : undefined;
       throw new ApiError(errorMessage, res.status, errorCode, details);
     }
 
@@ -157,10 +151,7 @@ export class ApiClient {
    * Request paginated endpoint and unwrap into { data: T[], meta: PageMeta }.
    * Strictly validates root-level { success: true, data: T[], meta: PageMeta, timestamp: string }.
    */
-  async requestPaginated<T>(
-    endpoint: string,
-    options: RequestInit = {},
-  ): Promise<PaginatedResult<T>> {
+  async requestPaginated<T>(endpoint: string, options: RequestInit = {}): Promise<PaginatedResult<T>> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -192,8 +183,7 @@ export class ApiClient {
         (typeof errPayload?.error === 'object' ? errPayload?.error?.code : undefined) ||
         (typeof errPayload?.error === 'string' ? errPayload?.error : undefined) ||
         'REQUEST_FAILED';
-      const details =
-        typeof errPayload?.error === 'object' ? errPayload?.error?.details : undefined;
+      const details = typeof errPayload?.error === 'object' ? errPayload?.error?.details : undefined;
       throw new ApiError(errorMessage, res.status, errorCode, details);
     }
 

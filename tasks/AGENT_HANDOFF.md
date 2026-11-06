@@ -6,23 +6,67 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Frontend Migration to Next.js 14 (PR #1 - Sẵn sàng Merge)
-- **Cập nhật lần cuối:** 2026-11-06 10:20
+- **Giai đoạn:** Foundation Audit & Review Alignment (PR #1 - Sẵn sàng Merge)
+- **Cập nhật lần cuối:** 2026-11-06 11:35
 - **Người bàn giao:** Senior Backend Architect & Technical Project Manager
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt chính thức 100% giữa tài liệu kiến trúc và mã nguồn thực tế:
-  - Frontend: **Next.js 14+ (App Router)** (`apps/frontend` đã hoàn tất migration và build static pages thành công).
+- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt chính thức 100% theo tệp rà soát chính thức `docs/reviews/Campus_Marketplace_WBS_v0.3_DBML_Review.xlsx` (Decision D11 & D13):
+  - Frontend: **React 18 + Vite 5 (SPA)** (`apps/frontend` chạy với Vite 5, TypeScript, Vitest 19/19 tests PASS, build thành công).
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
   - Backend: **NestJS 10** (Modular Monolith API Gateway).
-  - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js + NestJS Build thành công).
-- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md` và kế hoạch phân rã 4 Sprint 20 Task `tasks/BACKLOG.md`).
+  - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan; không dùng Prisma).
+  - Chat Retention TTL (DB06): Tin nhắn văn bản lưu 3 tháng (90 ngày), tệp đính kèm lưu 1 tháng (30 ngày).
+  - Feed Tiering (D05, D13, DB05): Phân tầng `PendingFeedPage` rút gọn (GUEST/PENDING) và `PostPage` đầy đủ (APPROVED).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Vite + NestJS Build thành công).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md`, kế hoạch 4 Sprint 20 Task `tasks/BACKLOG.md` và tuân thủ tệp review v0.3).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #010: Đồng bộ Toàn diện Kiến trúc, Backlog và Codebase theo Bản Rà soát WBS v0.3 & DBML Review Excel (05/11/2026)
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Tuân thủ Quyết định Công nghệ D11 từ Bản Rà soát:**
+     - Xác nhận quyết định D11: Nhóm đã chốt **React 18 + Vite 5** cho Frontend và **SQL-first `node-postgres (pg)`** cho Backend NestJS với **PostgreSQL trên Supabase**.
+     - Khôi phục và chuẩn hóa `apps/frontend` về chuẩn React 18 + Vite 5 (SPA) sạch sẽ, loại bỏ hoàn toàn các cấu hình tạm thời của Next.js, build Vite hoàn tất trong 561ms, 19/19 Vitest tests PASS.
+  2. **Chuẩn hóa Thời gian Lưu trữ Chat (Chat Retention TTL per DB06 & FR-12):**
+     - Sửa sai lệch trong tài liệu kiến trúc trước đây (từng ghi 90 ngày cho cả hai).
+     - Quy định chuẩn xác: **Tin nhắn văn bản** lưu **3 tháng** (`created_at + interval '3 months'`); **Tệp đính kèm** lưu **1 tháng** (`created_at + interval '1 month'`).
+  3. **Làm rõ Cơ chế Phân tầng Bảng tin (Feed Tiering per D05, D13, DB05):**
+     - Mô tả chi tiết hành vi của `PendingFeedPage` cho GUEST và PENDING: chỉ hiển thị tóm tắt, ẩn số điện thoại, chặn xem trang chi tiết bài đăng và chặn mở chat.
+     - Mô tả `PostPage` cho tài khoản APPROVED: xem chi tiết đầy đủ, mở số điện thoại có kiểm soát qua `PhoneRevealEvent` và nhắn tin trao đổi.
+  4. **Giải trình & Thiết kế Khắc phục 12 Vấn đề Rà soát DBML (DB01–DB12):**
+     - DB01: Thiết kế Partial UNIQUE INDEX `uq_active_report_per_buyer` trên `reports (buyer_id, post_id)` với điều kiện `WHERE status IN ('WAITING_SELLER_RESPONSE', 'UNDER_REVIEW')`.
+     - DB02: Thiết kế Soft-delete / restrict bảo vệ dữ liệu khi xóa bài/người dùng, bảo toàn toàn vẹn `reports` và `audit_logs`.
+     - DB03: Thực thi ràng buộc SQL CHECK thực tế trên CSDL cho `price`, `budget`, `reputation_score`, `size_bytes`.
+     - DB04: Phân tách toàn vẹn tin SELL và BUY_REQUEST ở tầng Service/Transaction.
+     - DB05: Phân quyền đa lớp bằng Guards và bảo vệ dữ liệu cá nhân (ẩn thẻ SV, controlled phone reveal).
+     - DB06: Mốc Retention chat chính xác (text 3 tháng, file 1 tháng).
+     - DB07: Ràng buộc hội thoại duy nhất và `member_low_id < member_high_id`.
+     - DB08: Kiểm soát domain email trường đại học (`@*.edu.vn`) và chuẩn hóa chữ thường.
+     - DB09: Validate danh mục sở thích mảng chuỗi với bảng `categories`.
+     - DB10: Kiểm tra điều kiện tạo report hợp lệ của buyer (tin SELL, có hội thoại/phone reveal, chống trùng).
+     - DB11: Idempotency trừ điểm uy tín theo chu kỳ $K=3$ (`report_cycle_key`) và ghi nhật ký audit.
+     - DB12: Kiểm chứng DDL migration trên clean database.
+  5. **Cập nhật Toàn diện Tài liệu & Backlog:**
+     - Cập nhật `docs/ARCHITECTURE.md` và `ARCHITECTURE.md` bổ sung Mục 10 (Traceability 17 FRs, 5 Epics, 20 Stories, 36 WBS Packages, 6-Week Master Plan, DB01–DB12, D01–D14).
+     - Cập nhật `tasks/BACKLOG.md` gắn WBS, Jira Story và FR Reference cho toàn bộ 20 tasks Backend của 2 kỹ sư.
+     - Cập nhật `AGENTS.md` đồng bộ stack React 18 + Vite 5.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm build`: **PASS** (Vite 5 build 561ms, NestJS build hoàn tất).
+
+---
 
 ### Handoff #009: Chuyển đổi Toàn diện apps/frontend sang Next.js 14+ (App Router) & Chốt CSDL PostgreSQL
 
