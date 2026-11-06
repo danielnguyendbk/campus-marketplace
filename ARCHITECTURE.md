@@ -22,18 +22,41 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 
 ### 1.2. Bảng Công nghệ Lựa chọn (Technology Stack)
 
-| Phân vùng              | Công nghệ lựa chọn               | Phiên bản                         | Vai trò & Lý do lựa chọn                                                                                         |
-| :--------------------- | :------------------------------- | :-------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-| **Monorepo Manager**   | `pnpm workspace`                 | 10.14.0 (Node.js 20.20.1)         | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.             |
-| **Frontend**           | Next.js (App Router)             | Next.js 14+, React 18, TypeScript | Web Client hiện đại kết hợp SSR/SSG (tối ưu SEO tin đăng đồ cũ) và Client Components (Realtime Chat Socket.IO).  |
-| **Backend**            | NestJS                           | 10.4.x, TypeScript Strict         | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.           |
-| **Database Access**    | Node-postgres (`pg`) Pool        | 8.13.x                            | Triết lý **SQL-first** (không dùng ORM nặng), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng. |
-| **Database Engine**    | PostgreSQL (Supabase)            | PostgreSQL 15/17                  | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                   |
-| **Object Storage**     | Cloudflare R2                    | S3-Compatible API                 | Lưu trữ ảnh bài đăng, ảnh thẻ sinh viên mật và tệp đính kèm tin nhắn; hỗ trợ Short-lived Signed URLs.            |
-| **Realtime Engine**    | Socket.IO / WebSocket            | 4.x (`/ws`)                       | Cập nhật tin nhắn tức thì, thông báo hệ thống và tiến trình khiếu nại báo cáo cho người dùng `APPROVED`.         |
-| **API Contract**       | OpenAPI 3.x / Apidog             | OpenAPI 3.0.3 v1.2                | Contract-first: Định nghĩa 49 endpoints, Envelope chuẩn hóa và Schema Validation cho FE/BE.                      |
-| **Kiểm thử (Testing)** | Vitest, RTL, Jest, Supertest     | Mới nhất                          | Unit test, Component test, Backend E2E và Contract Schema regression testing.                                    |
-| **CI/CD & Chất lượng** | GitHub Actions, ESLint, Prettier | TypeScript Strict Mode            | Tự động hóa kiểm tra Lint, Typecheck, Test và Build trên từng Pull Request.                                      |
+| Phân vùng              | Công nghệ lựa chọn                 | Phiên bản                    | Vai trò & Lý do lựa chọn                                                                                                |
+| :--------------------- | :--------------------------------- | :--------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| **Monorepo Manager**   | `pnpm workspace`                   | 10.14.0 (Node.js 20.20.1)    | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.                    |
+| **Frontend**           | React 18 + Vite 5                  | React 18, Vite 5, TypeScript | SPA client hiệu năng cao, HMR siêu tốc, strict typed API client bóc tách response envelope tự động.                     |
+| **Backend**            | NestJS                             | 10.4.x, TypeScript Strict    | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.                  |
+| **Database Access**    | SQL-first với `node-postgres (pg)` | 8.13.x                       | Triết lý **SQL-first** (thay thế Prisma ORM), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng pooler. |
+| **Database Engine**    | PostgreSQL trên Supabase           | PostgreSQL 15/17             | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                          |
+| **Object Storage**     | Cloudflare R2                      | S3-Compatible API            | Lưu trữ ảnh bài đăng, ảnh thẻ sinh viên mật và tệp đính kèm tin nhắn; hỗ trợ Short-lived Signed URLs.                   |
+| **Realtime Engine**    | Socket.IO / WebSocket              | 4.x (`/ws`)                  | Cập nhật tin nhắn tức thì, thông báo hệ thống và tiến trình khiếu nại báo cáo cho người dùng `APPROVED`.                |
+| **API Contract**       | OpenAPI 3.x / Apidog               | OpenAPI 3.0.3 v1.2           | Contract-first: Định nghĩa 49 endpoints, Envelope chuẩn hóa và Schema Validation cho FE/BE.                             |
+| **Kiểm thử (Testing)** | Vitest, RTL, Jest, Supertest       | Mới nhất                     | Unit test, Component test, Backend E2E và Contract Schema regression testing.                                           |
+| **CI/CD & Chất lượng** | GitHub Actions, ESLint, Prettier   | TypeScript Strict Mode       | Tự động hóa kiểm tra Lint, Typecheck, Test và Build trên từng Pull Request.                                             |
+
+---
+
+### 1.3. Một Thay Đổi Công Nghệ Cần Xác Nhận (Architecture Decision Changes)
+
+Bảng đối chiếu giữa định hướng ban đầu của nhóm và **Technical Architecture hiện tại**:
+
+| Ban đầu nhóm chốt | Technical Architecture hiện tại        | Ghi chú & Đánh giá thay đổi                                                                                                                                                   |
+| :---------------- | :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Next.js**       | **React 18 + Vite 5**                  | _(Đáng chú ý)_ Chuyển sang SPA client hiệu năng cao, loại bỏ runtime server SSR phức tạp, tối ưu hóa tốc độ build/HMR và phân tách hoàn toàn Web Client tĩnh với Backend API. |
+| **Prisma**        | **SQL-first với `node-postgres (pg)`** | _(Đáng chú ý)_ Thay thế ORM bằng SQL thuần kiểm soát 100% câu truy vấn, tối ưu Explain Plan trên 18 bảng CSDL v1.2 và tương thích hoàn hảo với Supabase Transaction Pooler.   |
+| **PostgreSQL**    | **PostgreSQL trên Supabase**           | Triển khai CSDL quan hệ PostgreSQL 15/17 trên nền tảng Supabase Cloud, kết nối an toàn qua Transaction Pooler với TLS CA verification bắt buộc.                               |
+| **NestJS**        | **NestJS**                             | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                              |
+
+> [!IMPORTANT]
+> **Hai thay đổi đầu tiên là đáng chú ý:**
+>
+> 1. **Next.js $\to$ React 18 + Vite 5:**
+>    - _Ban đầu:_ Nhóm dự kiến sử dụng Next.js với mục tiêu SSR/SSG.
+>    - _Hiện tại:_ Campus Marketplace là nền tảng thương mại điện tử nội bộ trường đại học, yêu cầu người dùng đăng nhập bằng email trường (`@*.edu.vn`) và xác thực thẻ sinh viên trước khi tham gia giao dịch đầy đủ (BR-01, BR-02), đồng thời tích hợp WebSocket Chat thời gian thực. Mô hình **React 18 + Vite 5 (SPA)** phân tách hoàn toàn tầng Web Client tĩnh với Backend API Gateway, giúp tối ưu chi phí hạ tầng (không cần duy trì Node.js SSR runtime riêng), tăng tốc độ dev/HMR vượt trội và kiểm thử Vitest cực nhanh.
+> 2. **Prisma $\to$ SQL-first với `node-postgres (pg)`:**
+>    - _Ban đầu:_ Nhóm dự kiến dùng Prisma ORM để sinh mã tự động.
+>    - _Hiện tại:_ Prisma gặp hạn chế về binary query engine overhead và cơ chế quản lý connection pool khi kết nối tới Supabase Transaction Pooler (PgBouncer). Chuyển sang **SQL-first với `node-postgres`** giúp các kỹ sư kiểm soát triệt để 100% câu truy vấn SQL thô, tận dụng tối đa chỉ mục và khóa chính/ngoại trên 18 bảng baseline v1.2, đồng thời thực thi nghiêm ngặt chứng chỉ số TLS CA (`rejectUnauthorized: true`).
 
 ---
 
@@ -44,7 +67,7 @@ Hệ thống kết nối chặt chẽ giữa Web Client, Backend API Gateway, C�
 ```mermaid
 flowchart TD
     subgraph ClientLayer ["1. Client Layer"]
-        WebClient["Web Client (Next.js App Router)"]
+        WebClient["Web Client (React 18 + Vite 5 SPA)"]
     end
 
     subgraph GatewayLayer ["2. Application & Gateway Layer (NestJS Modular Monolith)"]
@@ -100,7 +123,7 @@ Dự án áp dụng mô hình **pnpm monorepo workspace** nhằm thống nhất 
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client Next.js 14+ (App Router) / React
+│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client React 18 + Vite 5
 │   │   ├── src/
 │   │   │   ├── app/                   # App bootstrap, Providers, Global Layout
 │   │   │   ├── components/            # Reusable UI components (Buttons, Modals, Inputs)

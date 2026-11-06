@@ -12,7 +12,12 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng Frontend Stack:** Theo đặc tả tài liệu kiến trúc là **Next.js 14+ (App Router)**; mã nguồn hiện tại trong `apps/frontend` đang ở khung khởi tạo React 18 / Vite SPA và sẵn sàng chuyển đổi hoàn toàn sang Next.js App Router.
+- **Tình trạng Kiến trúc & Công nghệ:** Xác nhận đối chiếu bảng thay đổi công nghệ theo `ARCHITECTURE.md`:
+  - Frontend: Ban đầu chốt **Next.js** $\to$ Technical Architecture hiện tại: **React 18 + Vite 5**.
+  - Database Access: Ban đầu chốt **Prisma** $\to$ Technical Architecture hiện tại: **SQL-first với `node-postgres (pg)`**.
+  - Database: Ban đầu chốt **PostgreSQL** $\to$ Technical Architecture hiện tại: **PostgreSQL trên Supabase**.
+  - Backend: **NestJS** (giữ nguyên).
+  - _Hai thay đổi đầu tiên là đáng chú ý và đã được tài liệu hóa chi tiết tại Mục 1.3 của `ARCHITECTURE.md`._
 - **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Build thành công).
 - **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md` và kế hoạch phân rã 4 Sprint 20 Task `tasks/BACKLOG.md`).
 
