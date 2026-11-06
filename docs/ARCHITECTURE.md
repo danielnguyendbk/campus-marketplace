@@ -22,18 +22,18 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 
 ### 1.2. Bảng Công nghệ Lựa chọn (Technology Stack)
 
-| Phân vùng              | Công nghệ lựa chọn               | Phiên bản                    | Vai trò & Lý do lựa chọn                                                                                         |
-| :--------------------- | :------------------------------- | :--------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-| **Monorepo Manager**   | `pnpm workspace`                 | 10.14.0 (Node.js 20.20.1)    | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.             |
-| **Frontend**           | React / Vite (sẵn sàng Next.js)  | React 18, Vite 5, TypeScript | SPA client hiệu năng cao, strict typed API client bóc tách response envelope tự động.                            |
-| **Backend**            | NestJS                           | 10.4.x, TypeScript Strict    | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.           |
-| **Database Access**    | Node-postgres (`pg`) Pool        | 8.13.x                       | Triết lý **SQL-first** (không dùng ORM nặng), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng. |
-| **Database Engine**    | PostgreSQL (Supabase)            | PostgreSQL 15/17             | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                   |
-| **Object Storage**     | Cloudflare R2                    | S3-Compatible API            | Lưu trữ ảnh bài đăng, ảnh thẻ sinh viên mật và tệp đính kèm tin nhắn; hỗ trợ Short-lived Signed URLs.            |
-| **Realtime Engine**    | Socket.IO / WebSocket            | 4.x (`/ws`)                  | Cập nhật tin nhắn tức thì, thông báo hệ thống và tiến trình khiếu nại báo cáo cho người dùng `APPROVED`.         |
-| **API Contract**       | OpenAPI 3.x / Apidog             | OpenAPI 3.0.3 v1.2           | Contract-first: Định nghĩa 49 endpoints, Envelope chuẩn hóa và Schema Validation cho FE/BE.                      |
-| **Kiểm thử (Testing)** | Vitest, RTL, Jest, Supertest     | Mới nhất                     | Unit test, Component test, Backend E2E và Contract Schema regression testing.                                    |
-| **CI/CD & Chất lượng** | GitHub Actions, ESLint, Prettier | TypeScript Strict Mode       | Tự động hóa kiểm tra Lint, Typecheck, Test và Build trên từng Pull Request.                                      |
+| Phân vùng              | Công nghệ lựa chọn               | Phiên bản                         | Vai trò & Lý do lựa chọn                                                                                         |
+| :--------------------- | :------------------------------- | :-------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
+| **Monorepo Manager**   | `pnpm workspace`                 | 10.14.0 (Node.js 20.20.1)         | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.             |
+| **Frontend**           | Next.js (App Router)             | Next.js 14+, React 18, TypeScript | Web Client hiện đại kết hợp SSR/SSG (tối ưu SEO tin đăng đồ cũ) và Client Components (Realtime Chat Socket.IO).  |
+| **Backend**            | NestJS                           | 10.4.x, TypeScript Strict         | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.           |
+| **Database Access**    | Node-postgres (`pg`) Pool        | 8.13.x                            | Triết lý **SQL-first** (không dùng ORM nặng), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng. |
+| **Database Engine**    | PostgreSQL (Supabase)            | PostgreSQL 15/17                  | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                   |
+| **Object Storage**     | Cloudflare R2                    | S3-Compatible API                 | Lưu trữ ảnh bài đăng, ảnh thẻ sinh viên mật và tệp đính kèm tin nhắn; hỗ trợ Short-lived Signed URLs.            |
+| **Realtime Engine**    | Socket.IO / WebSocket            | 4.x (`/ws`)                       | Cập nhật tin nhắn tức thì, thông báo hệ thống và tiến trình khiếu nại báo cáo cho người dùng `APPROVED`.         |
+| **API Contract**       | OpenAPI 3.x / Apidog             | OpenAPI 3.0.3 v1.2                | Contract-first: Định nghĩa 49 endpoints, Envelope chuẩn hóa và Schema Validation cho FE/BE.                      |
+| **Kiểm thử (Testing)** | Vitest, RTL, Jest, Supertest     | Mới nhất                          | Unit test, Component test, Backend E2E và Contract Schema regression testing.                                    |
+| **CI/CD & Chất lượng** | GitHub Actions, ESLint, Prettier | TypeScript Strict Mode            | Tự động hóa kiểm tra Lint, Typecheck, Test và Build trên từng Pull Request.                                      |
 
 ---
 
@@ -44,7 +44,7 @@ Hệ thống kết nối chặt chẽ giữa Web Client, Backend API Gateway, C�
 ```mermaid
 flowchart TD
     subgraph ClientLayer ["1. Client Layer"]
-        WebClient["Web Client (React / Next.js SPA)"]
+        WebClient["Web Client (Next.js App Router)"]
     end
 
     subgraph GatewayLayer ["2. Application & Gateway Layer (NestJS Modular Monolith)"]
@@ -100,7 +100,7 @@ Dự án áp dụng mô hình **pnpm monorepo workspace** nhằm thống nhất 
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client React 18 / Vite
+│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client Next.js 14+ (App Router) / React
 │   │   ├── src/
 │   │   │   ├── app/                   # App bootstrap, Providers, Global Layout
 │   │   │   ├── components/            # Reusable UI components (Buttons, Modals, Inputs)
