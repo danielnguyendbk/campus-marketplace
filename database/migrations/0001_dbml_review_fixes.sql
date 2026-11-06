@@ -36,3 +36,4 @@ ALTER TABLE "posts" ADD COLUMN IF NOT EXISTS "deleted_at" timestamptz DEFAULT NU
 ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamptz DEFAULT NULL;
 
 COMMIT;
+

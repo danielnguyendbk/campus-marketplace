@@ -21,3 +21,4 @@ DROP INDEX IF EXISTS "uq_active_report_per_buyer";
 CREATE INDEX "uq_active_report_per_buyer" ON "reports" ("buyer_id", "post_id", "reason_code");
 
 COMMIT;
+
