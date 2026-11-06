@@ -6,20 +6,47 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & System Architecture Documentation (PR #1 - Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-04 16:35
-- **Người bàn giao:** Senior Backend Engineer & System Architect AI Agent
+- **Giai đoạn:** Foundation Audit & System Architecture Documentation (PR #1 - Sẵn sàng Merge)
+- **Cập nhật lần cuối:** 2026-11-06 09:30
+- **Người bàn giao:** Senior Backend Architect & Technical Project Manager
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
+- **Tình trạng Frontend Stack:** **React 18 + Vite + TypeScript (SPA)**, Client-side routing (`react-router-dom`), Vitest suite. Không phải Next.js.
 - **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Build thành công).
-- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, tests, CI và tài liệu kiến trúc kỹ thuật toàn diện `ARCHITECTURE.md` theo biểu mẫu chuẩn).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md` và kế hoạch phân rã 4 Sprint 20 Task `tasks/BACKLOG.md`).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
 
+### Handoff #008: Đồng bộ Backlog 4 Sprint 20 Task Backend & Xác thực Frontend Stack
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Đồng bộ Kế hoạch Phân rã Công việc Backend 2 Người vào Backlog (`tasks/BACKLOG.md`):**
+     - Thiết kế lộ trình 4 Sprints (8 tuần) với 20 nhiệm vụ kỹ thuật độc lập:
+       - **BE-01 (Backend Tech Lead):** `BE-01-T01` (Email OTP), `BE-01-T02` (Register & Login JWT), `BE-01-T03` (Guards & RBAC), `BE-01-T04` (Profile & Preferences), `BE-01-T05` (Phone Reveal Privacy), `BE-01-T06` (Conversations CRUD), `BE-01-T07` (Messages & Attachments), `BE-01-T08` (Socket.IO Gateway & Handshake Auth), `BE-01-T09` (Realtime Event Stream Broadcaster), `BE-01-T10` (Rate Limiting, Log Sanitizer, File Cleanup).
+       - **BE-02 (Backend Developer):** `BE-02-T01` (Evidence Submit), `BE-02-T02` (Admin Verify Approval), `BE-02-T03` (Categories & Seed), `BE-02-T04` (Post CRUD SELL/BUY), `BE-02-T05` (Post Lifecycle State), `BE-02-T06` (Post Images R2), `BE-02-T07` (Tiered Feed & Matching), `BE-02-T08` (Report 6-State Engine), `BE-02-T09` (Reputation Event Engine K=3), `BE-02-T10` (Admin Governance, Audit Logs & System Configs).
+     - Thiết lập Shared Kernel (Giao diện chốt trước trong Sprint 1: `AuthenticatedUser`, Stub Guards, `IStorageService`, `IRealtimeService`) giúp 2 kỹ sư triển khai song song 100% không bị chặn (non-blocking).
+     - Quy chuẩn hóa Gitflow, PR Protocol (Tech Lead review chính), tiêu chuẩn DoD và GitHub Labels.
+  2. **Xác thực Kiến trúc Frontend Stack:**
+     - Kiểm chứng trực tiếp codebase `apps/frontend/package.json`: Ứng dụng client là **React 18 + Vite (SPA)**, Client-side routing với `react-router-dom`, unit testing với `vitest` và `@testing-library/react`. **Không phải Next.js**.
+     - Làm rõ mối quan hệ giữa form phác thảo kiến trúc tham khảo và codebase thực tế trong monorepo.
+  3. **Chuẩn hóa Định dạng Tài liệu Kiến trúc (`docs/ARCHITECTURE.md`):**
+     - Đảm bảo tài liệu kiến trúc 9 phần đã đồng bộ hoàn chỉnh và tuân thủ các quy tắc format của repo.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm build`: **PASS** (Toàn bộ workspace build thành công).
+
 ### Handoff #007: Khởi tạo Tài liệu Kiến trúc Hệ thống Toàn diện (ARCHITECTURE.md)
+
 - **Ngày:** 2026-11-04
 - **Người thực hiện:** Senior Backend Engineer & System Architect
 - **Branch:** `fix/be-foundation-audit` (PR #1)
@@ -50,6 +77,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Lịch sử bàn giao (Handoff Log)
 
 ### Handoff #006: Chuẩn hóa Success Envelope Toàn diện (OpenAPI Contract Phương án 1 & Root-level Pagination)
+
 - **Ngày:** 2026-11-03
 - **Người thực hiện:** Senior Backend Engineer & API Contract Reviewer
 - **Branch:** `fix/be-foundation-audit` (PR #1)
@@ -84,6 +112,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Lịch sử bàn giao (Handoff Log)
 
 ### Handoff #005: Khắc phục Triệt để Schema ErrorEnvelope (additionalProperties: false) & An toàn Lỗi 500
+
 - **Ngày:** 2026-11-03
 - **Người thực hiện:** Senior Backend Engineer & API Contract Reviewer
 - **Branch:** `fix/be-foundation-audit` (PR #1)
@@ -98,9 +127,9 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
      - Không trả stack trace, database credentials, SQL query hoặc thông tin nội bộ trong response.
      - Tích hợp hàm `sanitizeLogMessage` tự động lọc và làm sạch (redact) mật khẩu, chuỗi kết nối database (`postgresql://...`), bearer tokens và secrets trước khi ghi vào server logs.
      - Bổ sung regression tests trong `apps/backend/src/common/filters/http-exception.filter.spec.ts` và `apps/backend/test/error-envelope.e2e-spec.ts` mô phỏng:
-       + `InternalServerErrorException` chứa câu lệnh SQL và mật khẩu.
-       + Lỗi kết nối PostgreSQL chứa URL và mật khẩu database.
-       + Lỗi runtime `TypeError` chứa tên biến nhạy cảm và stack trace.
+       - `InternalServerErrorException` chứa câu lệnh SQL và mật khẩu.
+       - Lỗi kết nối PostgreSQL chứa URL và mật khẩu database.
+       - Lỗi runtime `TypeError` chứa tên biến nhạy cảm và stack trace.
   3. **Đối chiếu Success Envelope & Đề xuất Chuẩn hóa OpenAPI:**
      - Thực hiện audit toàn bộ 48 operations 2xx trong OpenAPI v1.2.
      - Phát hiện 26 schema response mang thuộc tính `{ data }` và `additionalProperties: false` nhưng thiếu `{ success, timestamp }`.
@@ -115,6 +144,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - `pnpm build`: **PASS** (Frontend và Backend biên dịch thành công).
 
 ### Handoff #004: Tinh chỉnh Toàn diện & Đồng bộ Nghiệp vụ PR #1
+
 - **Ngày:** 2026-11-03
 - **Người thực hiện:** Senior Backend Engineer & Software QA Specialist
 - **Branch:** `fix/be-foundation-audit` (PR #1)
@@ -149,6 +179,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Lịch sử bàn giao (Handoff Log)
 
 ### Handoff #003: Hoàn tất Foundation Audit & Đồng bộ Frontend-Backend (Giai đoạn 2)
+
 - **Ngày:** 2026-11-03
 - **Người thực hiện:** Senior Backend Engineer & Software Architect Agent
 - **Branch:** `fix/be-foundation-audit`
@@ -179,6 +210,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ### Handoff #002: Kết nối & Kiểm chứng CSDL Supabase
+
 - **Ngày:** 2026-11-01
 - **Người thực hiện:** Tech Lead Agent
 - **Nội dung đã hoàn thành:**
@@ -194,6 +226,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ### Handoff #001: Hoàn tất Bootstrap Monorepo (Phase 0)
+
 - **Ngày:** 2026-11-01
 - **Người thực hiện:** Senior Architect & Tech Lead Agent
 - **Công việc đã thực hiện:**
