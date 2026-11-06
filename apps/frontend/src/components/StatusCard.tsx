@@ -7,19 +7,12 @@ interface StatusCardProps {
   details?: Record<string, string | number | boolean>;
 }
 
-export const StatusCard: React.FC<StatusCardProps> = ({
-  title,
-  status,
-  description,
-  details,
-}) => {
+export const StatusCard: React.FC<StatusCardProps> = ({ title, status, description, details }) => {
   return (
     <div className={`status-card status-${status}`}>
       <div className="card-header">
         <h3 className="card-title">{title}</h3>
-        <span className={`badge badge-${status}`}>
-          {status.toUpperCase()}
-        </span>
+        <span className={`badge badge-${status}`}>{status.toUpperCase()}</span>
       </div>
       <p className="card-description">{description}</p>
       {details && (

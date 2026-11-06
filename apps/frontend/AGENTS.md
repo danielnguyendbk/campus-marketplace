@@ -14,7 +14,7 @@ Tài liệu này là quy chuẩn bắt buộc dành cho mọi AI Agent và kỹ 
 2. **Sử dụng Typed API Client:**
    - Mọi request HTTP phải thông qua service layer tập trung (`src/services/api.ts`).
    - Khai báo rõ ràng Interface cho Request parameters, Request Body và Response Data.
-   - Tuyệt đối không hard-code URL backend trong component; sử dụng biến môi trường `VITE_API_BASE_URL`.
+   - Tuyệt đối không hard-code URL backend trong component; sử dụng biến môi trường `NEXT_PUBLIC_API_BASE_URL`.
 
 3. **Cơ chế Mock API:**
    - Khi Backend chưa hoàn thành endpoint nghiệp vụ tương ứng, Frontend Agent được phép sử dụng Mock Server của Apidog hoặc mock data adapter nội bộ có cấu trúc khớp 100% với schema OpenAPI.
@@ -28,6 +28,7 @@ Tài liệu này là quy chuẩn bắt buộc dành cho mọi AI Agent và kỹ 
 ## 2. Tiêu chuẩn trải nghiệm người dùng (UX States)
 
 Mọi màn hình hoặc component gọi API **bắt buộc** phải xử lý trọn vẹn 5 trạng thái:
+
 1. **Loading State:** Hiển thị skeleton / spinner chỉ báo trong lúc tải dữ liệu.
 2. **Empty State:** Hiển thị hình ảnh hoặc thông báo thân thiện khi không có dữ liệu (ví dụ: "Chưa có bài đăng nào trong danh mục này").
 3. **Error State:** Bắt lỗi mạng hoặc lỗi 5xx từ server và hiển thị thông báo lỗi rõ ràng cho người dùng kèm nút thử lại (Retry).

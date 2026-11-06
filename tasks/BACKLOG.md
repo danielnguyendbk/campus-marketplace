@@ -36,7 +36,7 @@ Toàn bộ hệ thống Backend được phân rã theo **Vertical Slice Archite
 - [x] **BOOTSTRAP-03:** Đồng bộ OpenAPI 3.x contract v1.2 (49 endpoints) vào `packages/api-contract/openapi.yaml`.
 - [x] **BOOTSTRAP-04:** Thiết lập quy chế AI Agent (`AGENTS.md` ở Root, Frontend, Backend, Database).
 - [x] **BOOTSTRAP-05:** Cấu hình CI/CD GitHub Actions kiểm tra Lint, Test, Typecheck, Build.
-- [x] **BOOTSTRAP-06:** Khởi tạo và hoàn tất ứng dụng Frontend React 18 + Vite 5 (SPA) + TypeScript chạy được kèm Vitest suites (chốt theo Decision D11 trong tài liệu review kiến trúc).
+- [x] **BOOTSTRAP-06:** Khởi tạo và hoàn tất ứng dụng Frontend Next.js 14+ (App Router) + React 18 + TypeScript chạy được kèm Vitest suites (chốt theo quyết định công nghệ của nhóm).
 - [x] **BOOTSTRAP-07:** Khởi tạo ứng dụng Backend NestJS 10 + TypeScript với `GET /health` và SQL-first PostgreSQL pool layer.
 - [x] **BOOTSTRAP-08:** Chuẩn hóa Success Envelope `{ success: true, data, [meta], timestamp }` và Error Envelope theo OpenAPI v1.2 (`additionalProperties: false`).
 - [x] **BOOTSTRAP-09:** Cơ chế an toàn lỗi HTTP 500 (`INTERNAL_SERVER_ERROR`), giấu stack trace và sanitize log nhạy cảm.

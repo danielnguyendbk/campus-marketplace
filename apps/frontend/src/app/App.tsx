@@ -1,6 +1,6 @@
 import React from 'react';
 import './App.css';
-import { HomePage } from '../pages/HomePage';
+import { HomePage } from '../components/HomePage';
 
 export const App: React.FC = () => {
   return <HomePage />;

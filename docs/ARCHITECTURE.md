@@ -25,7 +25,7 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 | Phân vùng              | Công nghệ lựa chọn                 | Phiên bản                                | Vai trò & Lý do lựa chọn                                                                                                |
 | :--------------------- | :--------------------------------- | :--------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
 | **Monorepo Manager**   | `pnpm workspace`                   | 10.14.0 (Node.js 20.20.1)                | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.                    |
-| **Frontend**           | React 18 + Vite 5 (SPA)            | React 18.3.x, Vite 5.4.x, TypeScript     | Web Client SPA hiện đại, build siêu tốc với Vite 5, tối ưu giao diện tương tác và tích hợp Realtime Chat Socket.IO.      |
+| **Frontend**           | Next.js (App Router)               | Next.js 14+, React 18, TypeScript        | Web Client hiện đại kết hợp SSR/SSG (tối ưu SEO tin đăng đồ cũ) và Client Components (Realtime Chat Socket.IO).         |
 | **Backend**            | NestJS                             | 10.4.x, TypeScript Strict                | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.                  |
 | **Database Access**    | SQL-first với `node-postgres (pg)` | 8.13.x                                   | Triết lý **SQL-first** (thay thế Prisma ORM), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng pooler. |
 | **Database Engine**    | PostgreSQL trên Supabase           | PostgreSQL 15/17                         | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                          |
@@ -37,22 +37,22 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 
 ---
 
-### 1.3. Xác Nhận Thay Đổi Công Nghệ Cốt Lõi (Architecture Decisions Confirmation — D11)
+### 1.3. Xác Nhận Lựa Chọn Công Nghệ Cốt Lõi (Core Technology Stack Confirmation — Next.js & PostgreSQL)
 
-Dựa trên tài liệu rà soát kiến trúc chính thức (`Campus_Marketplace_WBS_v0.3_DBML_Review.xlsx`, Sheet `Quyet_dinh_mo` Decision **D11**), nhóm thống nhất xác nhận bảng đối chiếu công nghệ như sau:
+Theo quyết định kỹ thuật chính thức từ Tech Lead, các công nghệ cốt lõi của dự án **Campus Marketplace** được chốt như sau:
 
-| Thành phần cốt lõi  | Ban đầu nhóm chốt (Đề xuất ban đầu) | Technical Architecture hiện tại (ĐÃ CHỐT CHÍNH THỨC) | Lý do & Quyết định kiến trúc (Decision D11 & ADRs)                                                                                                                                                                          |
-| :------------------ | :---------------------------------- | :--------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**        | Next.js                             | **React 18 + Vite 5**                                | **Chốt theo D11:** Tối ưu hóa tính gọn nhẹ của ứng dụng SPA sinh viên, build siêu tốc bằng Vite 5/esbuild, loại bỏ độ phức tạp SSR server runtime khi duy trì kết nối WebSocket Socket.IO `/ws` và API Envelope NestJS.    |
-| **Database Access** | Prisma                              | **SQL-first với `node-postgres (pg)`**               | **Chốt theo D11:** Kiểm soát 100% câu truy vấn SQL thô, tối ưu Explain Plan và chỉ mục trên 18 bảng CSDL v1.2, loại bỏ overhead binary engine của Prisma và tương thích hoàn hảo với PgBouncer Transaction Pooler.         |
-| **Database**        | PostgreSQL                          | **PostgreSQL trên Supabase**                         | Hệ quản trị cơ sở dữ liệu quan hệ chuẩn ACID, lưu trữ toàn vẹn 18 bảng nghiệp vụ v1.2, vận hành trên Supabase Cloud với PgBouncer Pooler và thực thi bắt buộc xác thực TLS CA certificate (`rejectUnauthorized: true`).   |
-| **Backend**         | NestJS                              | **NestJS 10**                                        | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                                                                           |
+| Thành phần cốt lõi  | Công nghệ chốt chính thức              | Lý do & Định hướng kiến trúc                                                                                                                                                                                                                                                                                                  |
+| :------------------ | :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**        | **Next.js 14+ (App Router)**           | **Chốt sử dụng Next.js**: Hỗ trợ Server-Side Rendering (SSR) & Static Generation (SSG/ISR) giúp tối ưu SEO cho các bài đăng sản phẩm sinh viên (`/posts/[id]`), tự động tạo OpenGraph Preview khi chia sẻ bài đăng qua mạng xã hội, kết hợp Client Components cho Realtime Chat Socket.IO (`/ws`) và bảo vệ dữ liệu nhạy cảm. |
+| **Database**        | **PostgreSQL trên Supabase**           | **Chốt sử dụng PostgreSQL**: Hệ quản trị cơ sở dữ liệu quan hệ chuẩn ACID, lưu trữ toàn vẹn 18 bảng nghiệp vụ v1.2, vận hành trên Supabase Cloud với Transaction Pooler (PgBouncer) và thực thi bắt buộc xác thực TLS CA certificate (`rejectUnauthorized: true`).                                                           |
+| **Backend**         | **NestJS 10**                          | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                                                                                                                                                                              |
+| **Database Access** | **SQL-first với `node-postgres (pg)`** | Sử dụng SQL-first thay vì Prisma ORM để kiểm soát 100% câu truy vấn SQL thô, tối ưu Explain Plan, chỉ mục trên 18 bảng CSDL v1.2, loại bỏ overhead binary engine và tương thích hoàn hảo với Supabase Transaction Pooler.                                                                                                     |
 
 > [!IMPORTANT]
-> **Ghi chú Hai Thay Đổi Đáng Chú Ý:**
+> **Xác nhận Kiến trúc Cốt lõi (Next.js & PostgreSQL):**
 >
-> 1. **React 18 + Vite 5 thay cho Next.js (D11):** Web Client vận hành dưới dạng Single Page Application (SPA) với React 18, Vite 5, TypeScript và Vitest. Toàn bộ routing do client đảm nhiệm (`react-router-dom`), phân định rõ trang xem tin giới hạn (`PendingFeedPage`) và trang đầy đủ (`PostPage`).
-> 2. **SQL-first `node-postgres` thay cho Prisma ORM (D11):** Backend NestJS sử dụng connection pool trực tiếp, thực thi các truy vấn SQL tường minh, bảo đảm toàn vẹn ràng buộc CHECK, FOREIGN KEY và các chỉ mục nghiệp vụ (DB01–DB12).
+> 1. **Next.js là Web Client chính thức:** Đối với sàn thương mại điện tử sinh viên nội bộ, khả năng tìm kiếm và hiển thị xem trước bài đăng (SEO / Social Preview) là cực kỳ quan trọng. Do đó nhóm chốt sử dụng **Next.js 14+ App Router** (`apps/frontend`).
+> 2. **PostgreSQL là CSDL quan hệ chuẩn:** Toàn bộ 18 bảng nghiệp vụ v1.2 (người dùng, bài đăng, hội thoại, báo cáo khiếu nại, điểm uy tín) được thiết kế và vận hành trên **PostgreSQL 15/17 trên Supabase**.
 
 ---
 
@@ -63,7 +63,7 @@ Hệ thống kết nối chặt chẽ giữa Web Client, Backend API Gateway, C�
 ```mermaid
 flowchart TD
     subgraph ClientLayer ["1. Client Layer"]
-        WebClient["Web Client (React 18 + Vite 5 SPA)"]
+        WebClient["Web Client (Next.js 14+ App Router)"]
     end
 
     subgraph GatewayLayer ["2. Application & Gateway Layer (NestJS Modular Monolith)"]
@@ -119,17 +119,16 @@ Dự án áp dụng mô hình **pnpm monorepo workspace** nhằm thống nhất 
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client React 18 + Vite 5 (SPA)
+│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client Next.js 14+ (App Router)
 │   │   ├── src/
-│   │   │   ├── app/                   # App bootstrap, Providers, Global Layout
+│   │   │   ├── app/                   # Next.js App Router (layout.tsx, page.tsx, Providers)
 │   │   │   ├── components/            # Reusable UI components (Buttons, Modals, Inputs)
 │   │   │   ├── features/              # Feature modules (auth, posts, chat, verification)
 │   │   │   ├── hooks/                 # Custom React hooks (useApiHealth, useAuth)
-│   │   │   ├── pages/                 # Màn hình trang (HomePage, PostDetailPage, etc.)
 │   │   │   ├── services/              # ApiClient (Strict Envelope unwrapping, requestPaginated)
 │   │   │   └── test/                  # Vitest suites & Component tests
 │   │   ├── package.json
-│   │   └── vite.config.ts
+│   │   └── next.config.mjs
 │   │
 │   └── backend/                       # @campus/backend — NestJS Modular Monolith API Gateway
 │       ├── src/
