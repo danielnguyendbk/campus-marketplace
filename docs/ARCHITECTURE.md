@@ -25,7 +25,7 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 | Phân vùng              | Công nghệ lựa chọn                 | Phiên bản                                | Vai trò & Lý do lựa chọn                                                                                                |
 | :--------------------- | :--------------------------------- | :--------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
 | **Monorepo Manager**   | `pnpm workspace`                   | 10.14.0 (Node.js 20.20.1)                | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.                    |
-| **Frontend**           | Next.js (App Router)               | Next.js 14+, React 18, TypeScript        | Web Client hiện đại kết hợp SSR/SSG (tối ưu SEO tin đăng đồ cũ) và Client Components (Realtime Chat Socket.IO).         |
+| **Frontend**           | React 18 + Vite 5 (SPA)            | React 18.3.x, Vite 5.4.x, TypeScript     | Web Client SPA hiện đại, build siêu tốc với Vite 5 (606ms), tối ưu giao diện tương tác và tích hợp Realtime Chat Socket.IO. |
 | **Backend**            | NestJS                             | 10.4.x, TypeScript Strict                | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.                  |
 | **Database Access**    | SQL-first với `node-postgres (pg)` | 8.13.x                                   | Triết lý **SQL-first** (thay thế Prisma ORM), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng pooler. |
 | **Database Engine**    | PostgreSQL trên Supabase           | PostgreSQL 15/17                         | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                          |
@@ -37,22 +37,22 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 
 ---
 
-### 1.3. Xác Nhận Lựa Chọn Công Nghệ Cốt Lõi (Core Technology Stack Confirmation — Next.js & PostgreSQL)
+### 1.3. Xác Nhận Lựa Chọn Công Nghệ Cốt Lõi (Core Technology Stack Confirmation — Quyết định D11)
 
-Theo quyết định kỹ thuật chính thức từ Tech Lead, các công nghệ cốt lõi của dự án **Campus Marketplace** được chốt như sau:
+Dựa trên quyết định chính thức đã xác nhận của nhóm (Decision **D11** trong tệp rà soát kiến trúc), công nghệ cốt lõi của toàn hệ thống được chốt và thống nhất đồng bộ 100%:
 
-| Thành phần cốt lõi  | Công nghệ chốt chính thức              | Lý do & Định hướng kiến trúc                                                                                                                                                                                                                                                                                                  |
-| :------------------ | :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**        | **Next.js 14+ (App Router)**           | **Chốt sử dụng Next.js**: Hỗ trợ Server-Side Rendering (SSR) & Static Generation (SSG/ISR) giúp tối ưu SEO cho các bài đăng sản phẩm sinh viên (`/posts/[id]`), tự động tạo OpenGraph Preview khi chia sẻ bài đăng qua mạng xã hội, kết hợp Client Components cho Realtime Chat Socket.IO (`/ws`) và bảo vệ dữ liệu nhạy cảm. |
-| **Database**        | **PostgreSQL trên Supabase**           | **Chốt sử dụng PostgreSQL**: Hệ quản trị cơ sở dữ liệu quan hệ chuẩn ACID, lưu trữ toàn vẹn 18 bảng nghiệp vụ v1.2, vận hành trên Supabase Cloud với Transaction Pooler (PgBouncer) và thực thi bắt buộc xác thực TLS CA certificate (`rejectUnauthorized: true`).                                                           |
-| **Backend**         | **NestJS 10**                          | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                                                                                                                                                                              |
-| **Database Access** | **SQL-first với `node-postgres (pg)`** | Sử dụng SQL-first thay vì Prisma ORM để kiểm soát 100% câu truy vấn SQL thô, tối ưu Explain Plan, chỉ mục trên 18 bảng CSDL v1.2, loại bỏ overhead binary engine và tương thích hoàn hảo với Supabase Transaction Pooler.                                                                                                     |
+| Thành phần cốt lõi  | Ban đầu nhóm chốt (Đề xuất ban đầu) | Technical Architecture hiện tại (ĐÃ CHỐT CHÍNH THỨC) | Lý do & Quyết định kiến trúc (Decision D11 & ADRs)                                                                                                                                                                          |
+| :------------------ | :---------------------------------- | :--------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**        | Next.js                             | **React 18 + Vite 5 (SPA)**                          | **Chốt theo D11:** Tối ưu hóa tính gọn nhẹ của ứng dụng SPA sinh viên, build siêu tốc bằng Vite 5/esbuild (606ms), loại bỏ độ phức tạp SSR server runtime khi duy trì kết nối WebSocket Socket.IO `/ws` và API Envelope NestJS.    |
+| **Database Access** | Prisma                              | **SQL-first với `node-postgres (pg)`**               | **Chốt theo D11:** Kiểm soát 100% câu truy vấn SQL thô, tối ưu Explain Plan và chỉ mục trên 18 bảng CSDL v1.2, loại bỏ overhead binary engine của Prisma và tương thích hoàn hảo với PgBouncer Transaction Pooler.         |
+| **Database**        | PostgreSQL                          | **PostgreSQL trên Supabase**                         | Hệ quản trị cơ sở dữ liệu quan hệ chuẩn ACID, lưu trữ toàn vẹn 18 bảng nghiệp vụ v1.2, vận hành trên Supabase Cloud với PgBouncer Pooler và thực thi bắt buộc xác thực TLS CA certificate (`rejectUnauthorized: true`).   |
+| **Backend**         | NestJS                              | **NestJS 10**                                        | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                                                                           |
 
 > [!IMPORTANT]
-> **Xác nhận Kiến trúc Cốt lõi (Next.js & PostgreSQL):**
+> **Xác nhận Kiến trúc Cốt lõi (React 18 + Vite 5 & PostgreSQL trên Supabase):**
 >
-> 1. **Next.js là Web Client chính thức:** Đối với sàn thương mại điện tử sinh viên nội bộ, khả năng tìm kiếm và hiển thị xem trước bài đăng (SEO / Social Preview) là cực kỳ quan trọng. Do đó nhóm chốt sử dụng **Next.js 14+ App Router** (`apps/frontend`).
-> 2. **PostgreSQL là CSDL quan hệ chuẩn:** Toàn bộ 18 bảng nghiệp vụ v1.2 (người dùng, bài đăng, hội thoại, báo cáo khiếu nại, điểm uy tín) được thiết kế và vận hành trên **PostgreSQL 15/17 trên Supabase**.
+> 1. **React 18 + Vite 5 là Web Client chính thức (D11):** Web Client vận hành dưới dạng Single Page Application (SPA) với React 18, Vite 5, TypeScript và Vitest. Toàn bộ routing do client đảm nhiệm (`react-router-dom`), phân định rõ trang xem tin giới hạn (`PendingFeedPage` cho PENDING) và trang đầy đủ (`PostPage` cho APPROVED). Không sử dụng Next.js.
+> 2. **PostgreSQL là CSDL quan hệ chuẩn:** Toàn bộ 18 bảng nghiệp vụ v1.2 (người dùng, bài đăng, hội thoại, báo cáo khiếu nại, điểm uy tín) được thiết kế và vận hành trên **PostgreSQL 15/17 trên Supabase** với PgBouncer Pooler và kết nối TLS bắt buộc (`rejectUnauthorized: true`).
 
 ---
 
@@ -63,7 +63,7 @@ Hệ thống kết nối chặt chẽ giữa Web Client, Backend API Gateway, C�
 ```mermaid
 flowchart TD
     subgraph ClientLayer ["1. Client Layer"]
-        WebClient["Web Client (Next.js 14+ App Router)"]
+        WebClient["Web Client (React 18 + Vite 5 SPA)"]
     end
 
     subgraph GatewayLayer ["2. Application & Gateway Layer (NestJS Modular Monolith)"]
@@ -119,16 +119,17 @@ Dự án áp dụng mô hình **pnpm monorepo workspace** nhằm thống nhất 
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client Next.js 14+ (App Router)
+│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client React 18 + Vite 5 (SPA)
 │   │   ├── src/
-│   │   │   ├── app/                   # Next.js App Router (layout.tsx, page.tsx, Providers)
+│   │   │   ├── app/                   # App bootstrap, Providers, App.tsx, main.tsx
 │   │   │   ├── components/            # Reusable UI components (Buttons, Modals, Inputs)
 │   │   │   ├── features/              # Feature modules (auth, posts, chat, verification)
 │   │   │   ├── hooks/                 # Custom React hooks (useApiHealth, useAuth)
+│   │   │   ├── pages/                 # Màn hình trang (HomePage, PostDetailPage, etc.)
 │   │   │   ├── services/              # ApiClient (Strict Envelope unwrapping, requestPaginated)
 │   │   │   └── test/                  # Vitest suites & Component tests
 │   │   ├── package.json
-│   │   └── next.config.mjs
+│   │   └── vite.config.ts
 │   │
 │   └── backend/                       # @campus/backend — NestJS Modular Monolith API Gateway
 │       ├── src/
@@ -456,7 +457,7 @@ Quyền hạn trong hệ thống được kiểm soát nghiêm ngặt theo vai t
 
 | Nhóm chức năng / Endpoint                     | GUEST (Chưa login) |    PENDING (Chờ duyệt thẻ)     |  APPROVED (Đã duyệt)  | ADMIN (Quản trị viên) |
 | :-------------------------------------------- | :----------------: | :----------------------------: | :-------------------: | :-------------------: |
-| **Xem bảng tin công khai (`GET /feed`)**      |      Giới hạn      | Có (`PendingFeedPage` rút gọn) | Có (Feed cá nhân hóa) |      Toàn quyền       |
+| **Xem bảng tin (`GET /feed`)**                |   ❌ **Chặn (401)** | Có (`PendingFeedPage` rút gọn) | Có (Feed cá nhân hóa) |      Toàn quyền       |
 | **Xem chi tiết bài đăng (`GET /posts/{id}`)** |   ❌ Chặn (401)    |       ❌ **Chặn (403)**        |      ✅ Cho phép      |      ✅ Cho phép      |
 | **Mở xem số điện thoại người bán**            |   ❌ Chặn (401)    |         ❌ Chặn (403)          |  ✅ Cho phép (BR-08)  |      ✅ Cho phép      |
 | **Đăng tin (`SELL` / `BUY_REQUEST`)**         |   ❌ Chặn (401)    |         ❌ Chặn (403)          |      ✅ Cho phép      |      ✅ Cho phép      |
@@ -466,15 +467,19 @@ Quyền hạn trong hệ thống được kiểm soát nghiêm ngặt theo vai t
 | **Quản trị người dùng & Phân xử báo cáo**     |   ❌ Chặn (401)    |         ❌ Chặn (403)          |     ❌ Chặn (403)     |   ✅ **CHỈ ADMIN**    |
 
 > [!NOTE]
-> **Phân tầng Hiển thị Bảng tin (Feed Tiering per D05, D13 & DB05):**
+> **Phân tầng Hiển thị Bảng tin & Quyền Hạn (Feed Tiering per D05, D13 & DB05):**
 >
-> 1. **Chế độ Giới hạn (`PendingFeedPage` dành cho GUEST và PENDING):**
+> 1. **GUEST (Chưa đăng nhập):**
+>    - **Tuyệt đối KHÔNG được xem bảng tin** (`GET /feed` yêu cầu JWT token hợp lệ, trả về **HTTP 401 Unauthorized** nếu chưa xác thực danh tính sinh viên).
+>    - Bắt buộc phải đăng nhập hoặc đăng ký tài khoản email trường đại học (`@*.edu.vn`) để vào hệ thống.
+> 2. **Chế độ Giới hạn (`PendingFeedPage` dành riêng cho tài khoản PENDING):**
+>    - Dành cho sinh viên đã đăng ký tài khoản nhưng đang chờ Admin phê duyệt minh chứng thẻ sinh viên.
 >    - Chỉ trả về danh sách tóm tắt gồm: tiêu đề tin, giá bán/ngân sách, phân loại danh mục và ảnh đại diện sản phẩm (thumbnail công khai).
->    - **Ẩn toàn bộ thông tin liên hệ của người bán:** Không hiển thị số điện thoại, không có liên kết mở chat, không cho phép click vào trang chi tiết (`PostPage` bị khóa hoặc chuyển hướng yêu cầu hoàn tất xác minh thẻ sinh viên).
->    - Ngăn chặn triệt để hành vi thu thập thông tin người dùng (scraping) từ tài khoản chưa được xác minh.
-> 2. **Chế độ Đầy đủ (`PostPage` dành cho APPROVED):**
->    - Xem đầy đủ mô tả chi tiết, album ảnh độ phân giải cao, thông tin người bán và điểm uy tín (`reputation_score`).
->    - Có nút "Xem số điện thoại" (ghi nhận sự kiện `phone_reveal_events` theo BR-08) và nút "Nhắn tin" mở hội thoại realtime.
+>    - **Ẩn toàn bộ thông tin liên hệ của người bán:** Không hiển thị số điện thoại, không có liên kết mở chat, không cho phép click vào trang chi tiết (`PostPage` bị chặn **HTTP 403 Forbidden** hoặc chuyển hướng yêu cầu hoàn tất xác minh thẻ sinh viên).
+>    - Ngăn chặn triệt để hành vi thu thập dữ liệu (scraping) và bảo vệ an toàn thông tin sinh viên nội bộ.
+> 3. **Chế độ Đầy đủ (`PostPage` dành cho tài khoản APPROVED):**
+>    - Xem đầy đủ mô tả chi tiết bài đăng, album ảnh độ phân giải cao, thông tin người bán và điểm uy tín (`reputation_score`).
+>    - Có nút "Xem số điện thoại" (ghi nhận sự kiện `phone_reveal_events` theo BR-08) và nút "Nhắn tin" mở hội thoại realtime qua WebSocket (`/ws`).
 
 ### 8.2. Các Chỉ thị An toàn Bảo mật Tối cao (Security Directives)
 
@@ -564,7 +569,7 @@ Dựa trên tài liệu rà soát kiến trúc chính thức: `docs/reviews/Camp
 | **FR-01** | Đăng ký email trường qua OTP | Must | CMP-1 | CMP-6 | 4.1.1 | Kiểm tra domain email trường đại học (`@*.edu.vn`), OTP lưu hash SHA-256, hạn 10 phút, cấp OTP ticket. |
 | **FR-02** | Hồ sơ sinh viên và minh chứng | Must | CMP-1 | CMP-7 | 4.1.2 | Nộp ảnh thẻ sinh viên (`card_image_ref`), lưu Private R2, ẩn tuyệt đối khỏi giao diện sinh viên (BR-03). |
 | **FR-03** | Admin xét duyệt xác minh | Must | CMP-1 | CMP-8, CMP-18 | 4.1.3 | Admin xem danh sách chờ duyệt, signed URL ngắn hạn xem ảnh thẻ, duyệt (`APPROVED`) hoặc từ chối (`REJECTED`). |
-| **FR-04** | Chặn chức năng Marketplace với PENDING | Must | CMP-1, CMP-3 | CMP-12, CMP-18 | 4.1.3, 4.2.3 | Tài khoản PENDING/GUEST chỉ xem bảng tin rút gọn (`PendingFeedPage`), chặn đăng tin, xem SĐT, chat, tạo report. |
+| **FR-04** | Khóa quyền Marketplace với GUEST & PENDING | Must | CMP-1, CMP-3 | CMP-12, CMP-18 | 4.1.3, 4.2.3 | GUEST bị chặn 401 toàn bộ feed; tài khoản PENDING chỉ xem bảng tin rút gọn (`PendingFeedPage`), chặn đăng tin, xem SĐT, chat, tạo report. |
 | **FR-05** | Profile và cấu hình sở thích | Must | CMP-1 | CMP-21 | 4.1.4 | Cập nhật thông tin cá nhân và mảng `favorite_category_ids`, từ khóa quan tâm phục vụ feed gợi ý. |
 | **FR-06** | CRUD tin SELL, ảnh & SOLD | Must | CMP-2 | CMP-9, CMP-11 | 4.2.1 | Đăng bài bán đồ cũ, giá `price > 0`, độ mới, tải tối thiểu 1 ảnh lên Public CDN, chuyển trạng thái `SOLD`. |
 | **FR-07** | CRUD tin BUY REQUEST & CLOSED | Must | CMP-2 | CMP-10, CMP-11 | 4.2.2 | Đăng bài tìm mua, khoảng ngân sách `budget_min <= budget_max`, chuyển trạng thái `CLOSED` (không chuyển `SOLD`). |
@@ -642,7 +647,7 @@ gantt
 | **D02** | Khung 15 tuần hướng dẫn môn học | PM / Giảng viên | Lưu ý | Giữ bảng tiến độ trung thực theo lịch làm việc thực tế của nhóm; sẵn sàng ánh xạ sang khung môn học khi yêu cầu. |
 | **D03** | Domain email sinh viên cho OTP | BA + PM | Chốt nội bộ | Cho phép toàn bộ domain kết thúc bằng `.edu.vn` (mặc định hỗ trợ email PTIT `@*.ptit.edu.vn`). |
 | **D04** | Đơn vị lưu trữ retention chat (Tháng vs Ngày) | BA + BE2 | **ĐÃ CHỐT** | Thống nhất theo DB06: Tin nhắn văn bản lưu 3 tháng (`created_at + 3 months`), tệp đính kèm lưu 1 tháng (`created_at + 1 month`). |
-| **D05** | Mức hiển thị bảng tin cho PENDING / GUEST | BA + BE Lead | **ĐÃ CHỐT** | Hiển thị bảng tin rút gọn (`PendingFeedPage`): Có tiêu đề, giá, ảnh thumbnail; Ẩn số điện thoại, chặn xem trang chi tiết và chat. |
+| **D05** | Mức hiển thị bảng tin cho GUEST & PENDING | BA + BE Lead | **ĐÃ CHỐT** | GUEST tuyệt đối không được xem feed (chặn 401); PENDING xem bảng tin rút gọn (`PendingFeedPage`): có tiêu đề, giá, thumbnail; ẩn SĐT, chặn xem chi tiết và chat. |
 | **D06** | Thời hạn phản hồi báo cáo và trùng lặp | BA + BE2 | **ĐÃ CHỐT** | Seller có 48 giờ để phản hồi báo cáo (`WAITING_SELLER_RESPONSE`); cấm tạo báo cáo mới nếu đang có báo cáo chờ xử lý (DB01). |
 | **D07** | Chống lạm dụng mở số điện thoại | BA + BE Lead | **ĐÃ CHỐT** | Giới hạn tần suất bấm xem số điện thoại (Rate Limiting 10 lượt/giờ), ghi nhật ký đầy đủ vào `phone_reveal_events`. |
 | **D08** | Công suất 3–4 giờ/người/ngày | PM + Team | Dự kiến | Giữ mức nỗ lực trung bình 18–24h/tuần/người, tương ứng ~11 Story Points/người/sprint. |

@@ -7,50 +7,48 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Trạng thái hệ thống hiện tại
 
 - **Giai đoạn:** Foundation Audit & Review Alignment (PR #1 - Sẵn sàng Merge)
-- **Cập nhật lần cuối:** 2026-11-06 11:45
+- **Cập nhật lần cuối:** 2026-11-06 12:20
 - **Người bàn giao:** Senior Backend Architect & Technical Project Manager
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng Kiến trúc & Công nghệ:** Đã chốt chính thức 100% theo chỉ đạo của Tech Lead kết hợp rà soát `Campus_Marketplace_WBS_v0.3_DBML_Review.xlsx`:
-  - Frontend: **Next.js 14+ (App Router)** (`apps/frontend` chạy với Next.js 14, React 18, Vitest 19/19 tests PASS, Next.js static build 4/4 pages thành công).
+- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100% không còn mâu thuẫn theo quyết định chính thức (D11, D13, DB05, DB06):
+  - Frontend: **React 18 + Vite 5 (SPA)** (`apps/frontend` chạy với Vite 5, React 18, Vitest 19/19 tests PASS, Vite build hoàn tất trong 606ms). Loại bỏ hoàn toàn mâu thuẫn Next.js trong tài liệu.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
   - Backend: **NestJS 10** (Modular Monolith API Gateway).
   - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan; không dùng Prisma).
+  - Feed Tiering & Quyền hạn (DB05, D05, D13): **GUEST bị chặn hoàn toàn bảng tin (HTTP 401 Unauthorized)**; chỉ tài khoản **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết, chặn chat); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
   - Chat Retention TTL (DB06): Tin nhắn văn bản lưu 3 tháng (90 ngày), tệp đính kèm lưu 1 tháng (30 ngày).
-  - Feed Tiering (D05, D13, DB05): Phân tầng `PendingFeedPage` rút gọn (GUEST/PENDING) và `PostPage` đầy đủ (APPROVED).
   - CSDL Migration (DB01–DB07): Đã tạo `database/migrations/0001_dbml_review_fixes.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
-- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md`, kế hoạch 4 Sprint 20 Task `tasks/BACKLOG.md` và tuân thủ tệp review v0.3).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Vite 5 + NestJS Build thành công).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md`, kế hoạch 4 Sprint 20 Task `tasks/BACKLOG.md` và giải quyết dứt điểm các lưu ý từ review).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
 
-### Handoff #010: Chốt Toàn diện Next.js 14 + PostgreSQL và Triển khai Migration DBML Review (05/11/2026)
+### Handoff #010: Thống nhất Toàn diện React/Vite + PostgreSQL, Khóa Feed với Guest & Triển khai Migration DBML Review (05/11/2026)
 
 - **Ngày:** 2026-11-06
 - **Người thực hiện:** Senior Backend Architect & Technical Project Manager
 - **Branch:** `fix/be-foundation-audit` (PR #1)
 - **Mục tiêu đạt được:**
-  1. **Chốt Bộ Công nghệ Cốt lõi (Next.js 14+ & PostgreSQL trên Supabase):**
-     - Web Client: **Next.js 14+ (App Router)** kết hợp React 18, TypeScript, hỗ trợ tối ưu SEO cho sàn đồ cũ và Client Components cho Socket.IO Chat. Đã kiểm thử `next build` hoàn tất prerender 4/4 static pages, 19/19 Vitest tests PASS.
-     - Cơ sở dữ liệu: **PostgreSQL 15/17 trên Supabase** với PgBouncer Transaction Pooler và bắt buộc TLS CA verification (`rejectUnauthorized: true`).
-     - Backend: **NestJS 10** Modular Monolith với SQL-first `node-postgres (pg)`.
-  2. **Triển khai Migration Khắc phục Kiến trúc CSDL (`0001_dbml_review_fixes.sql`):**
+  1. **Khắc phục Mâu thuẫn Kiến trúc trong Tài liệu (Next.js vs React/Vite per D11):**
+     - Đã loại bỏ hoàn toàn các câu chữ mâu thuẫn khẳng định Next.js 14+ trong `docs/ARCHITECTURE.md`, `ARCHITECTURE.md`, `AGENTS.md` và `tasks/BACKLOG.md`.
+     - Đồng nhất 100% toàn bộ hệ thống theo hướng: **React 18 + Vite 5 (SPA)** cho Frontend, **NestJS 10** cho Backend và **PostgreSQL trên Supabase** (SQL-first `node-postgres`).
+     - Mã nguồn `apps/frontend` vận hành sạch sẽ với Vite 5, `vite build` 606ms, 19/19 Vitest tests PASS.
+  2. **Chuẩn hóa Bảng Phân quyền Feed (Khóa Feed đối với GUEST per DB05, D05, D13):**
+     - Sửa bảng phân quyền RBAC: GUEST xem feed là **❌ Chặn (401 Unauthorized)**, không cho phép xem feed khi chưa đăng nhập.
+     - Phân định rõ `PendingFeedPage` rút gọn chỉ dành riêng cho tài khoản **PENDING** (đã có email trường nhưng chờ duyệt thẻ).
+  3. **Triển khai Migration Khắc phục Kiến trúc CSDL (`0001_dbml_review_fixes.sql`):**
      - DB01: Tạo Partial UNIQUE INDEX `uq_active_report_per_buyer` trên `reports (buyer_id, post_id) WHERE status IN ('WAITING_SELLER_RESPONSE', 'UNDER_REVIEW')`.
      - DB03 & DB07: Chuyển toàn bộ comment thành CHECK constraints thực tế: `price > 0`, `budget_min <= budget_max`, `reputation_score BETWEEN 0.0 AND 5.0`, `size_bytes <= 10MB`, `buyer_id <> seller_id`, `member_low_id < member_high_id`.
      - DB02: Thêm cột `deleted_at` cho `posts` và `users` hỗ trợ soft-delete, bảo toàn toàn vẹn lịch sử kiểm toán.
-  3. **Chuẩn hóa Thời gian Lưu trữ Chat (Chat Retention TTL per DB06 & FR-12):**
-     - Sửa sai lệch trong tài liệu kiến trúc trước đây (từng ghi 90 ngày cho cả hai).
+  4. **Chuẩn hóa Thời gian Lưu trữ Chat (Chat Retention TTL per DB06 & FR-12):**
      - Quy định chuẩn xác: **Tin nhắn văn bản** lưu **3 tháng** (`created_at + interval '3 months'`); **Tệp đính kèm** lưu **1 tháng** (`created_at + interval '1 month'`).
-  4. **Làm rõ Cơ chế Phân tầng Bảng tin (Feed Tiering per D05, D13, DB05):**
-     - Mô tả chi tiết hành vi của `PendingFeedPage` cho GUEST và PENDING: chỉ hiển thị tóm tắt, ẩn số điện thoại, chặn xem trang chi tiết bài đăng và chặn mở chat.
-     - Mô tả `PostPage` cho tài khoản APPROVED: xem chi tiết đầy đủ, mở số điện thoại có kiểm soát qua `PhoneRevealEvent` và nhắn tin trao đổi.
   5. **Cập nhật Toàn diện Tài liệu & Backlog:**
-     - Cập nhật `docs/ARCHITECTURE.md` và `ARCHITECTURE.md` bổ sung Mục 10 (Traceability 17 FRs, 5 Epics, 20 Stories, 36 WBS Packages, 6-Week Master Plan, DB01–DB12, D01–D14).
+     - Cập nhật `docs/ARCHITECTURE.md` và `ARCHITECTURE.md` đồng bộ Mục 10 (Traceability 17 FRs, 5 Epics, 20 Stories, 36 WBS Packages, 6-Week Master Plan, DB01–DB12, D01–D14).
      - Cập nhật `tasks/BACKLOG.md` gắn WBS, Jira Story và FR Reference cho toàn bộ 20 tasks Backend của 2 kỹ sư.
-     - Cập nhật `AGENTS.md` đồng bộ stack Next.js 14+ và PostgreSQL.
 - **Kết quả kiểm thử thực tế:**
   - `pnpm lint`: **PASS** (0 warnings).
   - `pnpm typecheck`: **PASS** (0 errors).

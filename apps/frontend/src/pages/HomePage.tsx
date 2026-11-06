@@ -1,8 +1,6 @@
-'use client';
-
 import React from 'react';
-import { Header } from './Header';
-import { StatusCard } from './StatusCard';
+import { Header } from '../components/Header';
+import { StatusCard } from '../components/StatusCard';
 import { useApiHealth } from '../hooks/useApiHealth';
 import { API_BASE_URL } from '../services/api';
 
@@ -18,8 +16,8 @@ export const HomePage: React.FC = () => {
           <h2>Chào mừng đến với Campus Marketplace Monorepo</h2>
           <p>
             Hệ thống đã hoàn tất <strong>Phase 0 — Repository Bootstrap</strong>. Cấu trúc monorepo
-            pnpm, baseline PostgreSQL v1.2 (18 bảng), hợp đồng OpenAPI 3.x (49 endpoints) và các quy
-            chế <code>AGENTS.md</code> đã được cấu hình chặt chẽ.
+            pnpm, baseline PostgreSQL v1.2 (18 bảng), hợp đồng OpenAPI 3.x (49 endpoints) và các
+            quy chế <code>AGENTS.md</code> đã được cấu hình chặt chẽ.
           </p>
         </section>
 
@@ -27,10 +25,10 @@ export const HomePage: React.FC = () => {
           <StatusCard
             title="Frontend Application"
             status="success"
-            description="Ứng dụng Next.js 14+ (App Router) + TypeScript khởi động thành công."
+            description="Ứng dụng React 18 + Vite + TypeScript khởi động thành công."
             details={{
-              Gói: '@campus/frontend',
-              'Công nghệ': 'Next.js 14, React 18, Vitest',
+              'Gói': '@campus/frontend',
+              'Công nghệ': 'React 18, Vite, Vitest',
               'API Base URL': API_BASE_URL,
             }}
           />
@@ -46,14 +44,10 @@ export const HomePage: React.FC = () => {
                   : 'Backend NestJS đang phản hồi bình thường.'
             }
             details={{
-              Endpoint: `${API_BASE_URL}/health`,
-              'Trạng thái': loading
-                ? 'Đang tải...'
-                : error
-                  ? 'Chưa phản hồi'
-                  : health?.status || 'OK',
-              Database: health?.database?.status || 'N/A',
-              Uptime: health?.uptime ? `${Math.floor(health.uptime)}s` : 'N/A',
+              'Endpoint': `${API_BASE_URL}/health`,
+              'Trạng thái': loading ? 'Đang tải...' : error ? 'Chưa phản hồi' : health?.status || 'OK',
+              'Database': health?.database?.status || 'N/A',
+              'Uptime': health?.uptime ? `${Math.floor(health.uptime)}s` : 'N/A',
             }}
           />
 
@@ -62,7 +56,7 @@ export const HomePage: React.FC = () => {
             status="info"
             description="PostgreSQL v1.2 trên Supabase với 18 bảng nghiệp vụ đã sẵn sàng."
             details={{
-              Baseline: 'database/baseline/schema_v1.2.sql',
+              'Baseline': 'database/baseline/schema_v1.2.sql',
               'Số bảng': 18,
               'Truy xuất': 'pg pool (SQL-first repository)',
               'Trạng thái': 'Đã đồng bộ baseline',
@@ -74,7 +68,7 @@ export const HomePage: React.FC = () => {
             status="info"
             description="49 endpoints được thiết kế trên Apidog đồng bộ hai chiều."
             details={{
-              Gói: '@campus/api-contract',
+              'Gói': '@campus/api-contract',
               'Phiên bản': 'v1.2.0-draft',
               'Cốt lõi': '35 endpoints',
               'Đề xuất mở rộng': '14 endpoints',
@@ -90,10 +84,7 @@ export const HomePage: React.FC = () => {
       </main>
 
       <footer className="app-footer">
-        <p>
-          Campus Marketplace Monorepo &bull; Next.js 14 App Router &bull; Node.js 20.20.1 &bull;
-          pnpm 10.14.0
-        </p>
+        <p>Campus Marketplace Monorepo &bull; Phase 0 Bootstrap &bull; Node.js 20.20.1 &bull; pnpm 10.14.0</p>
       </footer>
     </div>
   );

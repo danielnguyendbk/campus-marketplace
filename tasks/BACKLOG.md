@@ -36,7 +36,7 @@ Toàn bộ hệ thống Backend được phân rã theo **Vertical Slice Archite
 - [x] **BOOTSTRAP-03:** Đồng bộ OpenAPI 3.x contract v1.2 (49 endpoints) vào `packages/api-contract/openapi.yaml`.
 - [x] **BOOTSTRAP-04:** Thiết lập quy chế AI Agent (`AGENTS.md` ở Root, Frontend, Backend, Database).
 - [x] **BOOTSTRAP-05:** Cấu hình CI/CD GitHub Actions kiểm tra Lint, Test, Typecheck, Build.
-- [x] **BOOTSTRAP-06:** Khởi tạo và hoàn tất ứng dụng Frontend Next.js 14+ (App Router) + React 18 + TypeScript chạy được kèm Vitest suites (chốt theo quyết định công nghệ của nhóm).
+- [x] **BOOTSTRAP-06:** Khởi tạo và hoàn tất ứng dụng Frontend React 18 + Vite 5 (SPA) + TypeScript chạy được kèm Vitest suites (chốt theo Decision D11).
 - [x] **BOOTSTRAP-07:** Khởi tạo ứng dụng Backend NestJS 10 + TypeScript với `GET /health` và SQL-first PostgreSQL pool layer.
 - [x] **BOOTSTRAP-08:** Chuẩn hóa Success Envelope `{ success: true, data, [meta], timestamp }` và Error Envelope theo OpenAPI v1.2 (`additionalProperties: false`).
 - [x] **BOOTSTRAP-09:** Cơ chế an toàn lỗi HTTP 500 (`INTERNAL_SERVER_ERROR`), giấu stack trace và sanitize log nhạy cảm.
@@ -219,7 +219,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **API:** `GET /feed`, `GET /posts/{id}/matches`.
   - **Database:** `posts`, `sell_details`, `buy_request_details`, `user_preferences`.
   - **Files:** `src/modules/feed/feed.controller.ts`, `feed.service.ts`, `services/matching.service.ts`.
-  - **Acceptance Criteria:** `GET /feed` cho `PENDING` chỉ trả danh sách rút gọn `PendingFeedPage` (không link chi tiết, không SĐT); `GET /feed` cho `APPROVED` trả `PostPage` cá nhân hóa theo preferences; `matches` tìm tin đối ứng theo `categoryId`, khu vực (`province`), và ngân sách `[budget_min, budget_max]`.
+  - **Acceptance Criteria:** `GET /feed` cho `GUEST` bị chặn HTTP 401 Unauthorized (bắt buộc login); cho `PENDING` chỉ trả danh sách rút gọn `PendingFeedPage` (không link chi tiết, không SĐT, không chat); cho `APPROVED` trả `PostPage` cá nhân hóa theo preferences; `matches` tìm tin đối ứng theo `categoryId`, khu vực (`province`), và ngân sách `[budget_min, budget_max]`.
   - **Tests:** Unit test matching algorithm, E2E test feed response format cho cả PENDING và APPROVED.
   - **Branch:** `feat/be-02-feed-matching`
 - [ ] **BE-02-T08: Trust & Safety — Report Lifecycle & 6-State Machine Engine** (P0, 5 SP)
