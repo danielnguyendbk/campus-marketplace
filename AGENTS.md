@@ -20,7 +20,7 @@
 ## 2. Technology Stack
 
 - **Monorepo Manager:** `pnpm workspace` (Node.js 20.20.1, pnpm 10.14.0)
-- **Frontend (`apps/frontend`):** React 18, Vite, TypeScript, Vitest, React Testing Library.
+- **Frontend (`apps/frontend`):** Next.js 14+ (App Router), React 18, TypeScript, Vitest, React Testing Library.
 - **Backend (`apps/backend`):** NestJS 10, TypeScript, `pg` (Node-postgres pool, SQL-first), Jest, Supertest.
 - **Database:** PostgreSQL trên Supabase (Database `postgres`, Schema `public`).
 - **Hợp đồng API:** OpenAPI 3.x (`@campus/api-contract`), công cụ thiết kế & mock API: Apidog.
@@ -34,7 +34,7 @@
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/         # @campus/frontend - Ứng dụng Web Client React
+│   ├── frontend/         # @campus/frontend - Ứng dụng Web Client Next.js 14+ (App Router)
 │   └── backend/          # @campus/backend - Ứng dụng Modular Monolith API NestJS
 ├── packages/
 │   └── api-contract/     # @campus/api-contract - OpenAPI 3.x spec & definitions
@@ -44,6 +44,7 @@ campus-marketplace/
 ```
 
 ### Quy định quyền sở hữu (Code Ownership):
+
 1. **Frontend Team / Frontend Agent:** Toàn quyền trong `apps/frontend/`. Chỉ đọc `packages/api-contract/`. Không được can thiệp vào `apps/backend/` hay `database/`.
 2. **Backend Team / Backend Agent:** Toàn quyền trong `apps/backend/` và quản lý migration trong `database/migrations/`. Backend Lead có trách nhiệm review và tích hợp toàn bộ backend.
 3. **Database Agent:** Quản lý `database/`. Tuyệt đối không thay đổi schema trực tiếp mà không qua migration và PR.

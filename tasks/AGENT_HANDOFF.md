@@ -6,23 +6,50 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & System Architecture Documentation (PR #1 - Sẵn sàng Merge)
-- **Cập nhật lần cuối:** 2026-11-06 09:30
+- **Giai đoạn:** Foundation Audit & Frontend Migration to Next.js 14 (PR #1 - Sẵn sàng Merge)
+- **Cập nhật lần cuối:** 2026-11-06 10:20
 - **Người bàn giao:** Senior Backend Architect & Technical Project Manager
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng Kiến trúc & Công nghệ:** Xác nhận chốt công nghệ cốt lõi chính thức theo `ARCHITECTURE.md`:
-  - Frontend: **Next.js 14+ (App Router)** (SSR/SSG cho SEO bài đăng sinh viên và OpenGraph preview, Client Components cho Realtime Chat Socket.IO).
+- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt chính thức 100% giữa tài liệu kiến trúc và mã nguồn thực tế:
+  - Frontend: **Next.js 14+ (App Router)** (`apps/frontend` đã hoàn tất migration và build static pages thành công).
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
   - Backend: **NestJS 10** (Modular Monolith API Gateway).
   - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Build thành công).
-- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md` và kế hoạch phân rã 4 Sprint 20 Task `tasks/BACKLOG.md`).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js + NestJS Build thành công).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md` và kế hoạch phân rã 4 Sprint 20 Task `tasks/BACKLOG.md`).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #009: Chuyển đổi Toàn diện apps/frontend sang Next.js 14+ (App Router) & Chốt CSDL PostgreSQL
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Chuyển đổi Mã nguồn `apps/frontend` sang Next.js 14+ (App Router):**
+     - Cài đặt `next@^14.2.35` kết hợp chặt chẽ với React 18 (`react: ^18.3.1`, `react-dom: ^18.3.1`).
+     - Cấu hình `next.config.mjs`, `next-env.d.ts`, `tsconfig.json` với Next.js plugin & path aliases (`@/*`).
+     - Tái cấu trúc thư mục ứng dụng theo Next.js App Router: `src/app/layout.tsx` (RootLayout với metadata SEO), `src/app/page.tsx` (Root Page), chuyển components sang `src/components/HomePage.tsx`.
+     - Cập nhật biến môi trường an toàn: `process.env.NEXT_PUBLIC_API_BASE_URL` trong `src/services/api.ts` hỗ trợ cả Next.js SSR và Browser client.
+     - Dọn dẹp hoàn toàn các tệp cũ của Vite (`vite.config.ts`, `index.html`, `src/app/main.tsx`, `src/vite-env.d.ts`, `tsconfig.node.json`).
+     - Duy trì Vitest test runner qua `vitest.config.ts`, kiểm thử tự động 19/19 frontend tests PASS hoàn hảo.
+  2. **Xác nhận Kiến trúc Đồng nhất 100%:** Cả tài liệu kiến trúc (`docs/ARCHITECTURE.md`, `ARCHITECTURE.md`), backlog (`tasks/BACKLOG.md`), và mã nguồn thực tế (`apps/frontend`, `apps/backend`) đều đã hội tụ về chuẩn:
+     - Frontend: **Next.js 14+ (App Router)**.
+     - Database: **PostgreSQL trên Supabase** (18 bảng v1.2, SQL-first pool).
+     - Backend: **NestJS 10**.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm build`: **PASS** (Next.js 14 prerender static pages & NestJS nest build cả 2 đều thành công).
+
+---
 
 ### Handoff #008: Đồng bộ Backlog 4 Sprint 20 Task Backend & Xác thực Frontend Stack
 
