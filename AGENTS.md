@@ -20,7 +20,7 @@
 ## 2. Technology Stack
 
 - **Monorepo Manager:** `pnpm workspace` (Node.js 20.20.1, pnpm 10.14.0)
-- **Frontend (`apps/frontend`):** React 18, Vite 5, TypeScript, Vitest, React Testing Library.
+- **Frontend (`apps/frontend`):** Next.js 14+ (App Router), React 18, TypeScript, Vitest, React Testing Library.
 - **Backend (`apps/backend`):** NestJS 10, TypeScript, `pg` (Node-postgres pool, SQL-first), Jest, Supertest.
 - **Database:** PostgreSQL trên Supabase (Database `postgres`, Schema `public`).
 - **Hợp đồng API:** OpenAPI 3.x (`@campus/api-contract`), công cụ thiết kế & mock API: Apidog.
@@ -34,7 +34,7 @@
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/         # @campus/frontend - Ứng dụng Web Client React 18 + Vite 5 (SPA)
+│   ├── frontend/         # @campus/frontend - Ứng dụng Web Client Next.js 14+ (App Router)
 │   └── backend/          # @campus/backend - Ứng dụng Modular Monolith API NestJS
 ├── packages/
 │   └── api-contract/     # @campus/api-contract - OpenAPI 3.x spec & definitions

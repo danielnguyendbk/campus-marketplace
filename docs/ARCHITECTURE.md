@@ -25,7 +25,7 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 | Phân vùng              | Công nghệ lựa chọn                 | Phiên bản                                | Vai trò & Lý do lựa chọn                                                                                                |
 | :--------------------- | :--------------------------------- | :--------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
 | **Monorepo Manager**   | `pnpm workspace`                   | 10.14.0 (Node.js 20.20.1)                | Quản lý đa dự án, tối ưu bộ nhớ ổ đĩa qua hard-link store, chia sẻ trực tiếp `@campus/api-contract`.                    |
-| **Frontend**           | React 18 + Vite 5 (SPA)            | React 18.3.x, Vite 5.4.x, TypeScript     | Web Client SPA hiện đại, build siêu tốc với Vite 5 (606ms), tối ưu giao diện tương tác và tích hợp Realtime Chat Socket.IO. |
+| **Frontend**           | Next.js 14+ (App Router)           | Next.js 14+, React 18, TypeScript        | Web Client hiện đại kết hợp SSR/SSG (tối ưu SEO tin đăng đồ cũ) và Client Components (Realtime Chat Socket.IO). |
 | **Backend**            | NestJS                             | 10.4.x, TypeScript Strict                | Framework hướng module doanh nghiệp, hỗ trợ Dependency Injection, Pipes, Interceptors, Guards đồng bộ.                  |
 | **Database Access**    | SQL-first với `node-postgres (pg)` | 8.13.x                                   | Triết lý **SQL-first** (thay thế Prisma ORM), kiểm soát tối đa câu truy vấn, chỉ mục, Explain Plan và hiệu năng pooler. |
 | **Database Engine**    | PostgreSQL trên Supabase           | PostgreSQL 15/17                         | CSDL quan hệ chuẩn ACID, hỗ trợ 18 bảng nghiệp vụ v1.2, kết nối bắt buộc xác thực TLS Root CA.                          |
@@ -39,19 +39,19 @@ Hệ thống được thiết kế hướng tới 4 mục tiêu kiến trúc tr�
 
 ### 1.3. Xác Nhận Lựa Chọn Công Nghệ Cốt Lõi (Core Technology Stack Confirmation — Quyết định D11)
 
-Dựa trên quyết định chính thức đã xác nhận của nhóm (Decision **D11** trong tệp rà soát kiến trúc), công nghệ cốt lõi của toàn hệ thống được chốt và thống nhất đồng bộ 100%:
+Dựa trên quyết định chính thức đã chốt của Tech Lead và toàn đội ngũ (Decision **D11**), công nghệ cốt lõi của toàn hệ thống được chuẩn hóa và thống nhất đồng bộ 100%:
 
-| Thành phần cốt lõi  | Ban đầu nhóm chốt (Đề xuất ban đầu) | Technical Architecture hiện tại (ĐÃ CHỐT CHÍNH THỨC) | Lý do & Quyết định kiến trúc (Decision D11 & ADRs)                                                                                                                                                                          |
-| :------------------ | :---------------------------------- | :--------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**        | Next.js                             | **React 18 + Vite 5 (SPA)**                          | **Chốt theo D11:** Tối ưu hóa tính gọn nhẹ của ứng dụng SPA sinh viên, build siêu tốc bằng Vite 5/esbuild (606ms), loại bỏ độ phức tạp SSR server runtime khi duy trì kết nối WebSocket Socket.IO `/ws` và API Envelope NestJS.    |
-| **Database Access** | Prisma                              | **SQL-first với `node-postgres (pg)`**               | **Chốt theo D11:** Kiểm soát 100% câu truy vấn SQL thô, tối ưu Explain Plan và chỉ mục trên 18 bảng CSDL v1.2, loại bỏ overhead binary engine của Prisma và tương thích hoàn hảo với PgBouncer Transaction Pooler.         |
-| **Database**        | PostgreSQL                          | **PostgreSQL trên Supabase**                         | Hệ quản trị cơ sở dữ liệu quan hệ chuẩn ACID, lưu trữ toàn vẹn 18 bảng nghiệp vụ v1.2, vận hành trên Supabase Cloud với PgBouncer Pooler và thực thi bắt buộc xác thực TLS CA certificate (`rejectUnauthorized: true`).   |
-| **Backend**         | NestJS                              | **NestJS 10**                                        | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                                                                           |
+| Thành phần cốt lõi  | Đề xuất cân nhắc ban đầu | Technical Architecture hiện tại (ĐÃ CHỐT CHÍNH THỨC) | Lý do & Quyết định kiến trúc (Decision D11 & ADRs)                                                                                                                                                                          |
+| :------------------ | :----------------------- | :--------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**        | React/Vite (SPA thuần)   | **Next.js 14+ (App Router)**                         | **Chốt theo D11:** Tối ưu hóa SEO và Social Sharing qua Server-Side Rendering (SSR) & Static Site Generation (SSG/ISR) cho trang chi tiết bài đăng (`/posts/[id]`), tự động tạo OpenGraph Preview khi chia sẻ tin lên các hội nhóm sinh viên; đồng thời sử dụng Client Components cho Realtime Chat Socket.IO `/ws` và upload đa phương tiện. |
+| **Database Access** | Prisma                   | **SQL-first với `node-postgres (pg)`**               | **Chốt theo D11:** Kiểm soát 100% câu truy vấn SQL thô, tối ưu Explain Plan và chỉ mục trên 18 bảng CSDL v1.2, loại bỏ overhead binary engine của Prisma và tương thích hoàn hảo với PgBouncer Transaction Pooler.         |
+| **Database**        | PostgreSQL               | **PostgreSQL trên Supabase**                         | Hệ quản trị cơ sở dữ liệu quan hệ chuẩn ACID, lưu trữ toàn vẹn 18 bảng nghiệp vụ v1.2, vận hành trên Supabase Cloud với PgBouncer Pooler và thực thi bắt buộc xác thực TLS CA certificate (`rejectUnauthorized: true`).   |
+| **Backend**         | NestJS                   | **NestJS 10**                                        | Giữ nguyên kiến trúc Modular Monolith NestJS 10, quản lý Dependency Injection, Interceptors, Pipes, Filters và Guards tập trung.                                                                                           |
 
 > [!IMPORTANT]
-> **Xác nhận Kiến trúc Cốt lõi (React 18 + Vite 5 & PostgreSQL trên Supabase):**
+> **Xác nhận Kiến trúc Cốt lõi (Next.js 14+ App Router & PostgreSQL trên Supabase):**
 >
-> 1. **React 18 + Vite 5 là Web Client chính thức (D11):** Web Client vận hành dưới dạng Single Page Application (SPA) với React 18, Vite 5, TypeScript và Vitest. Toàn bộ routing do client đảm nhiệm (`react-router-dom`), phân định rõ trang xem tin giới hạn (`PendingFeedPage` cho PENDING) và trang đầy đủ (`PostPage` cho APPROVED). Không sử dụng Next.js.
+> 1. **Next.js 14+ (App Router) là Web Client chính thức (D11):** Web Client vận hành trên framework Next.js 14+ (App Router) với React 18, TypeScript và Vitest. Kết hợp linh hoạt giữa Server Components (tối ưu render, bảo mật, SEO tin đăng) và Client Components (quản lý state tương tác, realtime socket). Phân định rõ trang xem tin rút gọn (`PendingFeedPage` cho PENDING) và trang chi tiết đầy đủ (`PostPage` cho APPROVED). Người dùng `GUEST` (chưa đăng nhập) bị chặn hoàn toàn truy cập bảng tin (`GET /feed` trả về HTTP 401).
 > 2. **PostgreSQL là CSDL quan hệ chuẩn:** Toàn bộ 18 bảng nghiệp vụ v1.2 (người dùng, bài đăng, hội thoại, báo cáo khiếu nại, điểm uy tín) được thiết kế và vận hành trên **PostgreSQL 15/17 trên Supabase** với PgBouncer Pooler và kết nối TLS bắt buộc (`rejectUnauthorized: true`).
 
 ---
@@ -63,7 +63,7 @@ Hệ thống kết nối chặt chẽ giữa Web Client, Backend API Gateway, C�
 ```mermaid
 flowchart TD
     subgraph ClientLayer ["1. Client Layer"]
-        WebClient["Web Client (React 18 + Vite 5 SPA)"]
+        WebClient["Web Client (Next.js 14+ App Router)"]
     end
 
     subgraph GatewayLayer ["2. Application & Gateway Layer (NestJS Modular Monolith)"]
@@ -119,17 +119,17 @@ Dự án áp dụng mô hình **pnpm monorepo workspace** nhằm thống nhất 
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client React 18 + Vite 5 (SPA)
+│   ├── frontend/                      # @campus/frontend — Ứng dụng Web Client Next.js 14+ (App Router)
 │   │   ├── src/
-│   │   │   ├── app/                   # App bootstrap, Providers, App.tsx, main.tsx
-│   │   │   ├── components/            # Reusable UI components (Buttons, Modals, Inputs)
+│   │   │   ├── app/                   # Next.js App Router (layout.tsx, page.tsx, App.tsx)
+│   │   │   ├── components/            # Reusable UI components (Header, StatusCard, HomePage, etc.)
 │   │   │   ├── features/              # Feature modules (auth, posts, chat, verification)
 │   │   │   ├── hooks/                 # Custom React hooks (useApiHealth, useAuth)
-│   │   │   ├── pages/                 # Màn hình trang (HomePage, PostDetailPage, etc.)
 │   │   │   ├── services/              # ApiClient (Strict Envelope unwrapping, requestPaginated)
 │   │   │   └── test/                  # Vitest suites & Component tests
-│   │   ├── package.json
-│   │   └── vite.config.ts
+│   │   ├── next.config.mjs            # Next.js configuration
+│   │   ├── vitest.config.ts           # Vitest configuration for unit & component tests
+│   │   └── package.json
 │   │
 │   └── backend/                       # @campus/backend — NestJS Modular Monolith API Gateway
 │       ├── src/
@@ -653,7 +653,7 @@ gantt
 | **D08** | Công suất 3–4 giờ/người/ngày | PM + Team | Dự kiến | Giữ mức nỗ lực trung bình 18–24h/tuần/người, tương ứng ~11 Story Points/người/sprint. |
 | **D09** | Định dạng video và môi trường demo | PM + FE | Dự kiến | Chuẩn bị kịch bản video demo 3–5 phút chạy trên môi trường staging kết nối Supabase thật. |
 | **D10** | Thu thập capacity cá nhân thực tế | PM + Team | Đang theo dõi | Cân đối phân bổ công việc theo năng lực thực tế giữa BE-01 (Tech Lead) và BE-02 (Developer). |
-| **D11** | Chốt Stack: React/Vite + NestJS + SQL-first pg | BE Lead + FE + PM | **ĐÃ CHỐT** | **ĐÃ THÔNG QUA:** Sử dụng React 18 + Vite 5 cho Frontend và SQL-first `node-postgres` cho Backend NestJS. |
+| **D11** | Chốt Stack: Next.js 14+ + NestJS + SQL-first pg | Tech Lead + Team | **ĐÃ CHỐT** | **ĐÃ THÔNG QUA:** Sử dụng Next.js 14+ (App Router) cho Frontend và SQL-first `node-postgres` cho Backend NestJS. |
 | **D12** | Kiểm chứng DDL Migration & CHECK/UNIQUE | BE Lead | Đang thực thi | Đảm bảo các ràng buộc SQL (DB01–DB07) được áp dụng đầy đủ vào baseline schema và migrations. |
 | **D13** | Sửa tài liệu kiến trúc (Guest feed, TTL, Admin) | BE Lead + BA | **ĐÃ HOÀN TẤT** | Đã cập nhật toàn bộ `docs/ARCHITECTURE.md`, `ARCHITECTURE.md` và `tasks/BACKLOG.md`. |
 | **D14** | Xác minh môi trường dev, CI và test tự động | BE Lead + FE | **ĐÃ XÁC MINH** | Monorepo CI chạy thành công, 100% tests (Frontend Vitest + Backend Jest/Supertest) đều PASS. |

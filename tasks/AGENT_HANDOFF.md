@@ -7,25 +7,51 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Trạng thái hệ thống hiện tại
 
 - **Giai đoạn:** Foundation Audit & Review Alignment (PR #1 - Sẵn sàng Merge)
-- **Cập nhật lần cuối:** 2026-11-06 12:20
+- **Cập nhật lần cuối:** 2026-11-06 12:45
 - **Người bàn giao:** Senior Backend Architect & Technical Project Manager
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100% không còn mâu thuẫn theo quyết định chính thức (D11, D13, DB05, DB06):
-  - Frontend: **React 18 + Vite 5 (SPA)** (`apps/frontend` chạy với Vite 5, React 18, Vitest 19/19 tests PASS, Vite build hoàn tất trong 606ms). Loại bỏ hoàn toàn mâu thuẫn Next.js trong tài liệu.
+- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100% không còn bất kỳ mâu thuẫn nào theo quyết định của Tech Lead (D11, D13, DB05, DB06):
+  - Frontend: **Next.js 14+ (App Router)** (`apps/frontend` chạy với Next.js 14, React 18, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages hoàn tất không lỗi). Loại bỏ hoàn toàn mâu thuẫn React/Vite trong toàn bộ tài liệu và mã nguồn.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
   - Backend: **NestJS 10** (Modular Monolith API Gateway).
   - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan; không dùng Prisma).
-  - Feed Tiering & Quyền hạn (DB05, D05, D13): **GUEST bị chặn hoàn toàn bảng tin (HTTP 401 Unauthorized)**; chỉ tài khoản **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết, chặn chat); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
+  - Feed Tiering & Quyền hạn (DB05, D05, D13): **GUEST bị chặn hoàn toàn bảng tin (HTTP 401 Unauthorized)**; chỉ tài khoản **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết HTTP 403, chặn chat HTTP 403); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
   - Chat Retention TTL (DB06): Tin nhắn văn bản lưu 3 tháng (90 ngày), tệp đính kèm lưu 1 tháng (30 ngày).
   - CSDL Migration (DB01–DB07): Đã tạo `database/migrations/0001_dbml_review_fixes.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Vite 5 + NestJS Build thành công).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 App Router + NestJS Build thành công).
 - **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md`, kế hoạch 4 Sprint 20 Task `tasks/BACKLOG.md` và giải quyết dứt điểm các lưu ý từ review).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #011: Chuẩn hóa Toàn diện Next.js 14+ (App Router) theo Quyết định Tech Lead, Khóa Feed Guest & Đồng bộ 100% Monorepo (06/11/2026)
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Chuẩn hóa Toàn diện Next.js 14+ (App Router) cho Web Client (Quyết định Tech Lead & D11):**
+     - Chốt dứt điểm Next.js 14+ (App Router) kết hợp React 18 và TypeScript cho `apps/frontend`.
+     - Dọn sạch toàn bộ các tệp cấu hình Vite mồ côi (`vite.config.ts`, `index.html`, `src/app/main.tsx`, `src/vite-env.d.ts`, `tsconfig.node.json`).
+     - Cấu hình Next.js App Router chuẩn chỉnh (`layout.tsx`, `page.tsx`, `next.config.mjs`, `next-env.d.ts`, `vitest.config.ts`).
+     - Đồng bộ hóa 100% nội dung tài liệu kiến trúc (`docs/ARCHITECTURE.md`, `ARCHITECTURE.md`, `AGENTS.md`, `tasks/BACKLOG.md`) sang Next.js 14+ App Router, xóa bỏ hoàn toàn bất kỳ nội dung nào còn đề cập React/Vite mâu thuẫn.
+  2. **Khóa Bảng Tin đối với GUEST (HTTP 401 Unauthorized per DB05, D05, D13):**
+     - Người dùng chưa đăng nhập (`GUEST`) bị chặn hoàn toàn khi truy cập `GET /feed` (yêu cầu JWT token, trả về HTTP 401).
+     - Chỉ tài khoản `PENDING` (chờ duyệt thẻ sinh viên) mới được truy cập `PendingFeedPage` rút gọn (chỉ có tiêu đề, giá, phân loại, thumbnail công khai; ẩn số điện thoại người bán, chặn xem chi tiết bài đăng HTTP 403, chặn chat HTTP 403).
+     - Tài khoản `APPROVED` được cấp quyền xem bảng tin cá nhân hóa đầy đủ và truy cập trang chi tiết `PostPage`.
+  3. **Bảo toàn Toàn vẹn Các Cải tiến Review Trước đó:**
+     - Giữ nguyên CSDL PostgreSQL trên Supabase với SQL-first `node-postgres (pg)` và TLS certificate verification (`rejectUnauthorized: true`).
+     - Giữ nguyên Migration `0001_dbml_review_fixes.sql` và rollback `.down.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
+     - Giữ nguyên chuẩn Chat Retention TTL: Tin nhắn văn bản lưu 3 tháng (`created_at + 3 months`), tệp đính kèm lưu 1 tháng (`created_at + 1 month`).
+  4. **Kết quả kiểm tra chất lượng (Verification):**
+     - `pnpm lint`: PASS (0 warnings).
+     - `pnpm typecheck`: PASS (0 errors).
+     - `pnpm test`: PASS (19/19 Frontend Vitest tests + 31/31 Backend Jest tests).
+     - `pnpm --filter @campus/backend run test:e2e`: PASS (38/38 tests).
+     - `pnpm build`: PASS (Next.js 14 App Router prerender 4/4 pages + NestJS build).
 
 ### Handoff #010: Thống nhất Toàn diện React/Vite + PostgreSQL, Khóa Feed với Guest & Triển khai Migration DBML Review (05/11/2026)
 
