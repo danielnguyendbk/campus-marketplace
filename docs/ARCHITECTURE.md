@@ -51,7 +51,7 @@ Dựa trên quyết định chính thức đã chốt của Tech Lead và toàn 
 > [!IMPORTANT]
 > **Xác nhận Kiến trúc Cốt lõi (Next.js 14+ App Router & PostgreSQL trên Supabase):**
 >
-> 1. **Next.js 14+ (App Router) là Web Client chính thức (D11):** Web Client vận hành trên framework Next.js 14+ (App Router) với React 18, TypeScript và Vitest. Kết hợp linh hoạt giữa Server Components (tối ưu render, bảo mật, SEO tin đăng) và Client Components (quản lý state tương tác, realtime socket). Phân định rõ trang xem tin rút gọn (`PendingFeedPage` cho PENDING) và trang chi tiết đầy đủ (`PostPage` cho APPROVED). Người dùng `GUEST` (chưa đăng nhập) bị chặn hoàn toàn truy cập bảng tin (`GET /feed` trả về HTTP 401).
+> 1. **Next.js 14+ (App Router) là Web Client chính thức (D11):** Web Client vận hành trên framework Next.js 14+ (App Router) với React 18, TypeScript và Vitest. Kết hợp linh hoạt giữa Server Components (tối ưu render, bảo mật, SEO tin đăng) và Client Components (quản lý state tương tác, realtime socket). Phân định rõ trang xem tin rút gọn (`PendingFeedPage` cho PENDING) và trang chi tiết đầy đủ (`PostPage` cho APPROVED). Người dùng chưa xác thực (Unauthenticated / Guest) bị chặn hoàn toàn truy cập bảng tin (`GET /feed` trả về HTTP 401).
 > 2. **PostgreSQL là CSDL quan hệ chuẩn:** Toàn bộ 18 bảng nghiệp vụ v1.2 (người dùng, bài đăng, hội thoại, báo cáo khiếu nại, điểm uy tín) được thiết kế và vận hành trên **PostgreSQL 15/17 trên Supabase** với PgBouncer Pooler và kết nối TLS bắt buộc (`rejectUnauthorized: true`).
 
 ---
@@ -451,33 +451,46 @@ flowchart LR
 
 ## 8. Security (Bảo mật, Phân quyền & Bảo vệ Dữ liệu)
 
-### 8.1. Ma trận Phân quyền Truy cập (Role-Based Access Control - RBAC)
+### 8.1. Ma trận Phân quyền & Mô hình Kiểm soát Truy cập 3 Tầng (Access Control Model)
 
-Quyền hạn trong hệ thống được kiểm soát nghiêm ngặt theo vai trò (`role`) và trạng thái định danh (`verificationStatus`):
+Hệ thống phân tách rạch ròi giữa **Trạng thái Xác thực (Authentication State)**, **Vai trò Nghiệp vụ (Business Role)** và **Trạng thái Thẩm định Sinh viên (Verification Status)**:
 
-| Nhóm chức năng / Endpoint                     | GUEST (Chưa login) |    PENDING (Chờ duyệt thẻ)     |  APPROVED (Đã duyệt)  | ADMIN (Quản trị viên) |
-| :-------------------------------------------- | :----------------: | :----------------------------: | :-------------------: | :-------------------: |
-| **Xem bảng tin (`GET /feed`)**                |   ❌ **Chặn (401)** | Có (`PendingFeedPage` rút gọn) | Có (Feed cá nhân hóa) |      Toàn quyền       |
-| **Xem chi tiết bài đăng (`GET /posts/{id}`)** |   ❌ Chặn (401)    |       ❌ **Chặn (403)**        |      ✅ Cho phép      |      ✅ Cho phép      |
-| **Mở xem số điện thoại người bán**            |   ❌ Chặn (401)    |         ❌ Chặn (403)          |  ✅ Cho phép (BR-08)  |      ✅ Cho phép      |
-| **Đăng tin (`SELL` / `BUY_REQUEST`)**         |   ❌ Chặn (401)    |         ❌ Chặn (403)          |      ✅ Cho phép      |      ✅ Cho phép      |
-| **Nhắn tin trò chuyện (`/conversations`)**    |   ❌ Chặn (401)    |         ❌ Chặn (403)          |      ✅ Cho phép      |   ❌ Không tham gia   |
-| **Tạo báo cáo vi phạm (`POST /reports`)**     |   ❌ Chặn (401)    |         ❌ Chặn (403)          |      ✅ Cho phép      |      ✅ Cho phép      |
-| **Xét duyệt thẻ SV & Xem ảnh thẻ**            |   ❌ Chặn (401)    |         ❌ Chặn (403)          |     ❌ Chặn (403)     |   ✅ **CHỈ ADMIN**    |
-| **Quản trị người dùng & Phân xử báo cáo**     |   ❌ Chặn (401)    |         ❌ Chặn (403)          |     ❌ Chặn (403)     |   ✅ **CHỈ ADMIN**    |
+> [!IMPORTANT]
+> **Định Nghĩa Thống Nhất về "Guest" (Khách Vãng Lai):**
+> 1. **Bản chất kỹ thuật:** "Guest" **tuyệt đối không phải là một vai trò nghiệp vụ thứ ba** trong hệ thống hay trong CSDL. Enum `user_role` trong PostgreSQL (`database/baseline/schema_v1.2.sql`) và OpenAPI Contract (`packages/api-contract/openapi.yaml`) chỉ định nghĩa **2 vai trò nghiệp vụ duy nhất**:
+>    - `USER`: Sinh viên đại học.
+>    - `ADMIN`: Quản trị viên hệ thống.
+> 2. **Trạng thái Chưa xác thực (Unauthenticated State):** "Guest" đại diện cho trạng thái người dùng chưa đăng nhập, request gửi tới không mang JWT Bearer Token hợp lệ.
+> 3. **Chặn truy cập Bảng tin (Feed):** Quy định chặn truy cập bảng tin khi chưa đăng nhập (`GET /feed` trả về **HTTP 401 Unauthorized**) hoàn toàn phù hợp với **Hồ sơ Nghiệp vụ v1.2** (Campus Marketplace là nền tảng thương mại nội bộ bảo vệ dữ liệu sinh viên, ngăn chặn triệt để hành vi cào dữ liệu scraping và bảo vệ thông tin cá nhân của người bán trong trường).
+
+Hệ thống thực thi kiểm soát truy cập qua **3 tầng bảo vệ đồng bộ tại Backend**:
+- **Tầng 1 — `JwtAuthGuard` (Authentication):** Kiểm tra JWT token. Nếu request ở trạng thái **Chưa xác thực (Unauthenticated / Guest)**, hệ thống lập tức trả về **HTTP 401 Unauthorized** (ngoại trừ các public endpoints như `/auth/*`, `/health`, `/categories`).
+- **Tầng 2 — `RolesGuard` (Role Authorization):** Kiểm tra vai trò tài khoản (`USER` vs `ADMIN`).
+- **Tầng 3 — `VerificationGuard` (Verification Status):** Đối với vai trò `USER`, kiểm tra trạng thái duyệt thẻ sinh viên (`PENDING`, `APPROVED`, `REJECTED`, `SUSPENDED`).
+
+| Nhóm chức năng / Endpoint                     | Chưa xác thực (Unauth / Guest) | Sinh viên USER (PENDING)       | Sinh viên USER (APPROVED) | Quản trị viên (ADMIN) |
+| :-------------------------------------------- | :----------------------------: | :----------------------------: | :-----------------------: | :-------------------: |
+| **Xem bảng tin (`GET /feed`)**                | ❌ **Chặn (401 Unauthorized)** | Có (`PendingFeedPage` rút gọn) | Có (Feed cá nhân hóa)     |      Toàn quyền       |
+| **Xem chi tiết bài đăng (`GET /posts/{id}`)** |         ❌ Chặn (401)          |  ❌ **Chặn (403 Forbidden)**   |        ✅ Cho phép        |      ✅ Cho phép      |
+| **Mở xem số điện thoại người bán**            |         ❌ Chặn (401)          |         ❌ Chặn (403)          |    ✅ Cho phép (BR-08)    |      ✅ Cho phép      |
+| **Đăng tin (`SELL` / `BUY_REQUEST`)**         |         ❌ Chặn (401)          |         ❌ Chặn (403)          |        ✅ Cho phép        |      ✅ Cho phép      |
+| **Nhắn tin trò chuyện (`/conversations`)**    |         ❌ Chặn (401)          |         ❌ Chặn (403)          |        ✅ Cho phép        |   ❌ Không tham gia   |
+| **Tạo báo cáo vi phạm (`POST /reports`)**     |         ❌ Chặn (401)          |         ❌ Chặn (403)          |        ✅ Cho phép        |      ✅ Cho phép      |
+| **Xét duyệt thẻ SV & Xem ảnh thẻ**            |         ❌ Chặn (401)          |         ❌ Chặn (403)          |       ❌ Chặn (403)       |   ✅ **CHỈ ADMIN**    |
+| **Quản trị người dùng & Phân xử báo cáo**     |         ❌ Chặn (401)          |         ❌ Chặn (403)          |       ❌ Chặn (403)       |   ✅ **CHỈ ADMIN**    |
 
 > [!NOTE]
 > **Phân tầng Hiển thị Bảng tin & Quyền Hạn (Feed Tiering per D05, D13 & DB05):**
 >
-> 1. **GUEST (Chưa đăng nhập):**
+> 1. **Chưa xác thực (Unauthenticated / Guest):**
 >    - **Tuyệt đối KHÔNG được xem bảng tin** (`GET /feed` yêu cầu JWT token hợp lệ, trả về **HTTP 401 Unauthorized** nếu chưa xác thực danh tính sinh viên).
 >    - Bắt buộc phải đăng nhập hoặc đăng ký tài khoản email trường đại học (`@*.edu.vn`) để vào hệ thống.
-> 2. **Chế độ Giới hạn (`PendingFeedPage` dành riêng cho tài khoản PENDING):**
+> 2. **Chế độ Giới hạn (`PendingFeedPage` dành riêng cho sinh viên PENDING):**
 >    - Dành cho sinh viên đã đăng ký tài khoản nhưng đang chờ Admin phê duyệt minh chứng thẻ sinh viên.
 >    - Chỉ trả về danh sách tóm tắt gồm: tiêu đề tin, giá bán/ngân sách, phân loại danh mục và ảnh đại diện sản phẩm (thumbnail công khai).
 >    - **Ẩn toàn bộ thông tin liên hệ của người bán:** Không hiển thị số điện thoại, không có liên kết mở chat, không cho phép click vào trang chi tiết (`PostPage` bị chặn **HTTP 403 Forbidden** hoặc chuyển hướng yêu cầu hoàn tất xác minh thẻ sinh viên).
 >    - Ngăn chặn triệt để hành vi thu thập dữ liệu (scraping) và bảo vệ an toàn thông tin sinh viên nội bộ.
-> 3. **Chế độ Đầy đủ (`PostPage` dành cho tài khoản APPROVED):**
+> 3. **Chế độ Đầy đủ (`PostPage` dành cho sinh viên APPROVED):**
 >    - Xem đầy đủ mô tả chi tiết bài đăng, album ảnh độ phân giải cao, thông tin người bán và điểm uy tín (`reputation_score`).
 >    - Có nút "Xem số điện thoại" (ghi nhận sự kiện `phone_reveal_events` theo BR-08) và nút "Nhắn tin" mở hội thoại realtime qua WebSocket (`/ws`).
 
@@ -569,7 +582,7 @@ Dựa trên tài liệu rà soát kiến trúc chính thức: `docs/reviews/Camp
 | **FR-01** | Đăng ký email trường qua OTP | Must | CMP-1 | CMP-6 | 4.1.1 | Kiểm tra domain email trường đại học (`@*.edu.vn`), OTP lưu hash SHA-256, hạn 10 phút, cấp OTP ticket. |
 | **FR-02** | Hồ sơ sinh viên và minh chứng | Must | CMP-1 | CMP-7 | 4.1.2 | Nộp ảnh thẻ sinh viên (`card_image_ref`), lưu Private R2, ẩn tuyệt đối khỏi giao diện sinh viên (BR-03). |
 | **FR-03** | Admin xét duyệt xác minh | Must | CMP-1 | CMP-8, CMP-18 | 4.1.3 | Admin xem danh sách chờ duyệt, signed URL ngắn hạn xem ảnh thẻ, duyệt (`APPROVED`) hoặc từ chối (`REJECTED`). |
-| **FR-04** | Khóa quyền Marketplace với GUEST & PENDING | Must | CMP-1, CMP-3 | CMP-12, CMP-18 | 4.1.3, 4.2.3 | GUEST bị chặn 401 toàn bộ feed; tài khoản PENDING chỉ xem bảng tin rút gọn (`PendingFeedPage`), chặn đăng tin, xem SĐT, chat, tạo report. |
+| **FR-04** | Khóa quyền Marketplace với Chưa xác thực & PENDING | Must | CMP-1, CMP-3 | CMP-12, CMP-18 | 4.1.3, 4.2.3 | Trạng thái chưa xác thực (Unauthenticated / Guest) bị chặn 401 toàn bộ feed; tài khoản PENDING chỉ xem bảng tin rút gọn (`PendingFeedPage`), chặn đăng tin, xem SĐT, chat, tạo report. |
 | **FR-05** | Profile và cấu hình sở thích | Must | CMP-1 | CMP-21 | 4.1.4 | Cập nhật thông tin cá nhân và mảng `favorite_category_ids`, từ khóa quan tâm phục vụ feed gợi ý. |
 | **FR-06** | CRUD tin SELL, ảnh & SOLD | Must | CMP-2 | CMP-9, CMP-11 | 4.2.1 | Đăng bài bán đồ cũ, giá `price > 0`, độ mới, tải tối thiểu 1 ảnh lên Public CDN, chuyển trạng thái `SOLD`. |
 | **FR-07** | CRUD tin BUY REQUEST & CLOSED | Must | CMP-2 | CMP-10, CMP-11 | 4.2.2 | Đăng bài tìm mua, khoảng ngân sách `budget_min <= budget_max`, chuyển trạng thái `CLOSED` (không chuyển `SOLD`). |
@@ -628,7 +641,7 @@ gantt
 | **DB02** | Bảo toàn lịch sử khi xóa (Cascade) | **CAO** | Nhiều FK dùng `ON DELETE CASCADE` có thể làm mất dữ liệu `reports`, `audit_logs` khi bài viết hoặc user bị xóa. | Áp dụng chính sách **Soft-delete** (`deleted_at`) hoặc `ON DELETE RESTRICT` cho `posts` và `users`. Dữ liệu khiếu nại và kiểm toán không bao giờ bị xóa vật lý nhằm phục vụ phân xử và đối soát. | BE Lead | **Đã thiết kế** |
 | **DB03** | Thực thi ràng buộc CHECK thật | **CAO** | Ràng buộc giá trị (`price >= 0`, `reputation_score`, `size_bytes`) trong DBML thường chỉ là ghi chú text. | Tạo các ràng buộc `CHECK` tường minh trong DDL PostgreSQL migration: `CHECK (price >= 0)`, `CHECK (budget_min >= 0 AND budget_max >= budget_min)`, `CHECK (reputation_score BETWEEN 0.0 AND 5.0)`, `CHECK (size_bytes <= 10485760)`. | BE Lead + BE2 | **Đã thiết kế** |
 | **DB04** | Phân tách SELL vs BUY_REQUEST | **CAO** | `posts.post_type` và bảng chi tiết `sell_details` / `buy_request_details` tách rời, có nguy cơ dữ liệu chéo hoặc sai trạng thái. | Xử lý trong Database Transaction: Bài SELL bắt buộc có `sell_details` và $\ge 1$ ảnh; bài BUY_REQUEST bắt buộc có `buy_request_details`. State Machine cấm BUY_REQUEST chuyển sang `SOLD` (chỉ chuyển `CLOSED`). | BE2 | **Đã thiết kế** |
-| **DB05** | Phân quyền & Bảo vệ Dữ liệu Cá nhân | **CAO** | CSDL không tự đảm bảo phân quyền người dùng (GUEST, PENDING, APPROVED, ADMIN). | Bộ lọc phân quyền 3 tầng tại Backend: `JwtAuthGuard` $\to$ `RolesGuard` $\to$ `VerificationGuard`. Ẩn hoàn toàn `card_image_ref` trên API profile; số điện thoại chỉ mở qua `POST /reveal-phone`. | BE Lead | **Đã thiết kế** |
+| **DB05** | Phân quyền & Bảo vệ Dữ liệu Cá nhân | **CAO** | CSDL chỉ lưu vai trò USER/ADMIN, không tự xử lý trạng thái chưa xác thực (Guest) và trạng thái thẻ PENDING/APPROVED. | Bộ lọc phân quyền 3 tầng tại Backend: `JwtAuthGuard` (chặn 401 với Unauthenticated/Guest) $\to$ `RolesGuard` (phân định `USER`/`ADMIN`) $\to$ `VerificationGuard` (`PENDING`/`APPROVED`). Guest là trạng thái chưa xác thực, không phải vai trò nghiệp vụ thứ ba. Ẩn hoàn toàn `card_image_ref` trên API profile; số điện thoại chỉ mở qua `POST /reveal-phone`. | BE Lead | **Đã thiết kế** |
 | **DB06** | Mốc Retention Chat TTL | **CAO** | Tài liệu trước đây ghi nhầm TTL attachment 90 ngày; DBML chuẩn quy định tệp 1 tháng, text 3 tháng. | Chuẩn hóa chính xác: **Tin nhắn văn bản** hết hạn sau **3 tháng** (`expires_at = created_at + interval '3 months'`); **Tệp đính kèm** hết hạn sau **1 tháng** (`created_at + interval '1 month'`). Schedulers định kỳ xóa tệp và từ chối truy cập URL quá hạn. | BE2 + BE Lead | **ĐÃ SỬA** |
 | **DB07** | Ràng buộc Hội thoại & Thứ tự Member | **CAO** | Cần đảm bảo mỗi cặp người mua - người bán trên 1 tin SELL chỉ có 1 hội thoại duy nhất. | Ràng buộc CSDL: `UNIQUE (post_id, member_low_id, member_high_id)` kết hợp `CHECK (member_low_id < member_high_id)`. Logic tạo hội thoại tự động sắp xếp 2 UUID theo thứ tự từ điển trước khi INSERT. | BE2 + BE Lead | **Đã thiết kế** |
 | **DB08** | Email Sinh viên & Allowlist Domain | **VỪA** | DBML chỉ có `UNIQUE` cho `school_email`, chưa có cơ chế kiểm soát domain trường đại học. | Backend chuẩn hóa email về dạng chữ thường (`lowercase().trim()`), kiểm tra domain hợp lệ theo Allowlist cấu hình (`.edu.vn`). OTP ticket ký HMAC có thời hạn 10 phút. | BE Lead | **Đã thiết kế** |
@@ -647,7 +660,7 @@ gantt
 | **D02** | Khung 15 tuần hướng dẫn môn học | PM / Giảng viên | Lưu ý | Giữ bảng tiến độ trung thực theo lịch làm việc thực tế của nhóm; sẵn sàng ánh xạ sang khung môn học khi yêu cầu. |
 | **D03** | Domain email sinh viên cho OTP | BA + PM | Chốt nội bộ | Cho phép toàn bộ domain kết thúc bằng `.edu.vn` (mặc định hỗ trợ email PTIT `@*.ptit.edu.vn`). |
 | **D04** | Đơn vị lưu trữ retention chat (Tháng vs Ngày) | BA + BE2 | **ĐÃ CHỐT** | Thống nhất theo DB06: Tin nhắn văn bản lưu 3 tháng (`created_at + 3 months`), tệp đính kèm lưu 1 tháng (`created_at + 1 month`). |
-| **D05** | Mức hiển thị bảng tin cho GUEST & PENDING | BA + BE Lead | **ĐÃ CHỐT** | GUEST tuyệt đối không được xem feed (chặn 401); PENDING xem bảng tin rút gọn (`PendingFeedPage`): có tiêu đề, giá, thumbnail; ẩn SĐT, chặn xem chi tiết và chat. |
+| **D05** | Mức hiển thị bảng tin cho Chưa xác thực & PENDING | BA + BE Lead | **ĐÃ CHỐT** | Người dùng chưa xác thực (Guest) tuyệt đối không được xem feed (chặn 401); PENDING xem bảng tin rút gọn (`PendingFeedPage`): có tiêu đề, giá, thumbnail; ẩn SĐT, chặn xem chi tiết và chat. |
 | **D06** | Thời hạn phản hồi báo cáo và trùng lặp | BA + BE2 | **ĐÃ CHỐT** | Seller có 48 giờ để phản hồi báo cáo (`WAITING_SELLER_RESPONSE`); cấm tạo báo cáo mới nếu đang có báo cáo chờ xử lý (DB01). |
 | **D07** | Chống lạm dụng mở số điện thoại | BA + BE Lead | **ĐÃ CHỐT** | Giới hạn tần suất bấm xem số điện thoại (Rate Limiting 10 lượt/giờ), ghi nhật ký đầy đủ vào `phone_reveal_events`. |
 | **D08** | Công suất 3–4 giờ/người/ngày | PM + Team | Dự kiến | Giữ mức nỗ lực trung bình 18–24h/tuần/người, tương ứng ~11 Story Points/người/sprint. |
@@ -655,5 +668,5 @@ gantt
 | **D10** | Thu thập capacity cá nhân thực tế | PM + Team | Đang theo dõi | Cân đối phân bổ công việc theo năng lực thực tế giữa BE-01 (Tech Lead) và BE-02 (Developer). |
 | **D11** | Chốt Stack: Next.js 14+ + NestJS + SQL-first pg | Tech Lead + Team | **ĐÃ CHỐT** | **ĐÃ THÔNG QUA:** Sử dụng Next.js 14+ (App Router) cho Frontend và SQL-first `node-postgres` cho Backend NestJS. |
 | **D12** | Kiểm chứng DDL Migration & CHECK/UNIQUE | BE Lead | Đang thực thi | Đảm bảo các ràng buộc SQL (DB01–DB07) được áp dụng đầy đủ vào baseline schema và migrations. |
-| **D13** | Sửa tài liệu kiến trúc (Guest feed, TTL, Admin) | BE Lead + BA | **ĐÃ HOÀN TẤT** | Đã cập nhật toàn bộ `docs/ARCHITECTURE.md`, `ARCHITECTURE.md` và `tasks/BACKLOG.md`. |
+| **D13** | Sửa tài liệu kiến trúc (Guest là trạng thái chưa xác thực, Feed 401, TTL, Admin) | BE Lead + BA | **ĐÃ HOÀN TẤT** | Đã chuẩn hóa biểu diễn Guest là trạng thái chưa xác thực (Unauthenticated State), không phải vai trò nghiệp vụ thứ ba; cập nhật toàn bộ `docs/ARCHITECTURE.md`, `ARCHITECTURE.md` và `tasks/BACKLOG.md`. |
 | **D14** | Xác minh môi trường dev, CI và test tự động | BE Lead + FE | **ĐÃ XÁC MINH** | Monorepo CI chạy thành công, 100% tests (Frontend Vitest + Backend Jest/Supertest) đều PASS. |

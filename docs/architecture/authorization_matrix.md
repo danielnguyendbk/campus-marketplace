@@ -4,20 +4,30 @@ Tài liệu này đặc tả chi tiết ma trận kiểm soát truy cập (Acces
 
 ---
 
-## 1. Định nghĩa Vai trò và Trạng thái Tài khoản
+## 1. Kiến trúc Kiểm soát Truy cập 3 Tầng (3-Tier Access Control Architecture)
 
-Hệ thống phân tách rạch ròi giữa **Role** (Vai trò hệ thống) và **VerificationStatus** (Trạng thái thẩm định sinh viên):
+Hệ thống phân định rạch ròi giữa **Trạng thái Xác thực (Authentication State)**, **Vai trò Nghiệp vụ (Business Role)** và **Trạng thái Thẩm định Sinh viên (Verification Status)**:
 
-### 1.1. Các Vai trò Hệ thống (`user_role` trong CSDL)
-- **`GUEST` (Khách vãng lai):** Người dùng chưa đăng nhập, không có JWT token.
-- **`USER`:** Người dùng đã đăng ký tài khoản thành công qua OTP email trường. Quyền hạn trong Marketplace phụ thuộc hoàn toàn vào `verification_status`.
-- **`ADMIN`:** Quản trị viên hệ thống có toàn quyền thẩm định minh chứng sinh viên, xử lý báo cáo vi phạm, quản lý cấu hình và kiểm toán.
+### 1.1. Trạng thái Xác thực (Authentication State — Tầng 1)
+- **`UNAUTHENTICATED` (Khách vãng lai / Guest):** Trạng thái người dùng **chưa đăng nhập**, request không mang JWT Bearer Token hợp lệ.
+  > [!IMPORTANT]
+  > **Quy định Thống nhất về Khách vãng lai (Guest):**
+  > - **Không phải vai trò nghiệp vụ:** "Guest" **tuyệt đối không phải là vai trò nghiệp vụ thứ ba** trong hệ thống hay trong CSDL (enum `user_role` trong PostgreSQL chỉ có `USER` và `ADMIN`). Guest đơn thuần là **trạng thái chưa xác thực (Unauthenticated State)**.
+  > - **Chặn hoàn toàn Bảng tin (Feed):** Phù hợp với Hồ sơ nghiệp vụ v1.2 (nền tảng trao đổi đồ dùng nội bộ sinh viên), mọi request truy cập `GET /feed` khi chưa xác thực đều bị chặn ở tầng `JwtAuthGuard` với mã lỗi **HTTP 401 Unauthorized** (bắt buộc phải đăng nhập bằng email trường đại học để vào bảng tin).
+  > - Khách vãng lai chỉ được phép gọi các public endpoints: yêu cầu/xác thực OTP (`/auth/request-otp`, `/auth/verify-otp`), đăng nhập/đăng ký (`/auth/login`, `/auth/register`), tra cứu danh mục (`/categories`) và kiểm tra sức khỏe hệ thống (`/health`).
+- **`AUTHENTICATED` (Đã đăng nhập):** Request gửi kèm JWT Bearer Token hợp lệ, được `JwtAuthGuard` giải mã thành danh tính tài khoản hợp lệ trong hệ thống.
 
-### 1.2. Các Trạng thái Xác minh Sinh viên (`verification_status` trong CSDL)
-- **`PENDING`:** Đã xác thực OTP email trường, đã tạo mật khẩu nhưng chưa nộp minh chứng hoặc đang chờ Admin phê duyệt.
-- **`REJECTED`:** Minh chứng sinh viên bị Admin từ chối do không hợp lệ (mờ, sai thông tin, thẻ hết hạn).
-- **`APPROVED` (Verified Student):** Minh chứng sinh viên hợp lệ và đã được Admin phê duyệt. Được cấp quyền sử dụng đầy đủ các tính năng của sàn Campus Marketplace.
-- **`SUSPENDED`:** Tài khoản bị khóa quyền hoạt động do vi phạm chính sách cộng đồng, bị nhiều báo cáo vi phạm hoặc nợ điểm uy tín.
+### 1.2. Vai trò Nghiệp vụ (`user_role` trong CSDL — Tầng 2)
+Cơ sở dữ liệu PostgreSQL (`users.role`) và OpenAPI Contract chuẩn hóa định nghĩa **duy nhất 2 vai trò nghiệp vụ**:
+- **`USER` (Sinh viên):** Sinh viên các trường đại học đã đăng ký tài khoản thành công qua email trường (`@*.edu.vn`). Quyền hạn cụ thể trong các luồng Marketplace được kiểm soát tiếp bởi tầng `VerificationGuard`.
+- **`ADMIN` (Quản trị viên):** Ban quản trị nền tảng có toàn quyền thẩm định minh chứng thẻ sinh viên, xử lý báo cáo vi phạm, quản lý tài khoản người dùng, cấu hình tham số hệ thống và tra cứu kiểm toán (Audit Logs).
+
+### 1.3. Trạng thái Xác minh Sinh viên (`verification_status` trong CSDL — Tầng 3)
+Áp dụng đối với người dùng đã xác thực mang vai trò `USER`:
+- **`PENDING`:** Đã xác thực OTP email trường, đã tạo mật khẩu nhưng đang chờ nộp minh chứng thẻ hoặc đang chờ Admin phê duyệt. Được cấp quyền xem bảng tin rút gọn `PendingFeedPage` (không link chi tiết bài đăng, không số điện thoại, không nhắn tin). Cố gắng thao tác sâu bị chặn **HTTP 403 Forbidden**.
+- **`REJECTED`:** Minh chứng sinh viên bị Admin từ chối do không hợp lệ. Chỉ được phép xem trạng thái và nộp lại minh chứng qua `POST /me/evidence`.
+- **`APPROVED` (Sinh viên chính thức đã duyệt thẻ):** Minh chứng sinh viên hợp lệ và đã được Admin phê duyệt. Được cấp toàn quyền sử dụng các tính năng giao dịch của Campus Marketplace (xem `PostPage`, xem SĐT qua `PhoneRevealEvent`, đăng tin SELL/BUY_REQUEST, mở hội thoại realtime, gửi báo cáo vi phạm).
+- **`SUSPENDED`:** Tài khoản bị khóa quyền hoạt động do vi phạm chính sách cộng đồng hoặc nợ điểm uy tín ($reputation\_score < 1.0$). Bị chặn mọi hoạt động giao dịch.
 
 ---
 
@@ -26,10 +36,10 @@ Hệ thống phân tách rạch ròi giữa **Role** (Vai trò hệ thống) và
 **Ký hiệu quy ước:**
 - ✅ **ALLOW:** Được phép truy cập đầy đủ.
 - 🟡 **LIMITED:** Được phép truy cập ở chế độ giới hạn (chỉ xem thông tin rút gọn, không xem chi tiết/không tương tác).
-- ❌ **DENY (401/403):** Bị chặn ở tầng Server-side (Trả về HTTP 401 Unauthorized nếu chưa đăng nhập, hoặc HTTP 403 Forbidden kèm mã lỗi nếu không đủ quyền).
+- ❌ **DENY (401/403):** Bị chặn ở tầng Server-side (Trả về HTTP 401 Unauthorized nếu chưa đăng nhập / Unauthenticated, hoặc HTTP 403 Forbidden kèm mã lỗi nếu không đủ quyền).
 - 👑 **ADMIN ONLY:** Chỉ tài khoản có vai trò `ADMIN` mới được phép thực thi.
 
-| Nhóm chức năng | Endpoint | Phương thức | GUEST | PENDING | REJECTED | APPROVED | SUSPENDED | ADMIN | Ghi chú nghiệp vụ & Source |
+| Nhóm chức năng | Endpoint | Phương thức | Chưa xác thực (Unauth/Guest) | USER (PENDING) | USER (REJECTED) | USER (APPROVED) | USER (SUSPENDED) | ADMIN | Ghi chú nghiệp vụ & Source |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **Authentication** | `/auth/request-otp` | `POST` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | Gửi mã OTP xác thực email sinh viên đuôi `.edu.vn` (BR-02). |
 | | `/auth/verify-otp` | `POST` | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | Xác thực mã OTP để nhận `otpTicket`. |

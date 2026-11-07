@@ -7,7 +7,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Trạng thái hệ thống hiện tại
 
 - **Giai đoạn:** Foundation Audit & Review Alignment (PR #1 - Sẵn sàng Merge)
-- **Cập nhật lần cuối:** 2026-11-06 12:45
+- **Cập nhật lần cuối:** 2026-11-07 09:20
 - **Người bàn giao:** Senior Backend Architect & Technical Project Manager
 - **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
 - **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
@@ -17,7 +17,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
   - Backend: **NestJS 10** (Modular Monolith API Gateway).
   - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan; không dùng Prisma).
-  - Feed Tiering & Quyền hạn (DB05, D05, D13): **GUEST bị chặn hoàn toàn bảng tin (HTTP 401 Unauthorized)**; chỉ tài khoản **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết HTTP 403, chặn chat HTTP 403); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
+  - Chuẩn hóa Khái niệm Guest & Feed Tiering (DB05, D05, D13): **Guest được biểu diễn chuẩn xác là Trạng thái chưa xác thực (Unauthenticated State)**, không phải là vai trò nghiệp vụ thứ ba (CSDL chỉ có `USER` và `ADMIN`). Người dùng chưa xác thực bị chặn hoàn toàn bảng tin (`GET /feed` trả về **HTTP 401 Unauthorized** per Hồ sơ nghiệp vụ v1.2); chỉ tài khoản sinh viên **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết HTTP 403, chặn chat HTTP 403); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
   - Chat Retention TTL (DB06): Tin nhắn văn bản lưu 3 tháng (90 ngày), tệp đính kèm lưu 1 tháng (30 ngày).
   - CSDL Migration (DB01–DB07): Đã tạo `database/migrations/0001_dbml_review_fixes.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
 - **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 App Router + NestJS Build thành công).
@@ -26,6 +26,35 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #012: Chuẩn hóa Biểu diễn Guest là Trạng thái Chưa Xác thực (Unauthenticated State), Không phải Vai trò Nghiệp vụ (07/11/2026)
+
+- **Ngày:** 2026-11-07
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Thống nhất Biểu diễn "Guest" là Trạng thái Chưa xác thực (Unauthenticated State):**
+     - Làm rõ: "Guest" không phải là một vai trò nghiệp vụ thứ ba trong hệ thống hay trong CSDL. Enum `user_role` trong PostgreSQL và OpenAPI Contract chỉ định nghĩa duy nhất 2 vai trò nghiệp vụ: `USER` (sinh viên) và `ADMIN` (quản trị viên).
+     - Khách vãng lai (Guest) là trạng thái client chưa gửi JWT Bearer Token hợp lệ.
+     - Kiểm soát truy cập được phân rã thành **Mô hình 3 Tầng**:
+       - Tầng 1: `JwtAuthGuard` (Authentication) — nếu Unauthenticated thì chặn **HTTP 401 Unauthorized** (ngoại trừ public endpoints).
+       - Tầng 2: `RolesGuard` (Role Authorization) — phân định `USER` vs `ADMIN`.
+       - Tầng 3: `VerificationGuard` (Verification Status) — kiểm tra trạng thái thẻ SV `PENDING`, `APPROVED`, `REJECTED`, `SUSPENDED`.
+  2. **Khẳng định Quy định Chặn Bảng tin với Người dùng Chưa đăng nhập:**
+     - Quy định `GET /feed` trả về **HTTP 401 Unauthorized** với người dùng chưa đăng nhập hoàn toàn phù hợp với **Hồ sơ Nghiệp vụ v1.2** nhằm bảo vệ dữ liệu sinh viên nội bộ và chống scraping.
+     - Sinh viên `PENDING` xem `PendingFeedPage` rút gọn (không link chi tiết HTTP 403, không SĐT, không chat); sinh viên `APPROVED` xem `PostPage` đầy đủ.
+  3. **Đồng bộ Toàn diện Hệ thống Tài liệu:**
+     - Cập nhật [`docs/architecture/authorization_matrix.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/architecture/authorization_matrix.md): Định nghĩa lại Kiến trúc 3 tầng và chuẩn hóa tiêu đề cột ma trận (Chưa xác thực vs USER vs ADMIN).
+     - Cập nhật [`docs/ARCHITECTURE.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/ARCHITECTURE.md) & [`ARCHITECTURE.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/ARCHITECTURE.md) (Mục 1.3, Mục 8.1, Mục 10: FR-04, DB05, D05, D13).
+     - Cập nhật [`tasks/BACKLOG.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/tasks/BACKLOG.md) (BE-02-T03, BE-01-T05, BE-02-T07).
+  4. **Kiểm tra Chất lượng Toàn bộ Monorepo:**
+     - `pnpm lint`: PASS (0 warnings).
+     - `pnpm typecheck`: PASS (0 errors).
+     - `pnpm test`: PASS (50/50 tests).
+     - `pnpm --filter @campus/backend run test:e2e`: PASS (38/38 tests).
+     - `pnpm build`: PASS (`next build` prerender 4/4 static pages + `nest build`).
+
+---
 
 ### Handoff #011: Chuẩn hóa Toàn diện Next.js 14+ (App Router) theo Quyết định Tech Lead, Khóa Feed Guest & Đồng bộ 100% Monorepo (06/11/2026)
 

@@ -18,7 +18,7 @@ Toàn bộ hệ thống Backend được phân rã theo **Vertical Slice Archite
 - **BE-02 (Backend Developer):**
   - Student Verification: Evidence Submission (`POST /me/evidence`), Admin Verification Review (`/admin/verifications`).
   - Marketplace Core: Categories & Seeds, Post CRUD (Tin bán `SELL` & Tin tìm mua `BUY_REQUEST`), Post Images (Cloudflare R2), Post Lifecycle State Transitions.
-  - Discovery: Tiered Feed (`GET /feed` cho GUEST/PENDING vs APPROVED), Post Matching Engine.
+  - Discovery: Tiered Feed (`GET /feed` chặn 401 Unauthenticated; PENDING vs APPROVED), Post Matching Engine.
   - Trust & Safety: Report Lifecycle 6-State Engine, Reputation Event Calculation Engine ($K=3$, $-0.1$).
   - Admin & Governance: Admin User Management, Admin Reports Decision, Audit Logs, System Configs, In-app Notifications.
 - **Shared Kernel (Giao diện chốt trước trong Sprint 1):**
@@ -132,7 +132,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **API:** `GET /categories`.
   - **Database:** `categories`.
   - **Files:** `src/modules/category/category.controller.ts`, `category.service.ts`, `database/seeds/category.seed.ts`.
-  - **Acceptance Criteria:** Nạp đủ `TEXTBOOK`, `ELECTRONICS`, `FURNITURE`, `APPLIANCES`, `OTHER`; trả về phân trang root-level `CategoryPage` có `meta` và `sort_order`; Public API cho GUEST.
+  - **Acceptance Criteria:** Nạp đủ `TEXTBOOK`, `ELECTRONICS`, `FURNITURE`, `APPLIANCES`, `OTHER`; trả về phân trang root-level `CategoryPage` có `meta` và `sort_order`; Public API cho trạng thái chưa xác thực (Unauthenticated / Guest).
   - **Tests:** Unit test CategoryService, contract test `CategoryPage` root-level metadata.
   - **Branch:** `feat/be-02-category-seed`
 
@@ -149,7 +149,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Database:** `phone_reveal_events`, `posts`, `sell_details`, `users`.
   - **Files:** `src/modules/posts/phone-reveal.controller.ts`, `services/phone-reveal.service.ts`.
   - **Acceptance Criteria:** Chỉ tài khoản `APPROVED` mới được xem; bài đăng phải ở trạng thái `ACTIVE` (hoặc `HIDDEN` với chính chủ); ghi bản ghi `phone_reveal_events`; trả về số điện thoại định dạng E.164.
-  - **Tests:** E2E test chặn GUEST/PENDING, test ghi nhận lịch sử mở số, test bài đăng closed/sold trả 400.
+  - **Tests:** E2E test chặn Unauthenticated/PENDING, test ghi nhận lịch sử mở số, test bài đăng closed/sold trả 400.
   - **Branch:** `feat/be-01-phone-reveal`
 - [ ] **BE-01-T06: Chat Domain — Conversations Management & Access Boundaries** (P0, 5 SP)
   - **API:** `POST /conversations`, `GET /conversations`, `GET /conversations/{id}`.
@@ -219,7 +219,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **API:** `GET /feed`, `GET /posts/{id}/matches`.
   - **Database:** `posts`, `sell_details`, `buy_request_details`, `user_preferences`.
   - **Files:** `src/modules/feed/feed.controller.ts`, `feed.service.ts`, `services/matching.service.ts`.
-  - **Acceptance Criteria:** `GET /feed` cho `GUEST` bị chặn HTTP 401 Unauthorized (bắt buộc login); cho `PENDING` chỉ trả danh sách rút gọn `PendingFeedPage` (không link chi tiết, không SĐT, không chat); cho `APPROVED` trả `PostPage` cá nhân hóa theo preferences; `matches` tìm tin đối ứng theo `categoryId`, khu vực (`province`), và ngân sách `[budget_min, budget_max]`.
+  - **Acceptance Criteria:** `GET /feed` cho trạng thái chưa xác thực (Unauthenticated / Guest) bị chặn HTTP 401 Unauthorized (bắt buộc login); cho `PENDING` chỉ trả danh sách rút gọn `PendingFeedPage` (không link chi tiết, không SĐT, không chat); cho `APPROVED` trả `PostPage` cá nhân hóa theo preferences; `matches` tìm tin đối ứng theo `categoryId`, khu vực (`province`), và ngân sách `[budget_min, budget_max]`.
   - **Tests:** Unit test matching algorithm, E2E test feed response format cho cả PENDING và APPROVED.
   - **Branch:** `feat/be-02-feed-matching`
 - [ ] **BE-02-T08: Trust & Safety — Report Lifecycle & 6-State Machine Engine** (P0, 5 SP)
