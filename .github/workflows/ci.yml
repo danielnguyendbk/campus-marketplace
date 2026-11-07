@@ -39,8 +39,22 @@ jobs:
       - name: Run Typecheck
         run: pnpm typecheck
 
-      - name: Run Tests
+      # =========================================================================
+      # AUTOMATED CI TEST SUITE:
+      # - Unit Tests (Backend Jest unit tests with mock database/dependencies)
+      # - Frontend Tests (Vitest React component & client envelope integration)
+      # - Backend E2E Tests (Supertest HTTP API integration with mocked database)
+      #
+      # NOTE: Database live integration tests ('pnpm db:test') connect to remote
+      # PostgreSQL / Supabase with strict TLS verification (rejectUnauthorized: true)
+      # and must ONLY be run manually in authorized environments with credentials.
+      # They are explicitly excluded from public/unauthenticated CI runners.
+      # =========================================================================
+      - name: Run Unit & Frontend Tests
         run: pnpm test
+
+      - name: Run Backend E2E Tests (Mocked / Isolated)
+        run: pnpm test:e2e
 
       - name: Run Build
         run: pnpm build

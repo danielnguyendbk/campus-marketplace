@@ -20,7 +20,7 @@
 ## 2. Technology Stack
 
 - **Monorepo Manager:** `pnpm workspace` (Node.js 20.20.1, pnpm 10.14.0)
-- **Frontend (`apps/frontend`):** React 18, Vite, TypeScript, Vitest, React Testing Library.
+- **Frontend (`apps/frontend`):** Next.js 14+ (App Router), React 18, TypeScript, Vitest, React Testing Library.
 - **Backend (`apps/backend`):** NestJS 10, TypeScript, `pg` (Node-postgres pool, SQL-first), Jest, Supertest.
 - **Database:** PostgreSQL trên Supabase (Database `postgres`, Schema `public`).
 - **Hợp đồng API:** OpenAPI 3.x (`@campus/api-contract`), công cụ thiết kế & mock API: Apidog.
@@ -34,7 +34,7 @@
 ```text
 campus-marketplace/
 ├── apps/
-│   ├── frontend/         # @campus/frontend - Ứng dụng Web Client React
+│   ├── frontend/         # @campus/frontend - Ứng dụng Web Client Next.js 14+ (App Router)
 │   └── backend/          # @campus/backend - Ứng dụng Modular Monolith API NestJS
 ├── packages/
 │   └── api-contract/     # @campus/api-contract - OpenAPI 3.x spec & definitions
@@ -44,6 +44,7 @@ campus-marketplace/
 ```
 
 ### Quy định quyền sở hữu (Code Ownership):
+
 1. **Frontend Team / Frontend Agent:** Toàn quyền trong `apps/frontend/`. Chỉ đọc `packages/api-contract/`. Không được can thiệp vào `apps/backend/` hay `database/`.
 2. **Backend Team / Backend Agent:** Toàn quyền trong `apps/backend/` và quản lý migration trong `database/migrations/`. Backend Lead có trách nhiệm review và tích hợp toàn bộ backend.
 3. **Database Agent:** Quản lý `database/`. Tuyệt đối không thay đổi schema trực tiếp mà không qua migration và PR.
@@ -78,11 +79,11 @@ Dự án áp dụng mô hình **Gitflow** tiêu chuẩn để phân tách rõ r�
 Một nhiệm vụ chỉ được coi là hoàn tất khi đáp ứng đầy đủ:
 
 1. **Clean Code & Type Safety:** TypeScript biên dịch không lỗi (`pnpm typecheck`), ESLint không vi phạm (`pnpm lint`).
-2. **Automated Tests:** Tất cả unit tests và integration tests đều vượt qua (`pnpm test`).
+2. **Automated Tests:** Tất cả unit tests, frontend tests và backend E2E tests đều vượt qua (`pnpm test`, `pnpm test:e2e`).
 3. **Build Success:** Tất cả packages và apps đều build thành công (`pnpm build`).
-4. **Contract Adherence:** Không vi phạm OpenAPI contract đã duyệt.
-5. **No Secret Leaks:** Không lộ password, API key, token bí mật.
-6. **Traceability:** Đã ghi nhận bàn giao vào `tasks/AGENT_HANDOFF.md` và tạo Pull Request theo đúng mẫu `.github/pull_request_template.md`.
+4. **Contract & Envelope Adherence:** Tuân thủ đúng OpenAPI contract đã duyệt: Success Envelope chuẩn `{ success: true, data, timestamp }` và Error Envelope chuẩn OpenAPI v1.2 `ErrorEnvelope` gồm `{ error: { code, message, details }, requestId }` (nghiêm cấm trả trường thừa vì `additionalProperties: false`). Mọi lỗi máy chủ nội bộ (không phải `HttpException`) bắt buộc trả HTTP 500 với thông điệp công khai an toàn, tuyệt đối không tiết lộ `exception.message`, cấu hình database hay stack trace. Frontend `ApiClient` bắt buộc validate envelope nghiêm ngặt (không fallback payload phẳng hay null).
+5. **Security & TLS Verification:** Tuyệt đối không tắt kiểm tra chứng chỉ TLS (`rejectUnauthorized: false`) trên kết nối cơ sở dữ liệu remote/Supabase. Không lộ password, API key, token bí mật.
+6. **Traceability:** Đã ghi nhận bàn giao vào `tasks/AGENT_HANDOFF.md` và tạo/cập nhật Pull Request theo đúng mẫu `.github/pull_request_template.md`.
 
 ---
 
@@ -111,7 +112,7 @@ flowchart LR
 - **Bảo vệ dữ liệu nhạy cảm sinh viên:**
   - Mật khẩu phải được hash bằng bcrypt / argon2 trước khi lưu vào CSDL.
   - Mã OTP chỉ lưu bản băm `code_hash`.
-  - Ảnh thẻ sinh viên (`student_evidences.card_image_ref`) là dữ liệu riêng tư, chỉ cho phép Admin và chủ tài khoản xem qua Signed URL có thời hạn ngắn.
+  - Ảnh thẻ sinh viên (`student_evidences.card_image_ref`) là dữ liệu mật. Sau khi upload, ảnh thẻ và chi tiết minh chứng được ẩn hoàn toàn trên giao diện người dùng (kể cả chủ tài khoản sau khi duyệt theo BR-03; `GET /me` không trả `cardImageRef`). CHỈ ADMIN mới có quyền truy cập ảnh thẻ sinh viên qua Signed URL có thời hạn ngắn phục vụ quy trình thẩm duyệt (`GET /api/v1/admin/verifications/{id}`).
   - Số điện thoại người dùng không trả về công khai trong API chi tiết bài đăng; chỉ tiết lộ khi có sự kiện `phone_reveal_events`.
 
 ---

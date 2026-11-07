@@ -6,18 +6,362 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Phase 0 — Repository Bootstrap & Database Supabase Verification (Hoàn tất)
-- **Cập nhật lần cuối:** 2026-11-01 22:22
-- **Người bàn giao:** Senior Architect / Tech Lead AI Agent
-- **Người tiếp nhận:** Frontend Team / Backend Team / Database Agent
-- **Tình trạng Database:** Kết nối thành công tới Supabase PostgreSQL 17 (Pooler), xác nhận đủ 18/18 bảng baseline v1.2.
-- **Tình trạng nhánh chính (`main`):** Pass toàn bộ Lint, Test, Typecheck, Build, sẵn sàng cho Phase 1.
+- **Giai đoạn:** Foundation Audit & Review Alignment (PR #1 - Sẵn sàng Merge)
+- **Cập nhật lần cuối:** 2026-11-07 09:20
+- **Người bàn giao:** Senior Backend Architect & Technical Project Manager
+- **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
+- **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
+- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100% không còn bất kỳ mâu thuẫn nào theo quyết định của Tech Lead (D11, D13, DB05, DB06):
+  - Frontend: **Next.js 14+ (App Router)** (`apps/frontend` chạy với Next.js 14, React 18, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages hoàn tất không lỗi). Loại bỏ hoàn toàn mâu thuẫn React/Vite trong toàn bộ tài liệu và mã nguồn.
+  - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
+  - Backend: **NestJS 10** (Modular Monolith API Gateway).
+  - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan; không dùng Prisma).
+  - Chuẩn hóa Khái niệm Guest & Feed Tiering (DB05, D05, D13): **Guest được biểu diễn chuẩn xác là Trạng thái chưa xác thực (Unauthenticated State)**, không phải là vai trò nghiệp vụ thứ ba (CSDL chỉ có `USER` và `ADMIN`). Người dùng chưa xác thực bị chặn hoàn toàn bảng tin (`GET /feed` trả về **HTTP 401 Unauthorized** per Hồ sơ nghiệp vụ v1.2); chỉ tài khoản sinh viên **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết HTTP 403, chặn chat HTTP 403); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
+  - Chat Retention TTL (DB06): Tin nhắn văn bản lưu 3 tháng (90 ngày), tệp đính kèm lưu 1 tháng (30 ngày).
+  - CSDL Migration (DB01–DB07): Đã tạo `database/migrations/0001_dbml_review_fixes.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 App Router + NestJS Build thành công).
+- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md`, kế hoạch 4 Sprint 20 Task `tasks/BACKLOG.md` và giải quyết dứt điểm các lưu ý từ review).
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
 
+### Handoff #012: Chuẩn hóa Biểu diễn Guest là Trạng thái Chưa Xác thực (Unauthenticated State), Không phải Vai trò Nghiệp vụ (07/11/2026)
+
+- **Ngày:** 2026-11-07
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Thống nhất Biểu diễn "Guest" là Trạng thái Chưa xác thực (Unauthenticated State):**
+     - Làm rõ: "Guest" không phải là một vai trò nghiệp vụ thứ ba trong hệ thống hay trong CSDL. Enum `user_role` trong PostgreSQL và OpenAPI Contract chỉ định nghĩa duy nhất 2 vai trò nghiệp vụ: `USER` (sinh viên) và `ADMIN` (quản trị viên).
+     - Khách vãng lai (Guest) là trạng thái client chưa gửi JWT Bearer Token hợp lệ.
+     - Kiểm soát truy cập được phân rã thành **Mô hình 3 Tầng**:
+       - Tầng 1: `JwtAuthGuard` (Authentication) — nếu Unauthenticated thì chặn **HTTP 401 Unauthorized** (ngoại trừ public endpoints).
+       - Tầng 2: `RolesGuard` (Role Authorization) — phân định `USER` vs `ADMIN`.
+       - Tầng 3: `VerificationGuard` (Verification Status) — kiểm tra trạng thái thẻ SV `PENDING`, `APPROVED`, `REJECTED`, `SUSPENDED`.
+  2. **Khẳng định Quy định Chặn Bảng tin với Người dùng Chưa đăng nhập:**
+     - Quy định `GET /feed` trả về **HTTP 401 Unauthorized** với người dùng chưa đăng nhập hoàn toàn phù hợp với **Hồ sơ Nghiệp vụ v1.2** nhằm bảo vệ dữ liệu sinh viên nội bộ và chống scraping.
+     - Sinh viên `PENDING` xem `PendingFeedPage` rút gọn (không link chi tiết HTTP 403, không SĐT, không chat); sinh viên `APPROVED` xem `PostPage` đầy đủ.
+  3. **Đồng bộ Toàn diện Hệ thống Tài liệu:**
+     - Cập nhật [`docs/architecture/authorization_matrix.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/architecture/authorization_matrix.md): Định nghĩa lại Kiến trúc 3 tầng và chuẩn hóa tiêu đề cột ma trận (Chưa xác thực vs USER vs ADMIN).
+     - Cập nhật [`docs/ARCHITECTURE.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/ARCHITECTURE.md) & [`ARCHITECTURE.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/ARCHITECTURE.md) (Mục 1.3, Mục 8.1, Mục 10: FR-04, DB05, D05, D13).
+     - Cập nhật [`tasks/BACKLOG.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/tasks/BACKLOG.md) (BE-02-T03, BE-01-T05, BE-02-T07).
+  4. **Kiểm tra Chất lượng Toàn bộ Monorepo:**
+     - `pnpm lint`: PASS (0 warnings).
+     - `pnpm typecheck`: PASS (0 errors).
+     - `pnpm test`: PASS (50/50 tests).
+     - `pnpm --filter @campus/backend run test:e2e`: PASS (38/38 tests).
+     - `pnpm build`: PASS (`next build` prerender 4/4 static pages + `nest build`).
+
+---
+
+### Handoff #011: Chuẩn hóa Toàn diện Next.js 14+ (App Router) theo Quyết định Tech Lead, Khóa Feed Guest & Đồng bộ 100% Monorepo (06/11/2026)
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Chuẩn hóa Toàn diện Next.js 14+ (App Router) cho Web Client (Quyết định Tech Lead & D11):**
+     - Chốt dứt điểm Next.js 14+ (App Router) kết hợp React 18 và TypeScript cho `apps/frontend`.
+     - Dọn sạch toàn bộ các tệp cấu hình Vite mồ côi (`vite.config.ts`, `index.html`, `src/app/main.tsx`, `src/vite-env.d.ts`, `tsconfig.node.json`).
+     - Cấu hình Next.js App Router chuẩn chỉnh (`layout.tsx`, `page.tsx`, `next.config.mjs`, `next-env.d.ts`, `vitest.config.ts`).
+     - Đồng bộ hóa 100% nội dung tài liệu kiến trúc (`docs/ARCHITECTURE.md`, `ARCHITECTURE.md`, `AGENTS.md`, `tasks/BACKLOG.md`) sang Next.js 14+ App Router, xóa bỏ hoàn toàn bất kỳ nội dung nào còn đề cập React/Vite mâu thuẫn.
+  2. **Khóa Bảng Tin đối với GUEST (HTTP 401 Unauthorized per DB05, D05, D13):**
+     - Người dùng chưa đăng nhập (`GUEST`) bị chặn hoàn toàn khi truy cập `GET /feed` (yêu cầu JWT token, trả về HTTP 401).
+     - Chỉ tài khoản `PENDING` (chờ duyệt thẻ sinh viên) mới được truy cập `PendingFeedPage` rút gọn (chỉ có tiêu đề, giá, phân loại, thumbnail công khai; ẩn số điện thoại người bán, chặn xem chi tiết bài đăng HTTP 403, chặn chat HTTP 403).
+     - Tài khoản `APPROVED` được cấp quyền xem bảng tin cá nhân hóa đầy đủ và truy cập trang chi tiết `PostPage`.
+  3. **Bảo toàn Toàn vẹn Các Cải tiến Review Trước đó:**
+     - Giữ nguyên CSDL PostgreSQL trên Supabase với SQL-first `node-postgres (pg)` và TLS certificate verification (`rejectUnauthorized: true`).
+     - Giữ nguyên Migration `0001_dbml_review_fixes.sql` và rollback `.down.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
+     - Giữ nguyên chuẩn Chat Retention TTL: Tin nhắn văn bản lưu 3 tháng (`created_at + 3 months`), tệp đính kèm lưu 1 tháng (`created_at + 1 month`).
+  4. **Kết quả kiểm tra chất lượng (Verification):**
+     - `pnpm lint`: PASS (0 warnings).
+     - `pnpm typecheck`: PASS (0 errors).
+     - `pnpm test`: PASS (19/19 Frontend Vitest tests + 31/31 Backend Jest tests).
+     - `pnpm --filter @campus/backend run test:e2e`: PASS (38/38 tests).
+     - `pnpm build`: PASS (Next.js 14 App Router prerender 4/4 pages + NestJS build).
+
+### Handoff #010: Thống nhất Toàn diện React/Vite + PostgreSQL, Khóa Feed với Guest & Triển khai Migration DBML Review (05/11/2026)
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Khắc phục Mâu thuẫn Kiến trúc trong Tài liệu (Next.js vs React/Vite per D11):**
+     - Đã loại bỏ hoàn toàn các câu chữ mâu thuẫn khẳng định Next.js 14+ trong `docs/ARCHITECTURE.md`, `ARCHITECTURE.md`, `AGENTS.md` và `tasks/BACKLOG.md`.
+     - Đồng nhất 100% toàn bộ hệ thống theo hướng: **React 18 + Vite 5 (SPA)** cho Frontend, **NestJS 10** cho Backend và **PostgreSQL trên Supabase** (SQL-first `node-postgres`).
+     - Mã nguồn `apps/frontend` vận hành sạch sẽ với Vite 5, `vite build` 606ms, 19/19 Vitest tests PASS.
+  2. **Chuẩn hóa Bảng Phân quyền Feed (Khóa Feed đối với GUEST per DB05, D05, D13):**
+     - Sửa bảng phân quyền RBAC: GUEST xem feed là **❌ Chặn (401 Unauthorized)**, không cho phép xem feed khi chưa đăng nhập.
+     - Phân định rõ `PendingFeedPage` rút gọn chỉ dành riêng cho tài khoản **PENDING** (đã có email trường nhưng chờ duyệt thẻ).
+  3. **Triển khai Migration Khắc phục Kiến trúc CSDL (`0001_dbml_review_fixes.sql`):**
+     - DB01: Tạo Partial UNIQUE INDEX `uq_active_report_per_buyer` trên `reports (buyer_id, post_id) WHERE status IN ('WAITING_SELLER_RESPONSE', 'UNDER_REVIEW')`.
+     - DB03 & DB07: Chuyển toàn bộ comment thành CHECK constraints thực tế: `price > 0`, `budget_min <= budget_max`, `reputation_score BETWEEN 0.0 AND 5.0`, `size_bytes <= 10MB`, `buyer_id <> seller_id`, `member_low_id < member_high_id`.
+     - DB02: Thêm cột `deleted_at` cho `posts` và `users` hỗ trợ soft-delete, bảo toàn toàn vẹn lịch sử kiểm toán.
+  4. **Chuẩn hóa Thời gian Lưu trữ Chat (Chat Retention TTL per DB06 & FR-12):**
+     - Quy định chuẩn xác: **Tin nhắn văn bản** lưu **3 tháng** (`created_at + interval '3 months'`); **Tệp đính kèm** lưu **1 tháng** (`created_at + interval '1 month'`).
+  5. **Cập nhật Toàn diện Tài liệu & Backlog:**
+     - Cập nhật `docs/ARCHITECTURE.md` và `ARCHITECTURE.md` đồng bộ Mục 10 (Traceability 17 FRs, 5 Epics, 20 Stories, 36 WBS Packages, 6-Week Master Plan, DB01–DB12, D01–D14).
+     - Cập nhật `tasks/BACKLOG.md` gắn WBS, Jira Story và FR Reference cho toàn bộ 20 tasks Backend của 2 kỹ sư.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm build`: **PASS** (Next.js 14 App Router build thành công, NestJS build hoàn tất).
+  2. **Chuẩn hóa Thời gian Lưu trữ Chat (Chat Retention TTL per DB06 & FR-12):**
+     - Sửa sai lệch trong tài liệu kiến trúc trước đây (từng ghi 90 ngày cho cả hai).
+     - Quy định chuẩn xác: **Tin nhắn văn bản** lưu **3 tháng** (`created_at + interval '3 months'`); **Tệp đính kèm** lưu **1 tháng** (`created_at + interval '1 month'`).
+  3. **Làm rõ Cơ chế Phân tầng Bảng tin (Feed Tiering per D05, D13, DB05):**
+     - Mô tả chi tiết hành vi của `PendingFeedPage` cho GUEST và PENDING: chỉ hiển thị tóm tắt, ẩn số điện thoại, chặn xem trang chi tiết bài đăng và chặn mở chat.
+     - Mô tả `PostPage` cho tài khoản APPROVED: xem chi tiết đầy đủ, mở số điện thoại có kiểm soát qua `PhoneRevealEvent` và nhắn tin trao đổi.
+  4. **Giải trình & Thiết kế Khắc phục 12 Vấn đề Rà soát DBML (DB01–DB12):**
+     - DB01: Thiết kế Partial UNIQUE INDEX `uq_active_report_per_buyer` trên `reports (buyer_id, post_id)` với điều kiện `WHERE status IN ('WAITING_SELLER_RESPONSE', 'UNDER_REVIEW')`.
+     - DB02: Thiết kế Soft-delete / restrict bảo vệ dữ liệu khi xóa bài/người dùng, bảo toàn toàn vẹn `reports` và `audit_logs`.
+     - DB03: Thực thi ràng buộc SQL CHECK thực tế trên CSDL cho `price`, `budget`, `reputation_score`, `size_bytes`.
+     - DB04: Phân tách toàn vẹn tin SELL và BUY_REQUEST ở tầng Service/Transaction.
+     - DB05: Phân quyền đa lớp bằng Guards và bảo vệ dữ liệu cá nhân (ẩn thẻ SV, controlled phone reveal).
+     - DB06: Mốc Retention chat chính xác (text 3 tháng, file 1 tháng).
+     - DB07: Ràng buộc hội thoại duy nhất và `member_low_id < member_high_id`.
+     - DB08: Kiểm soát domain email trường đại học (`@*.edu.vn`) và chuẩn hóa chữ thường.
+     - DB09: Validate danh mục sở thích mảng chuỗi với bảng `categories`.
+     - DB10: Kiểm tra điều kiện tạo report hợp lệ của buyer (tin SELL, có hội thoại/phone reveal, chống trùng).
+     - DB11: Idempotency trừ điểm uy tín theo chu kỳ $K=3$ (`report_cycle_key`) và ghi nhật ký audit.
+     - DB12: Kiểm chứng DDL migration trên clean database.
+  5. **Cập nhật Toàn diện Tài liệu & Backlog:**
+     - Cập nhật `docs/ARCHITECTURE.md` và `ARCHITECTURE.md` bổ sung Mục 10 (Traceability 17 FRs, 5 Epics, 20 Stories, 36 WBS Packages, 6-Week Master Plan, DB01–DB12, D01–D14).
+     - Cập nhật `tasks/BACKLOG.md` gắn WBS, Jira Story và FR Reference cho toàn bộ 20 tasks Backend của 2 kỹ sư.
+     - Cập nhật `AGENTS.md` đồng bộ stack React 18 + Vite 5.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm build`: **PASS** (Vite 5 build 561ms, NestJS build hoàn tất).
+
+---
+
+### Handoff #009: Chuyển đổi Toàn diện apps/frontend sang Next.js 14+ (App Router) & Chốt CSDL PostgreSQL
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Chuyển đổi Mã nguồn `apps/frontend` sang Next.js 14+ (App Router):**
+     - Cài đặt `next@^14.2.35` kết hợp chặt chẽ với React 18 (`react: ^18.3.1`, `react-dom: ^18.3.1`).
+     - Cấu hình `next.config.mjs`, `next-env.d.ts`, `tsconfig.json` với Next.js plugin & path aliases (`@/*`).
+     - Tái cấu trúc thư mục ứng dụng theo Next.js App Router: `src/app/layout.tsx` (RootLayout với metadata SEO), `src/app/page.tsx` (Root Page), chuyển components sang `src/components/HomePage.tsx`.
+     - Cập nhật biến môi trường an toàn: `process.env.NEXT_PUBLIC_API_BASE_URL` trong `src/services/api.ts` hỗ trợ cả Next.js SSR và Browser client.
+     - Dọn dẹp hoàn toàn các tệp cũ của Vite (`vite.config.ts`, `index.html`, `src/app/main.tsx`, `src/vite-env.d.ts`, `tsconfig.node.json`).
+     - Duy trì Vitest test runner qua `vitest.config.ts`, kiểm thử tự động 19/19 frontend tests PASS hoàn hảo.
+  2. **Xác nhận Kiến trúc Đồng nhất 100%:** Cả tài liệu kiến trúc (`docs/ARCHITECTURE.md`, `ARCHITECTURE.md`), backlog (`tasks/BACKLOG.md`), và mã nguồn thực tế (`apps/frontend`, `apps/backend`) đều đã hội tụ về chuẩn:
+     - Frontend: **Next.js 14+ (App Router)**.
+     - Database: **PostgreSQL trên Supabase** (18 bảng v1.2, SQL-first pool).
+     - Backend: **NestJS 10**.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm build`: **PASS** (Next.js 14 prerender static pages & NestJS nest build cả 2 đều thành công).
+
+---
+
+### Handoff #008: Đồng bộ Backlog 4 Sprint 20 Task Backend & Xác thực Frontend Stack
+
+- **Ngày:** 2026-11-06
+- **Người thực hiện:** Senior Backend Architect & Technical Project Manager
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Đồng bộ Kế hoạch Phân rã Công việc Backend 2 Người vào Backlog (`tasks/BACKLOG.md`):**
+     - Thiết kế lộ trình 4 Sprints (8 tuần) với 20 nhiệm vụ kỹ thuật độc lập:
+       - **BE-01 (Backend Tech Lead):** `BE-01-T01` (Email OTP), `BE-01-T02` (Register & Login JWT), `BE-01-T03` (Guards & RBAC), `BE-01-T04` (Profile & Preferences), `BE-01-T05` (Phone Reveal Privacy), `BE-01-T06` (Conversations CRUD), `BE-01-T07` (Messages & Attachments), `BE-01-T08` (Socket.IO Gateway & Handshake Auth), `BE-01-T09` (Realtime Event Stream Broadcaster), `BE-01-T10` (Rate Limiting, Log Sanitizer, File Cleanup).
+       - **BE-02 (Backend Developer):** `BE-02-T01` (Evidence Submit), `BE-02-T02` (Admin Verify Approval), `BE-02-T03` (Categories & Seed), `BE-02-T04` (Post CRUD SELL/BUY), `BE-02-T05` (Post Lifecycle State), `BE-02-T06` (Post Images R2), `BE-02-T07` (Tiered Feed & Matching), `BE-02-T08` (Report 6-State Engine), `BE-02-T09` (Reputation Event Engine K=3), `BE-02-T10` (Admin Governance, Audit Logs & System Configs).
+     - Thiết lập Shared Kernel (Giao diện chốt trước trong Sprint 1: `AuthenticatedUser`, Stub Guards, `IStorageService`, `IRealtimeService`) giúp 2 kỹ sư triển khai song song 100% không bị chặn (non-blocking).
+     - Quy chuẩn hóa Gitflow, PR Protocol (Tech Lead review chính), tiêu chuẩn DoD và GitHub Labels.
+  2. **Xác thực Kiến trúc Frontend Stack:**
+     - Kiểm chứng trực tiếp codebase `apps/frontend/package.json`: Ứng dụng client là **React 18 + Vite (SPA)**, Client-side routing với `react-router-dom`, unit testing với `vitest` và `@testing-library/react`. **Không phải Next.js**.
+     - Làm rõ mối quan hệ giữa form phác thảo kiến trúc tham khảo và codebase thực tế trong monorepo.
+  3. **Chuẩn hóa Định dạng Tài liệu Kiến trúc (`docs/ARCHITECTURE.md`):**
+     - Đảm bảo tài liệu kiến trúc 9 phần đã đồng bộ hoàn chỉnh và tuân thủ các quy tắc format của repo.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - `pnpm --filter @campus/backend test`: **PASS** (31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (38/38 tests).
+  - `pnpm --filter @campus/frontend test`: **PASS** (19/19 tests).
+  - `pnpm build`: **PASS** (Toàn bộ workspace build thành công).
+
+### Handoff #007: Khởi tạo Tài liệu Kiến trúc Hệ thống Toàn diện (ARCHITECTURE.md)
+
+- **Ngày:** 2026-11-04
+- **Người thực hiện:** Senior Backend Engineer & System Architect
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Khởi tạo Tài liệu Kiến trúc Chuẩn hóa (`docs/ARCHITECTURE.md` & `ARCHITECTURE.md`):**
+     - Xây dựng tài liệu kiến trúc toàn diện gồm 9 phần đúng theo form yêu cầu:
+       1. Overview: Bối cảnh, mục tiêu và bảng công nghệ cốt lõi (`pnpm`, React 18/Vite, NestJS 10, Node-postgres SQL-first, Supabase PostgreSQL v1.2, Cloudflare R2, Socket.IO, OpenAPI v1.2).
+       2. System Architecture: Sơ đồ kiến trúc 4 tầng chi tiết (Client, Application/Gateway, Storage & Realtime, Data Persistence) bằng Mermaid flowchart.
+       3. Monorepo Structure: Cấu trúc thư mục chi tiết, phân định quyền sở hữu (Code Ownership).
+       4. Backend Architecture: Mô hình Modular Monolith 3 tầng, phân rã 7 Domain Modules và Common Kernel.
+       5. Database Design: 18 bảng CSDL PostgreSQL v1.2 kèm sơ đồ ERD trực quan (Mermaid).
+       6. API Design: Chuẩn RESTful `/api/v1`, Success Envelope `{ success, data, [meta], timestamp }`, Error Envelope chuẩn OpenAPI v1.2, Sequence Diagram luồng đăng ký & xác thực OTP email trường.
+       7. Realtime & Storage: Kiến trúc Cloudflare R2 (Private Bucket cho thẻ SV/chat tệp đính kèm với Presigned URLs; Public CDN Bucket cho bài đăng), Socket.IO Realtime Gateway (`/ws`) handshake Bearer token an toàn.
+       8. Security: Quy chuẩn bảo mật thẻ sinh viên (BR-03: chỉ Admin xem ảnh thẻ qua Signed URL, ẩn trên UI), ẩn số điện thoại (BR-07/08), ma trận RBAC, TLS enforcement cho remote DB và HTTP 500 safe guard.
+       9. Development Convention: Gitflow workflow (GitGraph), quy ước đặt tên (Naming Conventions) và Definition of Done (DoD).
+  2. **Đồng bộ Liên kết Tài liệu:**
+     - Cập nhật `README.md` và `docs/architecture/README.md` dẫn trực tiếp tới `docs/ARCHITECTURE.md`.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm lint`: **PASS** (0 warnings across workspace).
+  - `pnpm typecheck`: **PASS** (0 errors across workspace).
+  - `pnpm --filter @campus/backend test`: **PASS** (5/5 suites, 31/31 tests).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (3/3 suites, 38/38 tests).
+  - `pnpm --filter @campus/frontend test`: **PASS** (2/2 suites, 19/19 tests).
+  - `pnpm build`: **PASS** (Toàn bộ workspace build thành công).
+
+---
+
+## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #006: Chuẩn hóa Success Envelope Toàn diện (OpenAPI Contract Phương án 1 & Root-level Pagination)
+
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & API Contract Reviewer
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Chuẩn hóa Success Envelope trong OpenAPI Contract (`packages/api-contract/openapi.yaml`):**
+     - Cập nhật 15 Single-entity Response schemas: Thêm `success: { type: boolean, example: true }`, `timestamp: { type: string, format: date-time }`, yêu cầu `required: [success, data, timestamp]` và `additionalProperties: false`.
+     - Cập nhật 11 Paginated Page schemas (`CategoryPage`, `PostPage`, `PendingFeedPage`, `ConversationPage`, `MessagePage`, `ReportPage`, `AdminUserPage`, `AuditLogPage`, `ReputationEventPage`, `NotificationPage`, `SystemConfigPage`): Giữ `data` (mảng) và `meta` (`PageMeta`) ở root level, bổ sung `success` và `timestamp`, yêu cầu `required: [success, data, meta, timestamp]` và `additionalProperties: false`. Tuyệt đối không lồng `data: { data, meta }`.
+     - Cập nhật schema phân trang inline của `GET /admin/verifications` và bổ sung `AdminUserResponse` cho `PATCH /admin/users/{userId}/status`.
+     - Đồng bộ toàn bộ 20 response examples trong `openapi.yaml` chứa đầy đủ `success: true` và `timestamp`. Prettier format hoàn hảo.
+  2. **Nâng cấp Backend Interceptor & TypeScript Interfaces:**
+     - `apps/backend/src/common/interfaces/api-response.interface.ts`: Định nghĩa `PageMeta`, `ApiResponse<T>`, `PaginatedResponse<T>`, `PaginatedResult<T>`.
+     - `apps/backend/src/common/interceptors/transform.interceptor.ts`: Tự động nhận diện dữ liệu phân trang (`data` là mảng và có `meta` hợp lệ) để bọc thành `{ success: true, data, meta, timestamp }` ở root; các phản hồi thông thường được bọc `{ success: true, data, timestamp }`.
+     - Viết bộ unit test `apps/backend/src/common/interceptors/transform.interceptor.spec.ts` kiểm thử đầy đủ single entity, paginated payload, null, primitive, edge cases và bảo đảm không có trường thừa.
+  3. **Đồng bộ Frontend `ApiClient` & Vitest Suites:**
+     - `apps/frontend/src/services/api.ts`: Thêm `PageMeta`, `ApiPaginatedEnvelope<T>`, `PaginatedResult<T>`, và phương thức `requestPaginated<T>()`.
+     - Bổ sung kiểm thử nghiêm ngặt trong `apps/frontend/src/test/api.test.ts` kiểm chứng bóc tách phân trang và từ chối các phản hồi phân trang sai envelope.
+  4. **Tài liệu hóa Tích hợp (`docs/api/integration_guide.md`):**
+     - Cập nhật mục 1.1 và mục 3 tài liệu hóa kiến trúc envelope đơn và phân trang root-level chuẩn OpenAPI v1.2.
+  5. **Bộ Kiểm thử Contract Tự động E2E (`contract-schemas.e2e-spec.ts`):**
+     - Kiểm tra tĩnh toàn bộ các schemas trong `openapi.yaml` bảo đảm có đủ `success`, `timestamp`, `additionalProperties: false`.
+     - Kiểm tra runtime qua HTTP Supertest xác nhận phản hồi thực tế tuân thủ 100% contract và không có trường thừa (`Object.keys` strictly match).
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm --filter @campus/backend test`: **PASS** (5 suites, 31/31 tests passed).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (3 suites, 38/38 tests passed).
+  - `pnpm --filter @campus/frontend test`: **PASS** (2 suites, 19/19 tests passed).
+  - `pnpm lint`: **PASS** (0 warnings across workspace).
+  - `pnpm typecheck`: **PASS** (0 errors across workspace).
+  - `pnpm build`: **PASS** (Toàn bộ apps và packages build thành công).
+
+---
+
+## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #005: Khắc phục Triệt để Schema ErrorEnvelope (additionalProperties: false) & An toàn Lỗi 500
+
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & API Contract Reviewer
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:**
+  1. **Đối chiếu và Chuẩn hóa Error Envelope theo OpenAPI v1.2:**
+     - Loại bỏ toàn bộ các trường dư thừa ở top-level (`success`, `statusCode`, `timestamp`, `path`, root `message`) vốn vi phạm ràng buộc `additionalProperties: false` của schema `ErrorEnvelope`.
+     - Phản hồi lỗi chỉ chứa duy nhất `error: { code, message, details? }` và `requestId` (tùy chọn). Mã HTTP status được trả qua HTTP header chuẩn.
+     - Cập nhật `apps/backend/src/common/interfaces/api-response.interface.ts` và `apps/backend/src/common/filters/http-exception.filter.ts`.
+     - Bổ sung bộ contract tests E2E chuyên sâu `apps/backend/test/error-envelope.e2e-spec.ts` kiểm chứng trực tiếp tính tương thích với OpenAPI `ErrorEnvelope`.
+  2. **Bảo mật Tối đa Toàn bộ Lỗi HTTP 500 (Security Directives):**
+     - Sửa `AllExceptionsFilter`: TẤT CẢ lỗi có status 500 (bao gồm cả `InternalServerErrorException`, `HttpException` có status 500, lỗi PostgreSQL, lỗi crash runtime, `TypeError`) đều bắt buộc trả về HTTP 500 với thông điệp công khai an toàn: `code: "INTERNAL_SERVER_ERROR"`, `message: "Internal server error"`, không trả `details`.
+     - Không trả stack trace, database credentials, SQL query hoặc thông tin nội bộ trong response.
+     - Tích hợp hàm `sanitizeLogMessage` tự động lọc và làm sạch (redact) mật khẩu, chuỗi kết nối database (`postgresql://...`), bearer tokens và secrets trước khi ghi vào server logs.
+     - Bổ sung regression tests trong `apps/backend/src/common/filters/http-exception.filter.spec.ts` và `apps/backend/test/error-envelope.e2e-spec.ts` mô phỏng:
+       - `InternalServerErrorException` chứa câu lệnh SQL và mật khẩu.
+       - Lỗi kết nối PostgreSQL chứa URL và mật khẩu database.
+       - Lỗi runtime `TypeError` chứa tên biến nhạy cảm và stack trace.
+  3. **Đối chiếu Success Envelope & Đề xuất Chuẩn hóa OpenAPI:**
+     - Thực hiện audit toàn bộ 48 operations 2xx trong OpenAPI v1.2.
+     - Phát hiện 26 schema response mang thuộc tính `{ data }` và `additionalProperties: false` nhưng thiếu `{ success, timestamp }`.
+     - Phân tích ảnh hưởng toàn diện (Frontend, Backend, Apidog Mock).
+     - Lập Contract Change Proposal riêng, đánh dấu `BLOCKED_PENDING_APPROVAL` chờ Backend Lead phê duyệt.
+- **Kết quả kiểm thử thực tế:**
+  - `pnpm --filter @campus/backend test`: **PASS** (4 suites, 24/24 tests passed).
+  - `pnpm --filter @campus/backend test:e2e`: **PASS** (2 suites, 7/7 tests passed).
+  - `pnpm --filter @campus/frontend test`: **PASS** (2 suites, 15/15 tests passed).
+  - `pnpm lint`: **PASS** (0 warnings across workspace).
+  - `pnpm typecheck`: **PASS** (0 errors across workspace).
+  - `pnpm build`: **PASS** (Frontend và Backend biên dịch thành công).
+
+### Handoff #004: Tinh chỉnh Toàn diện & Đồng bộ Nghiệp vụ PR #1
+
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & Software QA Specialist
+- **Branch:** `fix/be-foundation-audit` (PR #1)
+- **Mục tiêu đạt được:** Hoàn thành 6 yêu cầu kỹ thuật & kiểm toán khắt khe trên PR #1 mà không tạo PR mới hay tự merge.
+- **Các nội dung đã hoàn thành:**
+  1. **Strict Envelope Validation (`ApiClient.request<T>`):**
+     - Sửa `apps/frontend/src/services/api.ts`: Bắt buộc response HTTP 2xx phải tuân thủ nghiêm ngặt `{ success: true, data, timestamp }`.
+     - Tuyệt đối không fallback trả về payload dạng phẳng hay `null`. Ném `ApiError` với mã `INVALID_RESPONSE_ENVELOPE` hoặc `INVALID_JSON`.
+     - Bổ sung file test chuyên dụng `apps/frontend/src/test/api.test.ts` gồm 10 tests bao quát toàn bộ negative cases (payload phẳng, missing data, missing timestamp, success=false trên HTTP 200, invalid JSON text, HTTP 403 error envelope, 400 validation error details, HTTP 502 HTML error).
+  2. **Đồng bộ Error Envelope (Backend - OpenAPI - Guide):**
+     - Cập nhật `apps/backend/src/common/interfaces/api-response.interface.ts` và `apps/backend/src/common/filters/http-exception.filter.ts`: Đối tượng `error` trong phản hồi HTTP lỗi luôn có `{ code: string, message: string, details?: ApiErrorDetail[] }`, tương thích 100% với schema `error` trong OpenAPI `ErrorEnvelope`.
+     - Bổ sung unit test `apps/backend/src/common/filters/http-exception.filter.spec.ts` kiểm thử 4 kịch bản lỗi (NotFound, BadRequest validation, Forbidden, generic Error).
+     - Cập nhật `docs/api/integration_guide.md` mục 1.2 và bổ sung mục 1.3 "Báo cáo Đồng bộ Hóa & Contract Mismatch Analysis với OpenAPI v1.2", giải trình chi tiết về kiến trúc envelope mở rộng bảo đảm đối xứng.
+  3. **Khắc phục Điểm Uy tín & Ngưỡng Khóa Tài khoản (`state_machines.md`):**
+     - Loại bỏ hoàn toàn các giả định sai lệch về khởi tạo 100 điểm, trừ -5 điểm và ngưỡng khóa $\le 20$.
+     - Khôi phục chính xác theo Hồ sơ nghiệp vụ v1.2 và SQL baseline: Thang điểm `0.0 <= reputation_score <= 5.0`, mặc định `5.0`. Trừ đúng `-0.1` điểm khi người bán không phản hồi báo cáo (`NO_RESPONSE`) đạt ngưỡng chu kỳ $K$ ($K=3..5$, mặc định $K=3$), chặn dưới tại `0.0`, chống trừ trùng bằng `report_cycle_key`.
+     - Khẳng định trạng thái `SUSPENDED` là quyết định hành chính có chủ đích của Quản trị viên (`ADMIN`), được ghi nhận vào `audit_logs` (BR-18), không tự động kích hoạt theo ngưỡng điểm.
+  4. **Chuẩn hóa Endpoint Method & Path với OpenAPI:**
+     - Xây dựng script kiểm toán tự động `scripts/audit_endpoints.py` đối chiếu toàn bộ endpoint trong `authorization_matrix.md`, `integration_guide.md` và `state_machines.md` với 49 operations của `packages/api-contract/openapi.yaml`.
+     - Thay thế toàn bộ endpoint nội bộ bằng canonical OpenAPI path (ví dụ: `POST /me/evidence`, `GET /me/verification`, `POST /posts/{id}/activate`, `POST /reports/{reportId}/seller-response`, `PATCH /admin/users/{userId}/status`).
+     - Đánh dấu rõ ràng các endpoint chưa có trong contract v1.2 (`[Chưa có trong OpenAPI v1.2 / Đề xuất mở rộng]` như `/auth/logout`, `/users/{id}`, `/auth/refresh`).
+  5. **Thắt chặt An toàn TLS cho Remote PostgreSQL:**
+     - Sửa `apps/backend/src/config/database.config.ts`: Đối với kết nối remote / Supabase, bắt buộc `rejectUnauthorized: true`, hoàn toàn không cho phép biến môi trường `PGSSL_REJECT_UNAUTHORIZED=false` tắt kiểm tra chứng chỉ trên remote DB.
+     - Xác minh chứng chỉ gốc `database/supabase-ca.crt` (Supabase Root CA 2021) và kiểm thử nạp tự động thành công.
+     - Cập nhật unit test `apps/backend/src/config/database.config.spec.ts` chứng minh kết nối Supabase luôn từ chối chứng chỉ không hợp lệ.
+  6. **Cập nhật GitHub Actions CI Workflow:**
+     - Sửa `.github/workflows/ci.yml`: Bổ sung bước chạy Backend E2E (`pnpm test:e2e`).
+     - Phân định rõ ràng trong workflow giữa kiểm thử tự động trên CI (mocked / isolated) và kiểm thử cơ sở dữ liệu thật (`pnpm db:test`) vốn chỉ chạy thủ công trên môi trường được cấp quyền.
+
+---
+
+## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #003: Hoàn tất Foundation Audit & Đồng bộ Frontend-Backend (Giai đoạn 2)
+
+- **Ngày:** 2026-11-03
+- **Người thực hiện:** Senior Backend Engineer & Software Architect Agent
+- **Branch:** `fix/be-foundation-audit`
+- **Mục tiêu đạt được:** Khắc phục triệt để toàn bộ 6 phát hiện audit (AUDIT-01 -> AUDIT-06) theo đúng phê duyệt Giai đoạn 2.
+- **Các nội dung đã hoàn thành:**
+  1. **AUDIT-01 (Business Rules & PENDING Permissions):** Cập nhật `docs/business-rules/README.md`, chuẩn hóa endpoint hồ sơ `GET /me`, làm rõ giới hạn nghiêm ngặt của tài khoản `PENDING` (chỉ được xem feed tóm tắt `PendingFeedPage` qua `GET /feed`; bị chặn xem chi tiết bài đăng `GET /posts/{id}`, không được tìm kiếm/lọc, không được chat hay đăng bài).
+  2. **AUDIT-02 (Student Evidence Confidentiality):** Sửa đổi dòng 114-118 trong `AGENTS.md` và tài liệu nghiệp vụ; xác định ảnh thẻ sinh viên là dữ liệu tối mật chỉ Admin mới có quyền truy cập qua signed URL (`GET /api/v1/admin/verifications/{id}`). Chủ sở hữu và người dùng thông thường không xem lại ảnh thẻ trên UI (`GET /me` loại bỏ `cardImageRef`).
+  3. **AUDIT-03 (Frontend Response Envelope Unwrapping):** Cập nhật `apps/frontend/src/services/api.ts` định nghĩa `ApiEnvelope<T>`, `ApiErrorEnvelope`, `ApiError`; cơ chế tự động unwrap dữ liệu trong `request<T>()` giúp `api.getHealth()` trả về trực tiếp `HealthResponse` sạch. Bổ sung `api.getRawHealth()` và regression test trong `apps/frontend/src/test/App.test.tsx` kiểm thử bóc tách envelope và bắt lỗi HTTP `ApiError`.
+  4. **AUDIT-04 (PostgreSQL TLS Security Enforced):** Sửa đổi `apps/backend/src/config/database.config.ts` và `apps/backend/src/database/test-connection.ts`: Enforce xác thực chứng chỉ TLS `rejectUnauthorized: true` mặc định cho toàn bộ kết nối PostgreSQL từ xa (kể cả dev). Cung cấp Supabase Root CA tại `database/supabase-ca.crt` với cơ chế nhận diện qua `PGSSL_CA` hoặc `PGSSL_CA_PATH`. Cập nhật `.env.example` và `apps/backend/.env.example`. Bổ sung bộ unit test `apps/backend/src/config/database.config.spec.ts`.
+  5. **AUDIT-05 (API Contract Status Matrix):** Tạo `docs/api/api_implementation_status.md` phân loại tường minh toàn bộ 49 operations trong OpenAPI v1.2: 35 Core APIs, 14 Proposed Extensions và 1 Infrastructure Endpoint (`GET /health`).
+  6. **AUDIT-06 (Thiết kế Kiến trúc Bổ sung):**
+     - `docs/architecture/authorization_matrix.md`: Ma trận phân quyền chi tiết cho tất cả vai trò (`GUEST`, `PENDING`, `REJECTED`, `APPROVED`, `SUSPENDED`, `ADMIN`) trên toàn bộ 49 operations.
+     - `docs/architecture/state_machines.md`: Thiết kế đầy đủ State Machines với Mermaid diagrams cho `verification_status`, `post_status`, `report_status` (sử dụng chính xác 6 DB enums: `SUBMITTED`, `WAITING_SELLER_RESPONSE`, `UNDER_REVIEW`, `RESOLVED`, `DISMISSED`, `NO_RESPONSE`), `conversation_status`, `attachment_status`.
+     - `docs/api/integration_guide.md`: Cẩm nang tích hợp Frontend-Backend, chuẩn hóa Success/Error Envelope, phân trang, JWT header và unwrap pattern.
+- **Kết quả kiểm thử thực tế:**
+  - `apps/backend` Unit Tests (`jest`): **PASS** (3/3 suites, 12/12 tests, bao gồm `database.config.spec.ts`)
+  - `apps/backend` E2E Tests (`jest --config ./test/jest-e2e.json`): **PASS** (1/1 suite, 2/2 tests)
+  - `apps/frontend` Tests (`vitest run`): **PASS** (1/1 suite, 5/5 tests, bao gồm 3 regression tests cho Envelope)
+  - `pnpm lint`: **PASS** (0 warnings across workspace)
+  - `pnpm typecheck`: **PASS** (0 errors across workspace)
+  - `pnpm build`: **PASS** (Biên dịch thành công cả backend và frontend)
+  - `pnpm db:test`: **PASS** (Xác thực 18/18 bảng PostgreSQL trên Supabase Pooler qua TLS `rejectUnauthorized: true`)
+- **Hướng dẫn cho Agent / Developer tiếp theo:**
+  - Tiếp tục với Sprint 1: Bắt đầu triển khai Auth & OTP Module theo contract đã được đối chiếu trong `docs/api/api_implementation_status.md`.
+  - Luôn sử dụng `GET /me` để truy vấn thông tin người dùng đăng nhập.
+  - Mọi endpoint backend phải tiếp tục trả về thông qua `TransformInterceptor` để duy trì chuẩn Response Envelope.
+
+---
+
 ### Handoff #002: Kết nối & Kiểm chứng CSDL Supabase
+
 - **Ngày:** 2026-11-01
 - **Người thực hiện:** Tech Lead Agent
 - **Nội dung đã hoàn thành:**
@@ -33,6 +377,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ### Handoff #001: Hoàn tất Bootstrap Monorepo (Phase 0)
+
 - **Ngày:** 2026-11-01
 - **Người thực hiện:** Senior Architect & Tech Lead Agent
 - **Công việc đã thực hiện:**
@@ -48,6 +393,3 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - `pnpm typecheck`: PASS
   - `pnpm test`: PASS
   - `pnpm build`: PASS
-- **Lưu ý cho Agent tiếp theo:**
-  - **Backend Agent:** Bắt đầu Phase 1 (Module Auth & OTP). Tuyệt đối không thay đổi schema trực tiếp trên Supabase. Nếu cần sửa schema, phải thảo luận và tạo file trong `database/migrations/`.
-  - **Frontend Agent:** Bắt đầu Phase 1 (UI Đăng ký/Đăng nhập/OTP). Chỉ dùng endpoints có trong `packages/api-contract/openapi.yaml`. Sử dụng Apidog mock nếu backend endpoint chưa sẵn sàng.
