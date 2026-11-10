@@ -14,6 +14,8 @@
     "test:frontend": "pnpm --filter @campus/frontend run test",
     "test:e2e": "pnpm --filter @campus/backend run test:e2e",
     "db:test": "pnpm --filter @campus/backend db:test",
+    "db:migrate": "pnpm --filter @campus/backend db:migrate",
+    "db:verify": "pnpm --filter @campus/backend db:verify",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\""
   },
   "devDependencies": {

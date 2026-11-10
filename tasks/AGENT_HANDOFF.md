@@ -6,26 +6,53 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Foundation Audit & Review Alignment (PR #1 - Sẵn sàng Merge)
-- **Cập nhật lần cuối:** 2026-11-07 09:20
-- **Người bàn giao:** Senior Backend Architect & Technical Project Manager
-- **Người tiếp nhận:** Backend Lead / Tech Lead / Reviewer
-- **Branch hiện tại:** `fix/be-foundation-audit` (PR #1 nhắm vào `develop`, không tạo PR mới, không merge)
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true` bắt buộc tuyệt đối cho remote/Supabase DB), xác nhận đủ 18/18 bảng baseline v1.2 trên Supabase PostgreSQL 17 Pooler.
-- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100% không còn bất kỳ mâu thuẫn nào theo quyết định của Tech Lead (D11, D13, DB05, DB06):
-  - Frontend: **Next.js 14+ (App Router)** (`apps/frontend` chạy với Next.js 14, React 18, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages hoàn tất không lỗi). Loại bỏ hoàn toàn mâu thuẫn React/Vite trong toàn bộ tài liệu và mã nguồn.
-  - Database: **PostgreSQL trên Supabase** (PostgreSQL 15/17, lưu trữ toàn vẹn 18 bảng baseline v1.2, kết nối qua Transaction Pooler với TLS CA verification bắt buộc).
+- **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
+- **Cập nhật lần cuối:** 2026-11-10 16:30
+- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
+- **Người tiếp nhận:** Sprint 1 Developers (BE-01, BE-02, FE)
+- **Branch hiện tại:** `develop`
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
+- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
+  - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
+  - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
   - Backend: **NestJS 10** (Modular Monolith API Gateway).
-  - Database Access: **SQL-first với `node-postgres (pg)`** (kiểm soát 100% câu truy vấn và tối ưu Explain Plan; không dùng Prisma).
-  - Chuẩn hóa Khái niệm Guest & Feed Tiering (DB05, D05, D13): **Guest được biểu diễn chuẩn xác là Trạng thái chưa xác thực (Unauthenticated State)**, không phải là vai trò nghiệp vụ thứ ba (CSDL chỉ có `USER` và `ADMIN`). Người dùng chưa xác thực bị chặn hoàn toàn bảng tin (`GET /feed` trả về **HTTP 401 Unauthorized** per Hồ sơ nghiệp vụ v1.2); chỉ tài khoản sinh viên **PENDING** mới được xem bảng tin rút gọn `PendingFeedPage` (ẩn SĐT, chặn xem chi tiết HTTP 403, chặn chat HTTP 403); tài khoản **APPROVED** xem feed đầy đủ `PostPage`.
-  - Chat Retention TTL (DB06): Tin nhắn văn bản lưu 3 tháng (90 ngày), tệp đính kèm lưu 1 tháng (30 ngày).
-  - CSDL Migration (DB01–DB07): Đã tạo `database/migrations/0001_dbml_review_fixes.sql` (Partial UNIQUE Index, SQL CHECK thật, Soft-delete).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 App Router + NestJS Build thành công).
-- **Trạng thái phê duyệt:** `READY_TO_MERGE` (Đã hoàn tất toàn bộ code, migration, tests, CI, tài liệu kiến trúc kỹ thuật toàn diện `docs/ARCHITECTURE.md`, kế hoạch 4 Sprint 20 Task `tasks/BACKLOG.md` và giải quyết dứt điểm các lưu ý từ review).
+  - Tự động hóa Migration & Verification: Thêm bộ script `pnpm db:migrate` (`run-migrations.ts`) và `pnpm db:verify` (`verify-constraints.ts`).
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
+- **Trạng thái Jira:** Đã đóng hoàn tất 2 tasks được assign cho Backend Lead:
+  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
+  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #013: Hoàn thành Xác minh CSDL Supabase (CMP-26) & Kiểm chứng Monorepo CI với ADR-003 (CMP-27) (10/11/2026)
+
+- **Ngày:** 2026-11-10
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `develop`
+- **Mục tiêu đạt được:**
+  1. **Xác minh SQL Migrations & Ràng buộc CSDL Supabase (CMP-26):**
+     - Kết nối an toàn thành công tới PostgreSQL 17.11 trên Supabase Pooler qua TLS Certificate Verification (`rejectUnauthorized: true`), độ trễ ~220ms.
+     - Xây dựng bộ công cụ migration tự động `apps/backend/src/database/run-migrations.ts` (`pnpm db:migrate`) có bảng theo dõi `_migrations`.
+     - Thực thi thành công `database/migrations/0001_dbml_review_fixes.sql` trên live Supabase DB:
+       - Thêm cột `deleted_at timestamptz DEFAULT NULL` trên `posts` và `users` (DB02 soft-delete).
+       - Cập nhật Partial UNIQUE Index `uq_active_report_per_buyer` trên `reports (buyer_id, post_id)` với `WHERE status IN ('SUBMITTED', 'WAITING_SELLER_RESPONSE', 'UNDER_REVIEW')` (DB01 chống trùng báo cáo).
+     - Xây dựng công cụ kiểm toán CSDL `apps/backend/src/database/verify-constraints.ts` (`pnpm db:verify`), xác nhận toàn bộ 9 CHECK constraints nghiệp vụ (`chk_sell_price`, `chk_buy_budget`, `chk_attachment_size`, `chk_report_not_self`, `chk_users_reputation_score`, `chk_conversation_members`, v.v.) và 29 FK/UNIQUE constraints đã hoạt động ổn định trên Supabase.
+     - Cập nhật Jira ticket [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26) sang trạng thái `Done`, gán Story Points = 2 (Size S) kèm comment bằng chứng chi tiết.
+  2. **Kiểm chứng Monorepo, Môi trường và CI (CMP-27):**
+     - Chốt dứt điểm công nghệ Frontend Web Client là **Next.js 14+ (App Router)** theo Quyết định D11.
+     - Ban hành tài liệu quyết định kiến trúc [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) làm rõ giá trị của SSR/SSG đối với SEO bài đăng đồ cũ và Client Components đối với tương tác thời gian thực Socket.IO `/ws`.
+     - Đồng bộ 100% tài liệu kiến trúc [`docs/ARCHITECTURE.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/ARCHITECTURE.md), loại bỏ triệt để các mâu thuẫn React/Vite.
+     - Xác minh toàn bộ chuỗi lệnh chất lượng mã nguồn trên môi trường cục bộ:
+       - `pnpm lint`: PASS (0 warnings).
+       - `pnpm typecheck`: PASS (0 errors across workspace).
+       - `pnpm test`: PASS (19/19 Frontend Vitest + 31/31 Backend Jest).
+       - `pnpm test:e2e`: PASS (38/38 Backend E2E Supertest).
+       - `pnpm build`: PASS (Next.js 14 App Router prerender 4/4 static pages + NestJS build).
+     - Cập nhật Jira ticket [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27) sang trạng thái `Done`, gán Story Points = 2 (Size S) kèm comment bằng chứng chi tiết.
+  3. **Sẵn sàng cho Sprint 1 Features:**
+     - Nền tảng Monorepo, CI và Cơ sở dữ liệu Supabase đã sẵn sàng 100% cho 2 kỹ sư triển khai các tác vụ tính năng tiếp theo (`BE-01-T01` Auth OTP, `BE-02-T01` Evidence Submit).
 
 ### Handoff #012: Chuẩn hóa Biểu diễn Guest là Trạng thái Chưa Xác thực (Unauthenticated State), Không phải Vai trò Nghiệp vụ (07/11/2026)
 
