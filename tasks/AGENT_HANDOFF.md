@@ -7,11 +7,11 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ## Trạng thái hệ thống hiện tại
 
 - **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
-- **Cập nhật lần cuối:** 2026-11-10 16:30
+- **Cập nhật lần cuối:** 2026-11-12 14:15
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
 - **Người tiếp nhận:** Sprint 1 Developers (BE-01, BE-02, FE)
 - **Branch hiện tại:** `develop`
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Đã sửa triệt để 3 câu lệnh Foreign Key bị ngược trong file DDL gốc `database/baseline/schema_v1.2.sql` (cho `user_preferences`, `sell_details`, `buy_request_details`), bảo đảm 100% khớp với cấu trúc chuẩn đang chạy trên Supabase. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
 - **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
   - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
@@ -25,6 +25,24 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #014: Khắc phục Triệt để Khóa ngoại Bị ngược trong Baseline DDL v1.2 (12/11/2026)
+
+- **Ngày:** 2026-11-12
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `develop`
+- **Mục tiêu đạt được:**
+  1. **Khắc phục lỗi Foreign Key bị ngược chiều trong `database/baseline/schema_v1.2.sql`:**
+     - Phát hiện 3 câu lệnh `ALTER TABLE` bị tool export (dbdiagram.io) sinh ngược chiều khóa ngoại cho các quan hệ 1-1 extension:
+       - `users.id` trỏ sang `user_preferences.user_id` $\to$ Sửa thành: `user_preferences(user_id) REFERENCES users(id)`.
+       - `posts.id` trỏ sang `sell_details.post_id` $\to$ Sửa thành: `sell_details(post_id) REFERENCES posts(id)`.
+       - `posts.id` trỏ sang `buy_request_details.post_id` $\to$ Sửa thành: `buy_request_details(post_id) REFERENCES posts(id)`.
+  2. **Đối soát tính toàn vẹn với CSDL Supabase:**
+     - Xác nhận trên Supabase thực tế, các foreign keys đã được thiết lập đúng chiều (`fk_user_preferences_user`, `fk_sell_details_post`, `fk_buy_request_details_post`).
+     - Chạy lại `pnpm db:test` và `pnpm db:verify` PASS 100%.
+  3. **Commit & Push:** Đã commit và push đồng bộ lên nhánh `develop` (commit `b586305`).
+
+---
 
 ### Handoff #013: Hoàn thành Xác minh CSDL Supabase (CMP-26) & Kiểm chứng Monorepo CI với ADR-003 (CMP-27) (10/11/2026)
 
