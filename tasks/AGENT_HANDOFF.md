@@ -6,6 +6,17 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
+### Cập nhật Frontend — CMP-29 (2026-11-12)
+
+- **Người thực hiện:** Đình Thạch (Frontend), với Codex hỗ trợ.
+- **Branch:** `feat/fe-cmp-29-auth-ui`, dựa trên `develop` tại `7a82cc2`.
+- **Trạng thái:** Đã triển khai auth và nối luồng sau auth theo hồ sơ v1.2: đăng ký đến `/verification`, đăng nhập đến `/`, `PENDING` được xem bảng tin giới hạn. Chờ kiểm tra thủ công, tích hợp backend và tạo/review PR. Chưa đánh dấu Jira Done.
+- **Kiểm chứng FE:** ESLint 0 warnings, TypeScript không lỗi, Vitest **58/58 PASS** trong hai file test hiện có, Next.js production build PASS với `/`, `/login`, `/register`, `/verification`.
+- **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền Git Credential Manager ở phiên trước bị từ chối chạy ngoài sandbox, không thử lại các thao tác đã bị từ chối. Chưa commit/push/tạo PR. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
+- **Hướng dẫn chạy và nội dung PR:** `apps/frontend/src/features/auth/README.md`, `apps/frontend/src/features/auth/PR_DESCRIPTION.md`.
+
+Thông tin nền tảng BE Lead bàn giao ngày 2026-11-10 được giữ bên dưới:
+
 - **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
 - **Cập nhật lần cuối:** 2026-11-10 16:30
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
@@ -25,6 +36,27 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #016: Nối Auth với hồ sơ và bảng tin PENDING theo nghiệp vụ v1.2 (12/11/2026)
+
+- **Yêu cầu đã xác nhận:** Người dùng yêu cầu đọc lại hồ sơ nghiệp vụ tại `D:\TÀI LIỆU PTITHCM\7. NĂM 4_HỌC KỲ 1\QUẢN LÝ DỰ ÁN PHẦN MỀM\Dự án\Ho_so_nghiep_vu_Campus_Marketplace_v1.2.docx`, xác nhận PENDING được đăng nhập/xem feed giới hạn và yêu cầu thực hiện phần nối luồng. Căn cứ: §2, §3.1, FR-04, BR-04, AT-03, phụ lục Chốt 01; OpenAPI `/feed` + `PendingFeedPage`.
+- **Branch:** `feat/fe-cmp-29-auth-ui`, không đổi backend, database, contract, dependencies hoặc cấu hình môi trường trong phần bổ sung này.
+- **Phiên và điều hướng:** Auth API giữ session trong bộ nhớ có subscription và thời hạn `expiresIn`; dùng chung token/transport cho auth, feed, hồ sơ. Đăng ký thành công chuyển `/verification`; đăng nhập PENDING/APPROVED chuyển `/`, REJECTED chuyển hồ sơ; người chưa đăng nhập, hết hạn/HTTP 401 và đăng xuất trở về `/login`. Không lưu token vào browser storage, không tạo endpoint refresh/logout.
+- **Trang chủ:** Thay màn hình bootstrap tại `/` bằng bảng tin. PENDING chỉ nhận/hiển thị trường tóm tắt `id`, `title`, `postType`, `thumbnailUrl`, `createdAt`, không thêm giá/liên hệ, không link chi tiết và không gửi search/filter. Khóa các nút tìm kiếm/lọc/đăng tin/chat, chỉ dẫn hoàn thiện hồ sơ. Có loading/empty/error/retry, từ chối hiển thị feed cho REJECTED. Chưa xây dựng Marketplace đầy đủ cho APPROVED hoặc màn hình Admin.
+- **Hồ sơ tối thiểu:** `/verification` gọi `GET /me/verification`, nộp/nộp lại bằng `POST /me/evidence` dạng FormData; trường, mã sinh viên, ảnh thẻ bắt buộc theo schema, kiểm tra ảnh tối đa 10 MB theo phản hồi 413 trong contract. ApiClient không ép Content-Type JSON khi body là FormData. Không tạo preview/URL ảnh thẻ, xóa lựa chọn ảnh và dữ liệu form sau nộp; không trả ảnh ở trạng thái duyệt. Nộp hồ sơ không tự nâng APPROVED.
+- **Mock:** Bổ sung đúng GET feed/status và POST evidence theo contract, yêu cầu Bearer token mock, trả envelope chuẩn. Feed PENDING chỉ có summary, POST evidence giữ PENDING; dữ liệu/file không đi ra backend/storage. Các tùy chọn seed trạng thái và feed phục vụ kiểm thử, không bổ sung API tự duyệt. SVG thay thumbnail rỗng là minh họa, không phải ảnh thật sản phẩm.
+- **Kiểm chứng:** Hai file test hiện có đạt 58/58 (19 nền tảng + 39 auth/phiên/quyền/hồ sơ). FE lint, typecheck, production build PASS. Đã kiểm tra cả lỗi 401/403, hết phiên, logout, REJECTED, ảnh sai loại/quá dung lượng và hợp đồng multipart. Chưa xác nhận trực quan desktop/mobile vì server local connection refused. Không chạy lại các thao tác backend/GitHub đã bị từ chối quyền ở phiên trước.
+- **Bàn giao:** Hướng dẫn và PR body đã cập nhật trong `apps/frontend/src/features/auth/README.md`, `PR_DESCRIPTION.md`. Phần nối UI-02/UI-03 là phạm vi tối thiểu được người dùng yêu cầu để auth không bị cụt; không tuyên bố hoàn tất toàn bộ hồ sơ/Marketplace/backend. CMP-29 chỉ sẵn sàng để review mã nguồn; còn kiểm tra thủ công, PR, CI và review trước khi Done. CMP-31 cần xác minh API thật, quyền server và WebSocket cùng BE.
+
+### Handoff #015: Triển khai giao diện Auth CMP-29, chờ kiểm tra thủ công và PR (12/11/2026)
+
+- **Truy vết:** CMP-29 → CMP-6, FR-01, UI-01; FE đề xuất size **M**, chờ PM chốt.
+- **Phạm vi:** `apps/frontend` và nhật ký bàn giao này; giữ nguyên backend, database và API contract. Đã bổ sung `@types/node@20.19.43` cùng importer trong `pnpm-lock.yaml` theo xác nhận riêng trước đó, để Next.js build không tự cài dependency.
+- **Giao diện:** Auth layout navy/vàng, minh họa SVG nội bộ, responsive; `/register` gồm email → OTP → mật khẩu; `/login` có validation, loading, hiện/ẩn mật khẩu, lỗi và kết quả đăng nhập. Không mở bước mật khẩu trước `otpTicket` hợp lệ; đổi email, ticket hết hạn hoặc register HTTP 422 sẽ hủy trạng thái xác thực và xóa mật khẩu.
+- **API:** Typed auth service gọi đúng bốn POST endpoint `/auth/request-otp`, `/auth/verify-otp`, `/auth/register`, `/auth/login` qua `src/services/api.ts`. Register chỉ gửi `otpTicket`, `displayName`, `password`. Success envelope bắt buộc `{ success: true, data, timestamp }`; tài khoản mới `USER/PENDING`, không tự cấp quyền Marketplace.
+- **Mock:** Thêm transport tùy chọn vào ApiClient, giữ nguyên cách gọi và kiểm tra envelope hiện có. Adapter chỉ bật với `NEXT_PUBLIC_AUTH_API_MODE=mock`, có nhãn rõ trên UI, tài khoản/mật khẩu giả chỉ giữ trong bộ nhớ. Có OTP sai/hết hạn/đã dùng, resend/rate limit, ticket hết hạn/đã dùng, email trùng và đăng nhập sai. Không tự chuyển sang mock khi kết nối thật thất bại; mock token tách khỏi client thật.
+- **Kiểm thử:** Chỉ mở rộng `src/test/App.test.tsx` và `src/test/api.test.ts`, không tạo file test mới. 19 tests nền tảng + 21 tests auth = **40 PASS**. FE lint, typecheck và production build PASS. Next build có cảnh báo cấu hình ESLint thiếu Next plugin sẵn có; không đổi cấu hình ngoài phạm vi.
+- **Bàn giao tiếp theo:** Người dùng khởi động lại dev server ở `apps/frontend` với `NEXT_PUBLIC_AUTH_API_MODE=mock`, mở `/register` và `/login` (trang `/` vẫn là bootstrap). BE cung cấp API thật/allowlist/CORS/SMTP cho CMP-31. PR về `develop` cần review, CI và xác nhận thủ công trước khi đóng CMP-29. Chưa commit/push/tạo PR trong phiên này; nội dung theo template đã chuẩn bị tại `features/auth/PR_DESCRIPTION.md`.
 
 ### Handoff #013: Hoàn thành Xác minh CSDL Supabase (CMP-26) & Kiểm chứng Monorepo CI với ADR-003 (CMP-27) (10/11/2026)
 

@@ -1,8 +1,6 @@
-'use client';
-
 import React from 'react';
-import { HomePage } from '../components/HomePage';
+import { MarketplaceHome } from '../features/marketplace/components/marketplace-home';
 
 export default function Page() {
-  return <HomePage />;
+  return <MarketplaceHome />;
 }
