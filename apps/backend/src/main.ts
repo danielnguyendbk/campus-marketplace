@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { createValidationPipe } from './common/pipes/validation.pipe';
 import { getAppConfig } from './config/env.config';
 
 async function bootstrap() {
@@ -21,7 +22,8 @@ async function bootstrap() {
     exclude: ['health', 'api/v1/health'],
   });
 
-  // Global Interceptors & Filters
+  // Global Validation, Interceptors & Filters
+  app.useGlobalPipes(createValidationPipe());
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
 
