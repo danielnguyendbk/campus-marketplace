@@ -12,7 +12,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Branch:** `feat/fe-cmp-29-auth-ui`, rẽ từ `develop` tại `7a82cc2`, đồng bộ các cập nhật BE Lead đến `5417dd3` trước khi mở PR.
 - **Trạng thái:** Đã triển khai auth và nối luồng sau auth theo hồ sơ v1.2: đăng ký đến `/verification`, đăng nhập đến `/`, `PENDING` được xem bảng tin giới hạn. Chờ kiểm tra thủ công, tích hợp backend và tạo/review PR. Chưa đánh dấu Jira Done.
 - **Kiểm chứng FE:** ESLint 0 warnings, TypeScript không lỗi, Vitest **58/58 PASS** trong hai file test hiện có, Next.js production build PASS với `/`, `/login`, `/register`, `/verification`.
-- **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền liệt kê tài khoản Git Credential Manager ở phiên trước bị từ chối, không thử lại các thao tác đó. Đã commit phần triển khai `9a6e801`; đang chuẩn bị push và Draft PR theo xác nhận mới của người dùng. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
+- **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền liệt kê tài khoản Git Credential Manager ở phiên trước bị từ chối, không thử lại các thao tác đó. Đã commit phần triển khai `9a6e801`, đồng bộ develop bằng `3f2a590` và push thành công nhánh FE; chưa tạo PR vì yêu cầu quyền tạo Draft PR bị từ chối. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
 - **Hướng dẫn chạy và nội dung PR:** `apps/frontend/src/features/auth/README.md`, `apps/frontend/src/features/auth/PR_DESCRIPTION.md`.
 
 Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bên dưới:
@@ -36,6 +36,15 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #017: Commit và push CMP-29, chờ mở Draft PR (12/11/2026)
+
+- **Quy trình đã thực hiện:** Đọc lại toàn bộ AGENTS/CLAUDE, Gitflow/DoD, mẫu task/PR, CI và quy tắc định dạng; giữ nhánh `feat/fe-cmp-29-auth-ui`, PR đích `develop`, không merge trực tiếp vào develop/main.
+- **Commit triển khai:** `9a6e801` — `feat(frontend): add OTP auth and pending student flow (CMP-29)`, gồm 28 file đã rà soát (FE, dependency/lockfile đã được duyệt và nhật ký), không có `.env`, dependencies, file build hoặc secret thực.
+- **Đồng bộ nền:** Fetch develop mới đến `5417dd3` gồm hai commit của BE Lead; merge vào nhánh FE bằng `3f2a590`. Chỉ xung đột nhật ký và đã giữ toàn bộ nội dung hai bên. Nhận nguyên trạng bản sửa database của BE Lead; chênh lệch PR so với develop không chứa sửa backend/database/contract. Giữ Handoff BE #014, đánh số mục FE thành #015–016 để không trùng.
+- **Push:** Thành công tới `origin/feat/fe-cmp-29-auth-ui`, đã thiết lập upstream. `git diff --check` và kiểm tra định dạng PASS; giữ bằng chứng FE 58/58 tests, lint/typecheck/build PASS từ lần kiểm chứng mã nguồn gần nhất (phần đồng bộ chỉ thay tài liệu và baseline DB của BE).
+- **PR:** Chưa có PR được xác nhận tạo thành công. Lần gọi đầu chưa trả thông tin PR hợp lệ; yêu cầu quyền hoàn tất tạo Draft PR bị từ chối và đã dừng, không thử cách khác. Người dùng có thể mở `https://github.com/danielnguyendbk/campus-marketplace/pull/new/feat/fe-cmp-29-auth-ui`, chọn base `develop`, dùng nội dung trong `apps/frontend/src/features/auth/PR_DESCRIPTION.md` và chọn Create draft pull request.
+- **Còn chờ:** Xác nhận giao diện desktop/mobile, PR/review/CI cho thay đổi này và tích hợp thật CMP-31. Không đánh dấu CMP-29 hoặc toàn bộ FE Sprint 1 Done.
 
 ### Handoff #016: Nối Auth với hồ sơ và bảng tin PENDING theo nghiệp vụ v1.2 (12/11/2026)
 
