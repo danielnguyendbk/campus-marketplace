@@ -6,25 +6,60 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
-- **Cập nhật lần cuối:** 2026-11-10 16:30
-- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** Sprint 1 Developers (BE-01, BE-02, FE)
-- **Branch hiện tại:** `develop`
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
+- **Giai đoạn:** Sprint 1 — Core Authentication (Email OTP, Register PENDING & Login JWT) Implemented (`CMP-6` / `BE-01-T01` + `BE-01-T02`)
+- **Cập nhật lần cuối:** 2026-11-12 12:50
+- **Người bàn giao:** Backend Developer (BE2 — CMP-6)
+- **Người tiếp nhận:** Backend Tech Lead (Review PR & `BE-01-T03` Guards / Migration `0002`), Frontend Developer (`FE-AUTH-01`, `FE-AUTH-02`)
+- **Branch hiện tại:** `feat/be-auth-otp-session` (rẽ từ `develop`)
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2 và migration `0001_dbml_review_fixes.sql`. **Lưu ý quan trọng cho BE Lead / Database Agent:** Phát hiện FK ngược tại `database/baseline/schema_v1.2.sql` dòng 330 (`ALTER TABLE "users" ADD FOREIGN KEY ("id") REFERENCES "user_preferences" ("user_id")`). Trong `UserRepository.createWithPreferences` đã xử lý an toàn trong cùng transaction (`INSERT user_preferences` trước rồi mới `INSERT users`). Đề xuất BE Lead tạo migration `0002` đảo lại chiều FK chuẩn (`user_preferences.user_id -> users.id`) ở PR riêng.
 - **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
   - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
-  - Backend: **NestJS 10** (Modular Monolith API Gateway).
-  - Tự động hóa Migration & Verification: Thêm bộ script `pnpm db:migrate` (`run-migrations.ts`) và `pnpm db:verify` (`verify-constraints.ts`).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
-- **Trạng thái Jira:** Đã đóng hoàn tất 2 tasks được assign cho Backend Lead:
+  - Backend: **NestJS 10** (Modular Monolith API Gateway) — đã hoàn tất `AuthModule` (`POST /api/v1/auth/request-otp`, `POST /api/v1/auth/verify-otp`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`), global `ValidationPipe` (`whitelist` + `forbidNonWhitelisted`), và Shared Kernel `AuthenticatedUser` + `JwtAuthGuard`.
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 12/12 suites - 73/73 tests, Backend E2E 4/4 suites - 40/40 tests, Frontend Vitest 19/19 tests, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
+- **Trạng thái Jira:**
+  - `CMP-6`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> **Ready for PR / Review**
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #014: Triển khai API Email OTP, Tạo tài khoản PENDING và Đăng nhập JWT (CMP-6 / BE-01-T01 & BE-01-T02) (12/11/2026)
+
+- **Ngày:** 2026-11-12
+- **Người thực hiện:** Backend Developer (BE2)
+- **Branch:** `feat/be-auth-otp-session`
+- **Truy vết:** `CMP-6`; `FR-01`; `BR-01/02`; `AT-01`; `BE-01-T01` & `BE-01-T02`
+- **Mục tiêu đạt được:**
+  1. **Triển khai 4 API Xác thực theo đúng OpenAPI v1.2 (`packages/api-contract/openapi.yaml`):**
+     - `POST /api/v1/auth/request-otp`: Chuẩn hóa email (`trim().toLowerCase()`), kiểm tra domain trường đại học theo allowlist (`ALLOWED_SCHOOL_DOMAINS`, mặc định `edu.vn` khớp `*.edu.vn`). Nếu email đã tồn tại trong `users` thì trả về `200 SimpleMessageResponse` với thông điệp chung mà **không** sinh/gửi OTP (chống dò email theo contract). Áp dụng cooldown gửi lại (`60s`) và giới hạn theo giờ (`5 OTP/giờ/email` -> `429 OTP_RATE_LIMITED`). Mã OTP 6 chữ số chỉ lưu bản băm HMAC-SHA256 (`code_hash`), thời hạn 10 phút (`600s`); nếu gửi mail thất bại thì tự động vô hiệu bản ghi OTP vừa tạo.
+     - `POST /api/v1/auth/verify-otp`: Kiểm tra OTP còn hạn và chưa dùng bằng `timingSafeEqual`; tăng `attempts` nguyên tử trong DB, khóa ở lần sai thứ 5 (`429 OTP_ATTEMPTS_EXCEEDED`); khi đúng đánh dấu `verified_at` và cấp `otpTicket` (JWT HS256 ký bằng `OTP_TICKET_SECRET` tách biệt, hạn `600s`).
+     - `POST /api/v1/auth/register`: Xác thực `otpTicket` hợp lệ và đối chiếu bản ghi `otp_verifications.verified_at IS NOT NULL`; băm mật khẩu bằng `bcryptjs` (`saltRounds = 12`); tạo tài khoản `role = 'USER'`, `verification_status = 'PENDING'` và cấp phiên `AuthSessionResponse` (`201 Created`). Trả `409 EMAIL_ALREADY_REGISTERED` nếu email đã đăng ký hoặc phát sinh xung đột unique `23505`.
+     - `POST /api/v1/auth/login`: Cho phép tài khoản `PENDING`, `APPROVED`, `REJECTED` đăng nhập nhận JWT (`200 AuthSessionResponse`); chặn `SUSPENDED` với `403 ACCOUNT_SUSPENDED`; trả cùng mã `401 INVALID_CREDENTIALS` cho email không tồn tại hoặc sai mật khẩu (kèm dummy bcrypt compare chống timing attack).
+  2. **Global Validation & Shared Kernel (`JwtAuthGuard`):**
+     - Bổ sung `createValidationPipe()` (`whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`) trả về `VALIDATION_FAILED` kèm `details: [{ field, message }]` khớp tuyệt đối `ErrorEnvelope`.
+     - Cung cấp `AuthenticatedUser` interface và `JwtAuthGuard` tại `src/common/auth/` (Shared Kernel cho Sprint 1), chặn request thiếu/sai/hết hạn token hoặc dùng nhầm `otp_ticket` với HTTP 401.
+  3. **Ghi nhận & Xử lý An toàn Lỗi FK Ngược (`schema_v1.2.sql` dòng 330) — Cần BE Lead Lưu ý:**
+     - Tại `database/baseline/schema_v1.2.sql` dòng 330, khóa ngoại đang khai báo ngược chiều: `ALTER TABLE "users" ADD FOREIGN KEY ("id") REFERENCES "user_preferences" ("user_id")`.
+     - Giải pháp đã áp dụng trong `UserRepository.createWithPreferences`: Trong cùng một transaction (`PostgresService.withTransaction`), thực hiện `INSERT INTO "user_preferences" ("user_id") VALUES (gen_random_uuid()) RETURNING "user_id"` trước, sau đó `INSERT INTO "users" ("id", ...)` với cùng UUID. Cách này hoạt động an toàn trên schema hiện tại và vẫn tương thích 100% sau khi FK được đảo chiều.
+     - **Đề xuất cho BE Lead / Database Agent:** Tạo migration `0002_fix_user_preferences_fk.sql` trong PR riêng để drop FK ngược trên `users(id)` và tạo lại FK chuẩn `user_preferences(user_id) REFERENCES users(id) ON DELETE CASCADE`, kèm index `idx_otp_verifications_email_created_at` trên `otp_verifications(email, created_at DESC)`.
+- **Các file chính thêm mới / cập nhật:**
+  - `apps/backend/src/config/env.config.ts`, `apps/backend/src/main.ts`, `apps/backend/src/app.module.ts`
+  - `apps/backend/src/common/pipes/validation.pipe.ts` (+ `.spec.ts`)
+  - `apps/backend/src/common/auth/authenticated-user.interface.ts`, `jwt-auth.guard.ts` (+ `.spec.ts`)
+  - `apps/backend/src/modules/auth/*` (`auth.module.ts`, `auth.controller.ts`, `auth.service.ts`, `otp.service.ts`, `auth.types.ts`, DTOs, `otp.repository.ts`, `user.repository.ts`, `mail/*`, `utils/*` và toàn bộ `.spec.ts`)
+  - `apps/backend/test/auth.e2e-spec.ts`
+  - `.env.example`, `apps/backend/.env.example`, `docs/api/api_implementation_status.md`, `docs/api/auth.http`, `tasks/BACKLOG.md`
+- **Kết quả kiểm thử:**
+  - `pnpm lint`: PASS (0 warnings).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS (12/12 Backend suites - 73/73 tests; 2/2 Frontend suites - 19/19 tests).
+  - `pnpm test:e2e`: PASS (4/4 Backend E2E suites - 40/40 tests).
+  - `pnpm build`: PASS (Next.js 14 App Router + NestJS build thành công).
+
+---
 
 ### Handoff #013: Hoàn thành Xác minh CSDL Supabase (CMP-26) & Kiểm chứng Monorepo CI với ADR-003 (CMP-27) (10/11/2026)
 

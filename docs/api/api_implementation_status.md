@@ -19,10 +19,10 @@ Tài liệu này theo dõi trạng thái triển khai thực tế của toàn b�
 
 | # | HTTP Method | Endpoint | Tag | Tên nghiệp vụ / Summary | Trạng thái triển khai | Backlog Ref |
 |---|---|---|---|---|---|---|
-| 1 | `POST` | `/auth/request-otp` | Authentication | Gửi mã OTP xác thực email trường | Contract Defined | `TASK-BE-AUTH-01` |
-| 2 | `POST` | `/auth/verify-otp` | Authentication | Xác thực OTP & nhận token tạm | Contract Defined | `TASK-BE-AUTH-02` |
-| 3 | `POST` | `/auth/register` | Authentication | Hoàn tất đăng ký & nộp thẻ SV | Contract Defined | `TASK-BE-AUTH-03` |
-| 4 | `POST` | `/auth/login` | Authentication | Đăng nhập tài khoản sinh viên | Contract Defined | `TASK-BE-AUTH-04` |
+| 1 | `POST` | `/auth/request-otp` | Authentication | Gửi mã OTP xác thực email trường | **Implemented & Tested (CMP-6)** | `BE-01-T01` |
+| 2 | `POST` | `/auth/verify-otp` | Authentication | Xác thực OTP & nhận token tạm | **Implemented & Tested (CMP-6)** | `BE-01-T01` |
+| 3 | `POST` | `/auth/register` | Authentication | Hoàn tất đăng ký & nộp thẻ SV | **Implemented & Tested (CMP-6)** | `BE-01-T02` |
+| 4 | `POST` | `/auth/login` | Authentication | Đăng nhập tài khoản sinh viên | **Implemented & Tested (CMP-6)** | `BE-01-T02` |
 | 5 | `GET` | `/me` | Profile | Lấy hồ sơ tài khoản hiện tại | Contract Defined | `TASK-BE-PROF-01` |
 | 6 | `POST` | `/me/evidence` | Verification | Nộp lại ảnh thẻ sinh viên | Contract Defined | `TASK-BE-VERIF-01` |
 | 7 | `GET` | `/me/verification` | Verification | Xem tiến trình duyệt thẻ SV | Contract Defined | `TASK-BE-VERIF-02` |

@@ -83,20 +83,20 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
 
 #### BE-01 (Backend Tech Lead)
 
-- [ ] **BE-01-T01: Core Auth — University Email OTP Dispatcher & Verification** (P0, 5 SP)
+- [x] **BE-01-T01: Core Auth — University Email OTP Dispatcher & Verification** (P0, 5 SP)
   - **API:** `POST /auth/request-otp`, `POST /auth/verify-otp`.
   - **Database:** `otp_verifications` (`email`, `code_hash`, `expires_at`, `attempts`).
   - **Files:** `src/modules/auth/auth.controller.ts`, `auth.service.ts`, `repositories/otp.repository.ts`, `services/mail.service.ts`.
   - **Acceptance Criteria:** Regex domain trường (`.edu.vn`); OTP lưu băm SHA-256 (`code_hash`); hủy sau 5 lần sai; hạn 10 phút; trả `otpTicket` HMAC.
   - **Tests:** Unit test hash validation, rate limiting OTP test, E2E test full flow request -> verify.
-  - **Branch:** `feat/be-01-auth-otp`
-- [ ] **BE-01-T02: Core Auth — User Registration, Password Hashing & Login Session** (P0, 5 SP)
+  - **Branch:** `feat/be-auth-otp-session`
+- [x] **BE-01-T02: Core Auth — User Registration, Password Hashing & Login Session** (P0, 5 SP)
   - **API:** `POST /auth/register`, `POST /auth/login`.
   - **Database:** `users` (`id`, `school_email`, `password_hash`, `role`, `verification_status`).
   - **Files:** `src/modules/auth/dto/register.dto.ts`, `dto/login.dto.ts`, `strategies/jwt.strategy.ts`.
   - **Acceptance Criteria:** `bcrypt` với `saltRounds = 12`; mặc định `role = 'USER'`, `verification_status = 'PENDING'`, `reputation_score = 5.0`; trả về `AuthSessionResponse` gồm `accessToken` và `user`.
   - **Tests:** Unit test bcrypt compare, JWT sign/verify, E2E login thành công và sai mật khẩu.
-  - **Branch:** `feat/be-01-auth-session`
+  - **Branch:** `feat/be-auth-otp-session`
 - [ ] **BE-01-T03: Security & RBAC — Core Guards, Roles & Verification Enforcer** (P0, 5 SP)
   - **API:** Middleware & Guards xuyên suốt toàn hệ thống.
   - **Database:** `users` (`role`, `verification_status`).
