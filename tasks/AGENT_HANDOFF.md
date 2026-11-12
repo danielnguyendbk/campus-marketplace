@@ -9,20 +9,20 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ### Cập nhật Frontend — CMP-29 (2026-11-12)
 
 - **Người thực hiện:** Đình Thạch (Frontend), với Codex hỗ trợ.
-- **Branch:** `feat/fe-cmp-29-auth-ui`, dựa trên `develop` tại `7a82cc2`.
+- **Branch:** `feat/fe-cmp-29-auth-ui`, rẽ từ `develop` tại `7a82cc2`, đồng bộ các cập nhật BE Lead đến `5417dd3` trước khi mở PR.
 - **Trạng thái:** Đã triển khai auth và nối luồng sau auth theo hồ sơ v1.2: đăng ký đến `/verification`, đăng nhập đến `/`, `PENDING` được xem bảng tin giới hạn. Chờ kiểm tra thủ công, tích hợp backend và tạo/review PR. Chưa đánh dấu Jira Done.
 - **Kiểm chứng FE:** ESLint 0 warnings, TypeScript không lỗi, Vitest **58/58 PASS** trong hai file test hiện có, Next.js production build PASS với `/`, `/login`, `/register`, `/verification`.
-- **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền Git Credential Manager ở phiên trước bị từ chối chạy ngoài sandbox, không thử lại các thao tác đã bị từ chối. Chưa commit/push/tạo PR. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
+- **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền liệt kê tài khoản Git Credential Manager ở phiên trước bị từ chối, không thử lại các thao tác đó. Đã commit phần triển khai `9a6e801`; đang chuẩn bị push và Draft PR theo xác nhận mới của người dùng. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
 - **Hướng dẫn chạy và nội dung PR:** `apps/frontend/src/features/auth/README.md`, `apps/frontend/src/features/auth/PR_DESCRIPTION.md`.
 
-Thông tin nền tảng BE Lead bàn giao ngày 2026-11-10 được giữ bên dưới:
+Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bên dưới:
 
 - **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
-- **Cập nhật lần cuối:** 2026-11-10 16:30
+- **Cập nhật lần cuối:** 2026-11-12 14:15
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
 - **Người tiếp nhận:** Sprint 1 Developers (BE-01, BE-02, FE)
 - **Branch hiện tại:** `develop`
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Đã sửa triệt để 3 câu lệnh Foreign Key bị ngược trong file DDL gốc `database/baseline/schema_v1.2.sql` (cho `user_preferences`, `sell_details`, `buy_request_details`), bảo đảm 100% khớp với cấu trúc chuẩn đang chạy trên Supabase. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
 - **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
   - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
@@ -57,6 +57,24 @@ Thông tin nền tảng BE Lead bàn giao ngày 2026-11-10 được giữ bên d
 - **Mock:** Thêm transport tùy chọn vào ApiClient, giữ nguyên cách gọi và kiểm tra envelope hiện có. Adapter chỉ bật với `NEXT_PUBLIC_AUTH_API_MODE=mock`, có nhãn rõ trên UI, tài khoản/mật khẩu giả chỉ giữ trong bộ nhớ. Có OTP sai/hết hạn/đã dùng, resend/rate limit, ticket hết hạn/đã dùng, email trùng và đăng nhập sai. Không tự chuyển sang mock khi kết nối thật thất bại; mock token tách khỏi client thật.
 - **Kiểm thử:** Chỉ mở rộng `src/test/App.test.tsx` và `src/test/api.test.ts`, không tạo file test mới. 19 tests nền tảng + 21 tests auth = **40 PASS**. FE lint, typecheck và production build PASS. Next build có cảnh báo cấu hình ESLint thiếu Next plugin sẵn có; không đổi cấu hình ngoài phạm vi.
 - **Bàn giao tiếp theo:** Người dùng khởi động lại dev server ở `apps/frontend` với `NEXT_PUBLIC_AUTH_API_MODE=mock`, mở `/register` và `/login` (trang `/` vẫn là bootstrap). BE cung cấp API thật/allowlist/CORS/SMTP cho CMP-31. PR về `develop` cần review, CI và xác nhận thủ công trước khi đóng CMP-29. Chưa commit/push/tạo PR trong phiên này; nội dung theo template đã chuẩn bị tại `features/auth/PR_DESCRIPTION.md`.
+
+### Handoff #014: Khắc phục Triệt để Khóa ngoại Bị ngược trong Baseline DDL v1.2 (12/11/2026)
+
+- **Ngày:** 2026-11-12
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `develop`
+- **Mục tiêu đạt được:**
+  1. **Khắc phục lỗi Foreign Key bị ngược chiều trong `database/baseline/schema_v1.2.sql`:**
+     - Phát hiện 3 câu lệnh `ALTER TABLE` bị tool export (dbdiagram.io) sinh ngược chiều khóa ngoại cho các quan hệ 1-1 extension:
+       - `users.id` trỏ sang `user_preferences.user_id` $\to$ Sửa thành: `user_preferences(user_id) REFERENCES users(id)`.
+       - `posts.id` trỏ sang `sell_details.post_id` $\to$ Sửa thành: `sell_details(post_id) REFERENCES posts(id)`.
+       - `posts.id` trỏ sang `buy_request_details.post_id` $\to$ Sửa thành: `buy_request_details(post_id) REFERENCES posts(id)`.
+  2. **Đối soát tính toàn vẹn với CSDL Supabase:**
+     - Xác nhận trên Supabase thực tế, các foreign keys đã được thiết lập đúng chiều (`fk_user_preferences_user`, `fk_sell_details_post`, `fk_buy_request_details_post`).
+     - Chạy lại `pnpm db:test` và `pnpm db:verify` PASS 100%.
+  3. **Commit & Push:** Đã commit và push đồng bộ lên nhánh `develop` (commit `b586305`).
+
+---
 
 ### Handoff #013: Hoàn thành Xác minh CSDL Supabase (CMP-26) & Kiểm chứng Monorepo CI với ADR-003 (CMP-27) (10/11/2026)
 
