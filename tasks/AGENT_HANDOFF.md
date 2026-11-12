@@ -11,7 +11,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Người bàn giao:** Backend Developer (BE2 — CMP-6)
 - **Người tiếp nhận:** Backend Tech Lead (Review PR & `BE-01-T03` Guards / Migration `0002`), Frontend Developer (`FE-AUTH-01`, `FE-AUTH-02`)
 - **Branch hiện tại:** `feat/be-auth-otp-session` (rẽ từ `develop`)
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2 và migration `0001_dbml_review_fixes.sql`. **Lưu ý quan trọng cho BE Lead / Database Agent:** Phát hiện FK ngược tại `database/baseline/schema_v1.2.sql` dòng 330 (`ALTER TABLE "users" ADD FOREIGN KEY ("id") REFERENCES "user_preferences" ("user_id")`). Trong `UserRepository.createWithPreferences` đã xử lý an toàn trong cùng transaction (`INSERT user_preferences` trước rồi mới `INSERT users`). Đề xuất BE Lead tạo migration `0002` đảo lại chiều FK chuẩn (`user_preferences.user_id -> users.id`) ở PR riêng.
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql`, và đã chuẩn hóa chiều khóa ngoại (`user_preferences.user_id -> users.id`, `sell_details.post_id -> posts.id`, `buy_request_details.post_id -> posts.id`). `UserRepository.createUser` thực hiện `INSERT` trực tiếp vào bảng `users`.
 - **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
   - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
@@ -41,10 +41,9 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   2. **Global Validation & Shared Kernel (`JwtAuthGuard`):**
      - Bổ sung `createValidationPipe()` (`whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`) trả về `VALIDATION_FAILED` kèm `details: [{ field, message }]` khớp tuyệt đối `ErrorEnvelope`.
      - Cung cấp `AuthenticatedUser` interface và `JwtAuthGuard` tại `src/common/auth/` (Shared Kernel cho Sprint 1), chặn request thiếu/sai/hết hạn token hoặc dùng nhầm `otp_ticket` với HTTP 401.
-  3. **Ghi nhận & Xử lý An toàn Lỗi FK Ngược (`schema_v1.2.sql` dòng 330) — Cần BE Lead Lưu ý:**
-     - Tại `database/baseline/schema_v1.2.sql` dòng 330, khóa ngoại đang khai báo ngược chiều: `ALTER TABLE "users" ADD FOREIGN KEY ("id") REFERENCES "user_preferences" ("user_id")`.
-     - Giải pháp đã áp dụng trong `UserRepository.createWithPreferences`: Trong cùng một transaction (`PostgresService.withTransaction`), thực hiện `INSERT INTO "user_preferences" ("user_id") VALUES (gen_random_uuid()) RETURNING "user_id"` trước, sau đó `INSERT INTO "users" ("id", ...)` với cùng UUID. Cách này hoạt động an toàn trên schema hiện tại và vẫn tương thích 100% sau khi FK được đảo chiều.
-     - **Đề xuất cho BE Lead / Database Agent:** Tạo migration `0002_fix_user_preferences_fk.sql` trong PR riêng để drop FK ngược trên `users(id)` và tạo lại FK chuẩn `user_preferences(user_id) REFERENCES users(id) ON DELETE CASCADE`, kèm index `idx_otp_verifications_email_created_at` trên `otp_verifications(email, created_at DESC)`.
+  3. **Chuẩn hóa Khóa ngoại & Truy vấn SQL trực tiếp (`UserRepository.createUser`):**
+     - Sau khi chuẩn hóa chiều FK của `user_preferences`, `sell_details`, `buy_request_details` tại `database/baseline/schema_v1.2.sql` (dòng 330, 336, 338), `UserRepository.createUser` thực hiện `INSERT INTO "users" ("school_email", "password_hash", "display_name") VALUES ($1, $2, $3) RETURNING "id", "display_name", "role", "verification_status"` trực tiếp mà không cần tạo `user_preferences` trước.
+     - *(Lưu ý: Nếu môi trường Supabase remote được khởi tạo từ bản `schema_v1.2.sql` cũ trước khi sửa dòng 330, 336, 338 thì cần áp dụng lại constraint FK tương ứng trên DB đó).*
 - **Các file chính thêm mới / cập nhật:**
   - `apps/backend/src/config/env.config.ts`, `apps/backend/src/main.ts`, `apps/backend/src/app.module.ts`
   - `apps/backend/src/common/pipes/validation.pipe.ts` (+ `.spec.ts`)

@@ -57,7 +57,7 @@ export class AuthService {
 
     let user: AuthUser;
     try {
-      user = await this.userRepository.createWithPreferences({
+      user = await this.userRepository.createUser({
         schoolEmail: email,
         passwordHash,
         displayName: dto.displayName.trim(),

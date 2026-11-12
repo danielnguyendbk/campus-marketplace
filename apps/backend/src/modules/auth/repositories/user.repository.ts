@@ -44,55 +44,35 @@ export class UserRepository extends BaseRepository<UserRow> {
   }
 
   /**
-   * Creates a new student account inside an explicit database transaction.
-   *
-   * NOTE on reversed FK (database/baseline/schema_v1.2.sql line 330):
-   *   ALTER TABLE "users" ADD FOREIGN KEY ("id") REFERENCES "user_preferences" ("user_id")
-   * Because `users.id` currently references `user_preferences.user_id`, the default
-   * `user_preferences` row MUST be inserted first using a generated UUID, and then
-   * `users` is inserted with that same `id`. Both statements run inside `withTransaction`
-   * so any failure rolls back both tables cleanly.
-   *
+   * Creates a new student account in `users`.
    * `role` and `verification_status` rely on PostgreSQL column defaults ('USER', 'PENDING').
    */
-  async createWithPreferences(params: {
-    schoolEmail: string;
-    passwordHash: string;
-    displayName: string;
-  }): Promise<AuthUser> {
-    return this.postgresService.withTransaction(async (client: PoolClient) => {
-      const prefSql = `
-        INSERT INTO "user_preferences" ("user_id")
-        VALUES (gen_random_uuid())
-        RETURNING "user_id";
-      `;
-      const prefRes = await this.executeQuery<{ user_id: string }>(prefSql, [], client);
-      const userId = prefRes.rows[0].user_id;
+  async createUser(
+    params: {
+      schoolEmail: string;
+      passwordHash: string;
+      displayName: string;
+    },
+    client?: PoolClient,
+  ): Promise<AuthUser> {
+    const sql = `
+      INSERT INTO "users" ("school_email", "password_hash", "display_name")
+      VALUES ($1, $2, $3)
+      RETURNING "id", "display_name", "role", "verification_status";
+    `;
+    const res = await this.executeQuery<{
+      id: string;
+      display_name: string;
+      role: UserRole;
+      verification_status: VerificationStatus;
+    }>(sql, [params.schoolEmail, params.passwordHash, params.displayName], client);
 
-      const userSql = `
-        INSERT INTO "users" ("id", "school_email", "password_hash", "display_name")
-        VALUES ($1, $2, $3, $4)
-        RETURNING "id", "display_name", "role", "verification_status";
-      `;
-      const userRes = await this.executeQuery<{
-        id: string;
-        display_name: string;
-        role: UserRole;
-        verification_status: VerificationStatus;
-      }>(
-        userSql,
-        [userId, params.schoolEmail, params.passwordHash, params.displayName],
-        client,
-      );
-
-      const created = userRes.rows[0];
-      return {
-        id: created.id,
-        displayName: created.display_name,
-        role: created.role,
-        verificationStatus: created.verification_status,
-      };
-    });
+    const created = res.rows[0];
+    return {
+      id: created.id,
+      displayName: created.display_name,
+      role: created.role,
+      verificationStatus: created.verification_status,
+    };
   }
 }
-

@@ -31,7 +31,7 @@ describe('AuthService', () => {
   let userRepository: jest.Mocked<
     Pick<
       UserRepository,
-      'existsByEmail' | 'findActiveByEmail' | 'createWithPreferences'
+      'existsByEmail' | 'findActiveByEmail' | 'createUser'
     >
   >;
   let authService: AuthService;
@@ -44,7 +44,7 @@ describe('AuthService', () => {
     userRepository = {
       existsByEmail: jest.fn().mockResolvedValue(false),
       findActiveByEmail: jest.fn(),
-      createWithPreferences: jest.fn(),
+      createUser: jest.fn(),
     };
 
     authService = new AuthService(
@@ -72,7 +72,7 @@ describe('AuthService', () => {
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
 
-      expect(userRepository.createWithPreferences).not.toHaveBeenCalled();
+      expect(userRepository.createUser).not.toHaveBeenCalled();
     });
 
     it(' creates a PENDING USER with bcrypt-hashed password and returns AuthSession', async () => {
@@ -80,7 +80,7 @@ describe('AuthService', () => {
         email: 'sv01@ptit.edu.vn',
         otpId: '11111111-2222-3333-4444-555555555555',
       });
-      userRepository.createWithPreferences.mockResolvedValue({
+      userRepository.createUser.mockResolvedValue({
         id: '0d8d830e-11bd-440a-b72e-24c8bd3a519a',
         displayName: 'Sinh viên A',
         role: 'USER',
@@ -93,8 +93,8 @@ describe('AuthService', () => {
         password: 'StrongPassword123',
       });
 
-      expect(userRepository.createWithPreferences).toHaveBeenCalledTimes(1);
-      const createCall = userRepository.createWithPreferences.mock.calls[0][0];
+      expect(userRepository.createUser).toHaveBeenCalledTimes(1);
+      const createCall = userRepository.createUser.mock.calls[0][0];
       expect(createCall.schoolEmail).toBe('sv01@ptit.edu.vn');
       expect(createCall.displayName).toBe('Sinh viên A');
       expect(createCall.passwordHash).toMatch(/^\$2[ab]\$/);
@@ -144,7 +144,7 @@ describe('AuthService', () => {
 
       // Race condition: existsByEmail returns false, then INSERT hits unique constraint 23505
       userRepository.existsByEmail.mockResolvedValueOnce(false);
-      userRepository.createWithPreferences.mockRejectedValueOnce(
+      userRepository.createUser.mockRejectedValueOnce(
         Object.assign(new Error('duplicate key value'), { code: '23505' }),
       );
 

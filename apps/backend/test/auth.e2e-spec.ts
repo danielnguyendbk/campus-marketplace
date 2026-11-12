@@ -141,11 +141,9 @@ class InMemoryOtpRepository {
 
 class InMemoryUserRepository {
   public users: UserRow[] = [];
-  public preferencesUserIds: string[] = [];
 
   reset() {
     this.users = [];
-    this.preferencesUserIds = [];
   }
 
   async existsByEmail(email: string): Promise<boolean> {
@@ -158,7 +156,7 @@ class InMemoryUserRepository {
     );
   }
 
-  async createWithPreferences(params: {
+  async createUser(params: {
     schoolEmail: string;
     passwordHash: string;
     displayName: string;
@@ -169,7 +167,6 @@ class InMemoryUserRepository {
       });
     }
     const id = randomUUID();
-    this.preferencesUserIds.push(id);
     const row: UserRow = {
       id,
       school_email: params.schoolEmail,
@@ -320,7 +317,6 @@ describe('Auth Flow (e2e) — CMP-6 / OpenAPI v1.2 Contract', () => {
       role: 'USER',
       verificationStatus: 'PENDING',
     });
-    expect(userRepo.preferencesUserIds).toEqual([registerRes.body.data.user.id]);
 
     // Reusing the same otpTicket to register again returns 409 Conflict
     const replayRes = await request(app.getHttpServer())
