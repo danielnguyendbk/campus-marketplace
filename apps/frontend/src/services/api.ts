@@ -77,11 +77,16 @@ export class ApiError extends Error {
 export const API_BASE_URL: string =
   process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api/v1';
 
+export type ApiTransport = (url: string, options?: RequestInit) => Promise<Response>;
+
 export class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(
+    baseUrl: string = API_BASE_URL,
+    private readonly transport?: ApiTransport,
+  ) {
     this.baseUrl = baseUrl;
   }
 
@@ -100,12 +105,12 @@ export class ApiClient {
   async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    const res = await fetch(url, { ...options, headers });
+    const res = await (this.transport ?? fetch)(url, { ...options, headers });
     let payload: unknown;
     try {
       payload = await res.json();
@@ -168,7 +173,7 @@ export class ApiClient {
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    const res = await fetch(url, { ...options, headers });
+    const res = await (this.transport ?? fetch)(url, { ...options, headers });
     let payload: unknown;
     try {
       payload = await res.json();
@@ -236,7 +241,7 @@ export class ApiClient {
    * Get full raw envelope for debugging or header verification.
    */
   async getRawHealth(): Promise<ApiEnvelope<HealthResponse>> {
-    const res = await fetch(`${this.baseUrl}/health`);
+    const res = await (this.transport ?? fetch)(`${this.baseUrl}/health`);
     if (!res.ok) {
       throw new ApiError(`HTTP error ${res.status}: ${res.statusText}`, res.status, 'HTTP_ERROR');
     }
