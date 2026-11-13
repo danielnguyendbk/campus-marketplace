@@ -12,6 +12,17 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Người tiếp nhận:** Backend Tech Lead (Review PR & `BE-01-T03` Guards / Migration `0002`), Frontend Developer (`FE-AUTH-01`, `FE-AUTH-02`)
 - **Branch hiện tại:** `feat/be-auth-otp-session` (rẽ từ `develop`)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql`, và đã chuẩn hóa chiều khóa ngoại (`user_preferences.user_id -> users.id`, `sell_details.post_id -> posts.id`, `buy_request_details.post_id -> posts.id`). `UserRepository.createUser` thực hiện `INSERT` trực tiếp vào bảng `users`.
+
+### Cập nhật QA — Kiểm thử tích hợp CMP-6 (2026-11-13)
+
+- **Người thực hiện:** QA Agent (phiên kiểm thử tích hợp), theo kế hoạch `integration_test_plan.md` (v2).
+- **Branch:** `feat/cmp-31` (commit nền `990583b`), **chưa push/PR**.
+- **Trạng thái:** **DONE** cho phạm vi kiểm thử tích hợp FE–BE–Supabase. Không blocker.
+- **Kết quả:** Baseline xanh toàn bộ (`lint`, `typecheck`, `test` 74 BE + 58 FE, `test:e2e` 40, `build`). Chạy thật 4 endpoint auth với `MAIL_TRANSPORT=smtp`: A1–A7, B1–B4, C1–C5, D1–D2 đạt; contract khớp (register **201**, envelope chuẩn); DB `otp_verifications` chỉ chứa `code_hash`, `users` PENDING + bcrypt `$2b$12$`; quét log/response/browser storage: 0 rò rỉ OTP/mật khẩu/token.
+- **Bug Minor đã soạn sẵn Jira:** `/health` lộ message driver PostgreSQL (+ `/health` không có trong OpenAPI); FE gộp mọi 429 thành một câu thông báo; `ErrorEnvelope.details` dùng `additional: false`.
+- **Còn chờ người dùng:** ảnh nội dung email OTP (bằng chứng trực quan duy nhất chưa có), tạo Jira bug, quyết định ticket cấu hình cổng 3000 còn hard-code trong `.env.example`/`README`/`docs/api/auth.http`.
+- **Tài liệu:** [`docs/qa/CMP-6-integration-checklist.md`](file:///d:/PTIT/QLDAPM/doanQLDAPM/campus-marketplace/docs/qa/CMP-6-integration-checklist.md) · [`docs/qa/CMP-6-jira-bug-drafts.md`](file:///d:/PTIT/QLDAPM/doanQLDAPM/campus-marketplace/docs/qa/CMP-6-jira-bug-drafts.md).
+
 ### Cập nhật Frontend — CMP-29 (2026-11-12)
 
 - **Người thực hiện:** Đình Thạch (Frontend), với Codex hỗ trợ.
@@ -43,7 +54,39 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
 
 ## Lịch sử bàn giao (Handoff Log)
 
-<<<<<<< HEAD
+### Handoff #018: Kiểm thử tích hợp FE–BE–Supabase cho luồng Auth CMP-6 (13/11/2026)
+
+- **Ngày:** 2026-11-13 (16:31–16:52 GMT+7)
+- **Người thực hiện:** QA Agent
+- **Branch:** `feat/cmp-31` (commit nền `990583b`; **chưa commit/push/PR** — chờ người dùng đồng ý)
+- **Truy vết:** `CMP-6`; `FR-01`; `BR-01/02`; `AT-01`; kế hoạch `integration_test_plan.md` (v2)
+- **Mục tiêu:** chạy luồng thật `request OTP → verify OTP → register → login → PENDING` giữa FE Next.js, BE NestJS và Supabase; không sửa mã nguồn trong `apps/`.
+- **Cấu hình đã dùng (chỉ file local, gitignored):** `apps/backend/.env` → `PORT=4000`, `CORS_ORIGIN=http://localhost:3000`, `ALLOWED_SCHOOL_DOMAINS=student.ptithcm.edu.vn`, `MAIL_TRANSPORT=smtp`; tạo mới `apps/frontend/.env.local` → `NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/api/v1` (không đặt `NEXT_PUBLIC_AUTH_API_MODE` ⇒ `live`). Sau D2, `DATABASE_URL` đã khôi phục nguyên bản.
+- **Cách kiểm chứng OTP khi dùng SMTP thật:** mã đúng được suy ra từ `code_hash` bằng `OTP_HASH_SECRET` local (HMAC-SHA256 `email:code`), không ghi mã vào tài liệu/log. Nhờ vậy không phải dùng `ConsoleMailService`.
+- **Kết quả (40/41 mục kiểm đạt — 25 mục API/DB + 16 mục UI; 1 phát hiện lỗi đã thành Bug CMP-6-01):**
+  - Baseline: `lint`, `typecheck`, `test` (BE 74 + FE 58), `test:e2e` (40), `build` đều PASS.
+  - Pha A (A1–A7): 400 `VALIDATION_FAILED`, 400 `EMAIL_DOMAIN_NOT_ALLOWED`, 429 `OTP_RATE_LIMITED`, 400 `OTP_INVALID` + `attempts` tăng, 429 `OTP_ATTEMPTS_EXCEEDED` ở lần 5, OTP hết hạn, `OTP_TICKET_INVALID` với ticket giả.
+  - Pha B (B1–B4): `request-otp` 200 (1 dòng `otp_verifications`, chỉ `code_hash`), `verify-otp` 200 `{otpTicket, expiresIn:600}`, `register` **201** `USER/PENDING` + bcrypt `$2b$12$`, `login` 200 PENDING; UI chuyển màn hình sau đăng ký, **không** lưu token vào `localStorage`/`sessionStorage`/cookie.
+  - Pha C (C1–C5): email đã đăng ký → 200 trung tính, không tạo OTP, không gửi mail; dùng lại ticket → 409; sai mật khẩu / email không tồn tại → 401 cùng message; mật khẩu < 8 → 400 `details.field=password`.
+  - Pha D: tắt BE → UI báo "Không thể kết nối…" sau 2,55s (không treo); sai `DATABASE_URL` → `login`/`request-otp` trả 500 `INTERNAL_SERVER_ERROR` "Internal server error", không stack/URI.
+  - Quét `backend.log` + `backend-d2.log` (10 mẫu: mật khẩu test, SMTP pass, DB pass, `eyJ…`, `postgres://`, `[DEV MAIL]`, `OTP=`, Bearer, `$2b$12$`): **0 hit**.
+- **Bug phát hiện (đều Minor, không chặn luồng chính; nội dung Jira soạn sẵn):**
+  1. `GET /health` trả nguyên văn `exception.message` của PostgreSQL khi mất kết nối (lộ tên user DB) và `/health` không có trong OpenAPI.
+  2. FE gộp mọi lỗi 429 thành "Bạn đã yêu cầu quá nhiều lần…" kể cả `OTP_ATTEMPTS_EXCEEDED` (hướng dẫn sai: phải yêu cầu mã mới).
+  3. `packages/api-contract/openapi.yaml` → `ErrorEnvelope.error.details.items` dùng `additional: false` (sai khoá, phải là `additionalProperties: false`).
+- **Còn chờ (không chặn Done):** ảnh/đoạn video nội dung email OTP (bằng chứng trực quan duy nhất chưa có; đã xác nhận qua log `Dispatched OTP email … via SMTP`); tạo 3 Jira bug từ bản nháp; quyết định ticket cấu hình cho các chỗ còn hard-code cổng 3000 (`.env.example`, `docs/api/auth.http`, README FE/BE).
+- **Ngoài phạm vi nhưng cần biết:** `GET /me/verification` và `GET /feed` hiện 404 (BE Sprint 1 mới có Auth + Health) ⇒ sau đăng ký trang `/verification` và phần nội dung trang chủ PENDING hiển thị lỗi. Thuộc `BE-02-T01` / `BE-02-T07`, không phải hồi quy của CMP-6.
+- **Dữ liệu test cuối phiên:** 1 user `n23dccn162@student.ptithcm.edu.vn` (`USER`, `PENDING`) + 1 dòng `otp_verifications` đã verify. Muốn quay lại từ đầu:
+  ```sql
+  DELETE FROM public.otp_verifications WHERE email = 'n23dccn162@student.ptithcm.edu.vn';
+  DELETE FROM public.users             WHERE school_email = 'n23dccn162@student.ptithcm.edu.vn';
+  ```
+  (Lưu ý: kế hoạch ghi `email_otps`/`status`, tên thật là `otp_verifications`/`verification_status`.)
+- **File thay đổi:** `docs/qa/CMP-6-integration-checklist.md`, `docs/qa/CMP-6-jira-bug-drafts.md` (mới); `tasks/AGENT_HANDOFF.md`, `tasks/BACKLOG.md` (cập nhật). **Không** sửa `apps/`, `database/`, `packages/`.
+- **Bằng chứng local (KHÔNG commit):** `docs/qa/evidence/CMP-6/` gồm `baseline.log`, `backend.log`, `backend-d2.log`, `frontend.log`, `api-phase-{A,B,C,D}.json`, `ui-*.json`, `screens/*.png` (17 ảnh). Chứa email sinh viên và log runtime ⇒ phải che/xoá trước khi đính kèm Jira.
+- **Hướng dẫn người kế tiếp:** muốn chạy lại toàn bộ: bật BE cổng 4000 + FE cổng 3000, dọn DB theo SQL trên, chạy A→B→C→D theo checklist; script dùng một lần nằm ở `C:\Users\nguye\AppData\Local\Temp\opencode\cmp6\` (ngoài repo, có thể xoá). Không cần cài Playwright vào repo (đã dùng bản tạm `npx`).
+- **Ghi chú tài liệu (dọn dẹp nhỏ, không đổi nội dung bàn giao):** file `tasks/AGENT_HANDOFF.md` trước đó còn sót 3 dòng conflict marker (`<<<<<<< HEAD` / `=======` / `>>>>>>> origin/develop`) đã bị commit từ commit `990583b` khiến tài liệu render sai — phiên này đã xoá 3 dòng đó, giữ nguyên cả hai nhánh nội dung. Vẫn còn **trùng số Handoff #014** (một của BE2 Auth OTP, một của BE Lead sửa FK baseline) — để nguyên, cần đánh số lại ở lần bàn giao sau để tránh nhầm lẫn.
+
 ### Handoff #014: Triển khai API Email OTP, Tạo tài khoản PENDING và Đăng nhập JWT (CMP-6 / BE-01-T01 & BE-01-T02) (12/11/2026)
 
 - **Ngày:** 2026-11-12
@@ -75,7 +118,6 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
   - `pnpm test`: PASS (12/12 Backend suites - 73/73 tests; 2/2 Frontend suites - 19/19 tests).
   - `pnpm test:e2e`: PASS (4/4 Backend E2E suites - 40/40 tests).
   - `pnpm build`: PASS (Next.js 14 App Router + NestJS build thành công).
-=======
 ### Handoff #017: Commit và push CMP-29, chờ mở Draft PR (12/11/2026)
 
 - **Quy trình đã thực hiện:** Đọc lại toàn bộ AGENTS/CLAUDE, Gitflow/DoD, mẫu task/PR, CI và quy tắc định dạng; giữ nhánh `feat/fe-cmp-29-auth-ui`, PR đích `develop`, không merge trực tiếp vào develop/main.
@@ -121,7 +163,6 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
      - Xác nhận trên Supabase thực tế, các foreign keys đã được thiết lập đúng chiều (`fk_user_preferences_user`, `fk_sell_details_post`, `fk_buy_request_details_post`).
      - Chạy lại `pnpm db:test` và `pnpm db:verify` PASS 100%.
   3. **Commit & Push:** Đã commit và push đồng bộ lên nhánh `develop` (commit `b586305`).
->>>>>>> origin/develop
 
 ---
 
