@@ -1,0 +1,43 @@
+### Campus Marketplace — Authentication Flow Manual Verification (CMP-6)
+@baseUrl = http://localhost:3000/api/v1
+@schoolEmail = sv01@stu.ptit.edu.vn
+@otpCode = 123456
+@otpTicket = paste_otp_ticket_from_verify_otp_response
+@password = StudentPass123!
+
+### 1. Request University Email OTP (200 OK — SimpleMessageResponse)
+POST {{baseUrl}}/auth/request-otp
+Content-Type: application/json
+
+{
+  "email": "{{schoolEmail}}"
+}
+
+### 2. Verify OTP Code (200 OK — VerifyOtpResponse { otpTicket, expiresIn })
+POST {{baseUrl}}/auth/verify-otp
+Content-Type: application/json
+
+{
+  "email": "{{schoolEmail}}",
+  "code": "{{otpCode}}"
+}
+
+### 3. Register Account (201 Created — AuthSessionResponse, verificationStatus = PENDING)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "otpTicket": "{{otpTicket}}",
+  "displayName": "Nguyễn Văn A",
+  "password": "{{password}}"
+}
+
+### 4. Login (200 OK — AuthSessionResponse)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{schoolEmail}}",
+  "password": "{{password}}"
+}
+

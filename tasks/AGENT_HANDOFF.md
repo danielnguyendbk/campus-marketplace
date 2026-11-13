@@ -6,6 +6,12 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
+- **Giai đoạn:** Sprint 1 — Core Authentication (Email OTP, Register PENDING & Login JWT) Implemented (`CMP-6` / `BE-01-T01` + `BE-01-T02`)
+- **Cập nhật lần cuối:** 2026-11-12 12:50
+- **Người bàn giao:** Backend Developer (BE2 — CMP-6)
+- **Người tiếp nhận:** Backend Tech Lead (Review PR & `BE-01-T03` Guards / Migration `0002`), Frontend Developer (`FE-AUTH-01`, `FE-AUTH-02`)
+- **Branch hiện tại:** `feat/be-auth-otp-session` (rẽ từ `develop`)
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql`, và đã chuẩn hóa chiều khóa ngoại (`user_preferences.user_id -> users.id`, `sell_details.post_id -> posts.id`, `buy_request_details.post_id -> posts.id`). `UserRepository.createUser` thực hiện `INSERT` trực tiếp vào bảng `users`.
 ### Cập nhật Frontend — CMP-29 (2026-11-12)
 
 - **Người thực hiện:** Đình Thạch (Frontend), với Codex hỗ trợ.
@@ -26,10 +32,10 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
 - **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
   - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
-  - Backend: **NestJS 10** (Modular Monolith API Gateway).
-  - Tự động hóa Migration & Verification: Thêm bộ script `pnpm db:migrate` (`run-migrations.ts`) và `pnpm db:verify` (`verify-constraints.ts`).
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 31/31, Backend E2E 38/38, Frontend Vitest 19/19, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
-- **Trạng thái Jira:** Đã đóng hoàn tất 2 tasks được assign cho Backend Lead:
+  - Backend: **NestJS 10** (Modular Monolith API Gateway) — đã hoàn tất `AuthModule` (`POST /api/v1/auth/request-otp`, `POST /api/v1/auth/verify-otp`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`), global `ValidationPipe` (`whitelist` + `forbidNonWhitelisted`), và Shared Kernel `AuthenticatedUser` + `JwtAuthGuard`.
+- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 12/12 suites - 73/73 tests, Backend E2E 4/4 suites - 40/40 tests, Frontend Vitest 19/19 tests, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
+- **Trạng thái Jira:**
+  - `CMP-6`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> **Ready for PR / Review**
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
@@ -37,6 +43,39 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
 
 ## Lịch sử bàn giao (Handoff Log)
 
+<<<<<<< HEAD
+### Handoff #014: Triển khai API Email OTP, Tạo tài khoản PENDING và Đăng nhập JWT (CMP-6 / BE-01-T01 & BE-01-T02) (12/11/2026)
+
+- **Ngày:** 2026-11-12
+- **Người thực hiện:** Backend Developer (BE2)
+- **Branch:** `feat/be-auth-otp-session`
+- **Truy vết:** `CMP-6`; `FR-01`; `BR-01/02`; `AT-01`; `BE-01-T01` & `BE-01-T02`
+- **Mục tiêu đạt được:**
+  1. **Triển khai 4 API Xác thực theo đúng OpenAPI v1.2 (`packages/api-contract/openapi.yaml`):**
+     - `POST /api/v1/auth/request-otp`: Chuẩn hóa email (`trim().toLowerCase()`), kiểm tra domain trường đại học theo allowlist (`ALLOWED_SCHOOL_DOMAINS`, mặc định `edu.vn` khớp `*.edu.vn`). Nếu email đã tồn tại trong `users` thì trả về `200 SimpleMessageResponse` với thông điệp chung mà **không** sinh/gửi OTP (chống dò email theo contract). Áp dụng cooldown gửi lại (`60s`) và giới hạn theo giờ (`5 OTP/giờ/email` -> `429 OTP_RATE_LIMITED`). Mã OTP 6 chữ số chỉ lưu bản băm HMAC-SHA256 (`code_hash`), thời hạn 10 phút (`600s`); nếu gửi mail thất bại thì tự động vô hiệu bản ghi OTP vừa tạo.
+     - `POST /api/v1/auth/verify-otp`: Kiểm tra OTP còn hạn và chưa dùng bằng `timingSafeEqual`; tăng `attempts` nguyên tử trong DB, khóa ở lần sai thứ 5 (`429 OTP_ATTEMPTS_EXCEEDED`); khi đúng đánh dấu `verified_at` và cấp `otpTicket` (JWT HS256 ký bằng `OTP_TICKET_SECRET` tách biệt, hạn `600s`).
+     - `POST /api/v1/auth/register`: Xác thực `otpTicket` hợp lệ và đối chiếu bản ghi `otp_verifications.verified_at IS NOT NULL`; băm mật khẩu bằng `bcryptjs` (`saltRounds = 12`); tạo tài khoản `role = 'USER'`, `verification_status = 'PENDING'` và cấp phiên `AuthSessionResponse` (`201 Created`). Trả `409 EMAIL_ALREADY_REGISTERED` nếu email đã đăng ký hoặc phát sinh xung đột unique `23505`.
+     - `POST /api/v1/auth/login`: Cho phép tài khoản `PENDING`, `APPROVED`, `REJECTED` đăng nhập nhận JWT (`200 AuthSessionResponse`); chặn `SUSPENDED` với `403 ACCOUNT_SUSPENDED`; trả cùng mã `401 INVALID_CREDENTIALS` cho email không tồn tại hoặc sai mật khẩu (kèm dummy bcrypt compare chống timing attack).
+  2. **Global Validation & Shared Kernel (`JwtAuthGuard`):**
+     - Bổ sung `createValidationPipe()` (`whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`) trả về `VALIDATION_FAILED` kèm `details: [{ field, message }]` khớp tuyệt đối `ErrorEnvelope`.
+     - Cung cấp `AuthenticatedUser` interface và `JwtAuthGuard` tại `src/common/auth/` (Shared Kernel cho Sprint 1), chặn request thiếu/sai/hết hạn token hoặc dùng nhầm `otp_ticket` với HTTP 401.
+  3. **Chuẩn hóa Khóa ngoại & Truy vấn SQL trực tiếp (`UserRepository.createUser`):**
+     - Sau khi chuẩn hóa chiều FK của `user_preferences`, `sell_details`, `buy_request_details` tại `database/baseline/schema_v1.2.sql` (dòng 330, 336, 338), `UserRepository.createUser` thực hiện `INSERT INTO "users" ("school_email", "password_hash", "display_name") VALUES ($1, $2, $3) RETURNING "id", "display_name", "role", "verification_status"` trực tiếp mà không cần tạo `user_preferences` trước.
+     - *(Lưu ý: Nếu môi trường Supabase remote được khởi tạo từ bản `schema_v1.2.sql` cũ trước khi sửa dòng 330, 336, 338 thì cần áp dụng lại constraint FK tương ứng trên DB đó).*
+- **Các file chính thêm mới / cập nhật:**
+  - `apps/backend/src/config/env.config.ts`, `apps/backend/src/main.ts`, `apps/backend/src/app.module.ts`
+  - `apps/backend/src/common/pipes/validation.pipe.ts` (+ `.spec.ts`)
+  - `apps/backend/src/common/auth/authenticated-user.interface.ts`, `jwt-auth.guard.ts` (+ `.spec.ts`)
+  - `apps/backend/src/modules/auth/*` (`auth.module.ts`, `auth.controller.ts`, `auth.service.ts`, `otp.service.ts`, `auth.types.ts`, DTOs, `otp.repository.ts`, `user.repository.ts`, `mail/*`, `utils/*` và toàn bộ `.spec.ts`)
+  - `apps/backend/test/auth.e2e-spec.ts`
+  - `.env.example`, `apps/backend/.env.example`, `docs/api/api_implementation_status.md`, `docs/api/auth.http`, `tasks/BACKLOG.md`
+- **Kết quả kiểm thử:**
+  - `pnpm lint`: PASS (0 warnings).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS (12/12 Backend suites - 73/73 tests; 2/2 Frontend suites - 19/19 tests).
+  - `pnpm test:e2e`: PASS (4/4 Backend E2E suites - 40/40 tests).
+  - `pnpm build`: PASS (Next.js 14 App Router + NestJS build thành công).
+=======
 ### Handoff #017: Commit và push CMP-29, chờ mở Draft PR (12/11/2026)
 
 - **Quy trình đã thực hiện:** Đọc lại toàn bộ AGENTS/CLAUDE, Gitflow/DoD, mẫu task/PR, CI và quy tắc định dạng; giữ nhánh `feat/fe-cmp-29-auth-ui`, PR đích `develop`, không merge trực tiếp vào develop/main.
@@ -82,6 +121,7 @@ Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bê
      - Xác nhận trên Supabase thực tế, các foreign keys đã được thiết lập đúng chiều (`fk_user_preferences_user`, `fk_sell_details_post`, `fk_buy_request_details_post`).
      - Chạy lại `pnpm db:test` và `pnpm db:verify` PASS 100%.
   3. **Commit & Push:** Đã commit và push đồng bộ lên nhánh `develop` (commit `b586305`).
+>>>>>>> origin/develop
 
 ---
 
