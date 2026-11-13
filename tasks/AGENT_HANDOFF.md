@@ -6,12 +6,25 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 1 — Core Authentication (Email OTP, Register PENDING & Login JWT) Implemented (`CMP-6` / `BE-01-T01` + `BE-01-T02`)
-- **Cập nhật lần cuối:** 2026-11-12 12:50
-- **Người bàn giao:** Backend Developer (BE2 — CMP-6)
-- **Người tiếp nhận:** Backend Tech Lead (Review PR & `BE-01-T03` Guards / Migration `0002`), Frontend Developer (`FE-AUTH-01`, `FE-AUTH-02`)
-- **Branch hiện tại:** `feat/be-auth-otp-session` (rẽ từ `develop`)
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql`, và đã chuẩn hóa chiều khóa ngoại (`user_preferences.user_id -> users.id`, `sell_details.post_id -> posts.id`, `buy_request_details.post_id -> posts.id`). `UserRepository.createUser` thực hiện `INSERT` trực tiếp vào bảng `users`.
+- **Giai đoạn:** Sprint 1 — Sự cố ISS-01 Đã Khắc Phục, CSDL Supabase Mới Sẵn Sàng & Regression Test Toàn Diện Đạt 100% (CMP-33 In Progress)
+- **Cập nhật lần cuối:** 2026-11-13 23:20
+- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 1 Team (Huy, Thạch, Phú)
+- **Branch hiện tại:** `develop`
+- **Tình trạng Database:** Đã tái tạo môi trường CSDL sạch trên Supabase mới (Project `ybguidivvmgwxspowkor`, AWS Sydney Pooler, TLS Certificate Verification `rejectUnauthorized: true`). Áp dụng thành công 100% cấu trúc 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql` (kèm bảng tracking `_migrations`, cột `deleted_at`, partial unique index `uq_active_report_per_buyer`, và 8 ràng buộc CHECK nghiệp vụ). Đã chạy kiểm toán `pnpm db:verify` PASS 100%. Connection string được quản lý an toàn qua biến môi trường cục bộ (`.env` và `apps/backend/.env`), không rò rỉ secret lên Git/Jira.
+- **Tình trạng Kiểm thử & Chất lượng Toàn diện:**
+  - `pnpm lint`: PASS (0 warnings across workspace).
+  - `pnpm typecheck`: PASS (0 errors across workspace).
+  - `pnpm test`: PASS 132/132 tests (Frontend Vitest 58/58 + Backend Jest 74/74).
+  - `pnpm test:e2e`: PASS 40/40 tests across 4 test suites (bao gồm `auth.e2e-spec.ts` tương tác trực tiếp CSDL Supabase).
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
+- **Trạng thái Jira:**
+  - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **In Progress** (Hoàn thành phạm vi BE Lead, chờ PM nghiệm thu)
+  - `CMP-6` / `CMP-28`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> Đã merge vào `develop` (PR #3)
+  - `CMP-29`: `[Sprint 1][FE1] Màn hình đăng ký, OTP và đăng nhập` -> Đã merge vào `develop` (PR #2)
+  - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
+  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
+  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
 ### Cập nhật QA — Kiểm thử tích hợp CMP-6 (2026-11-13)
 
@@ -32,27 +45,40 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền liệt kê tài khoản Git Credential Manager ở phiên trước bị từ chối, không thử lại các thao tác đó. Đã commit phần triển khai `9a6e801`, đồng bộ develop bằng `3f2a590` và push thành công nhánh FE; chưa tạo PR vì yêu cầu quyền tạo Draft PR bị từ chối. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
 - **Hướng dẫn chạy và nội dung PR:** `apps/frontend/src/features/auth/README.md`, `apps/frontend/src/features/auth/PR_DESCRIPTION.md`.
 
-Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bên dưới:
-
-- **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
-- **Cập nhật lần cuối:** 2026-11-12 14:15
-- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** Sprint 1 Developers (BE-01, BE-02, FE)
-- **Branch hiện tại:** `develop`
-- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Đã sửa triệt để 3 câu lệnh Foreign Key bị ngược trong file DDL gốc `database/baseline/schema_v1.2.sql` (cho `user_preferences`, `sell_details`, `buy_request_details`), bảo đảm 100% khớp với cấu trúc chuẩn đang chạy trên Supabase. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
-- **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
-  - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
-  - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
-  - Backend: **NestJS 10** (Modular Monolith API Gateway) — đã hoàn tất `AuthModule` (`POST /api/v1/auth/request-otp`, `POST /api/v1/auth/verify-otp`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`), global `ValidationPipe` (`whitelist` + `forbidNonWhitelisted`), và Shared Kernel `AuthenticatedUser` + `JwtAuthGuard`.
-- **Tình trạng kiểm thử:** PASS 100% (Backend Unit Tests 12/12 suites - 73/73 tests, Backend E2E 4/4 suites - 40/40 tests, Frontend Vitest 19/19 tests, Lint 0 warnings, Typecheck 0 errors, Next.js 14 + NestJS Build thành công).
-- **Trạng thái Jira:**
-  - `CMP-6`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> **Ready for PR / Review**
-  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
-  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
-
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #019: Khắc phục Sự cố Môi trường ISS-01 & Tái tạo CSDL Supabase Sạch (CMP-33) (13/11/2026)
+
+- **Ngày:** 2026-11-13 (22:30–23:25 GMT+7)
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `develop` (đồng bộ hoàn chỉnh với `origin/develop`)
+- **Truy vết:** `CMP-33`, `ISS-01`, `CMP-26`, `CMP-28`, `CMP-29`, `CMP-31`, `CMP-6`
+- **Mục tiêu đạt được theo Definition of Done của CMP-33:**
+  1. **Điều tra Sự cố Môi trường & Khả năng Phục hồi:**
+     - Đánh giá CSDL cũ `sbfnasjuyosdypwdnlsu`: Server vẫn hoạt động nhưng bị mất quyền truy cập tầng Supabase Cloud Dashboard do phân mảnh tài khoản/email quản trị. Database cũ không bị xóa vội để bảo toàn dữ liệu truy vết.
+     - Quyết định xử lý: Khởi tạo project Supabase độc lập, sạch sẽ `ybguidivvmgwxspowkor` (AWS Sydney Pooler) do Backend Lead trực tiếp sở hữu để giải quyết triệt để vấn đề mất quyền và chủ động mở rộng.
+  2. **Tái tạo CSDL Chuẩn & Chạy Toàn Bộ Migrations Trên DB Sạch:**
+     - Nạp thành công toàn bộ **18/18 bảng baseline v1.2** (`database/baseline/schema_v1.2.sql`) với cấu trúc chuẩn: 11 ENUMs, 26 Foreign Keys (chiều khóa ngoại 1-1 đã chuẩn hóa `user_preferences`, `sell_details`, `buy_request_details`), 23 Unique Indexes.
+     - Thực thi tự động migration `0001_dbml_review_fixes.sql` qua `pnpm db:migrate`: Bổ sung cột soft-delete `deleted_at timestamptz` trên `posts` và `users`, thiết lập Partial UNIQUE Index `uq_active_report_per_buyer` trên `reports (buyer_id, post_id)` với điều kiện `status IN ('SUBMITTED', 'WAITING_SELLER_RESPONSE', 'UNDER_REVIEW')`, và 8 ràng buộc kiểm tra toàn vẹn nghiệp vụ `CHECK`.
+     - Chạy script kiểm toán toàn diện `pnpm db:verify`: Xác nhận 100% khớp chuẩn kiến trúc v1.2.
+  3. **Quản lý Cấu hình An toàn Không Lộ Bí mật:**
+     - Cập nhật Connection String an toàn vào `.env` và `apps/backend/.env` (được bảo vệ tuyệt đối trong `.gitignore`).
+     - Tuyệt đối không commit hoặc đưa credentials/secret lên GitHub, Jira hay Zalo.
+     - Enforce TLS Certificate Verification (`rejectUnauthorized: true`) với chứng chỉ Supabase Root CA.
+  4. **Regression Test Toàn Bộ Hệ Thống:**
+     - `pnpm lint`: PASS (0 warnings across workspace).
+     - `pnpm typecheck`: PASS (0 errors across workspace).
+     - `pnpm test`: PASS **132/132 tests** (Frontend Vitest 58/58 + Backend Jest 74/74).
+     - `pnpm test:e2e`: PASS **40/40 tests** (Bao gồm `auth.e2e-spec.ts` kiểm thử trực tiếp trên database Supabase mới với các ca `request-otp` -> `verify-otp` -> `register` -> `login` -> `PENDING`).
+     - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
+  5. **Báo Cáo Thời Gian & Phương Án Phòng Ngừa Lâu Dài:**
+     - Thời gian xử lý sự cố thực tế: ~55 phút (từ tiếp nhận, tạo môi trường mới, nạp migration, regression test đến bàn giao).
+     - Hướng phòng ngừa:
+       - Duy trì script migration tự động `pnpm db:migrate` và kiểm toán `pnpm db:verify` trong quy trình CI/CD.
+       - Chia sẻ quyền Developer cho các thành viên trong nhóm trên Supabase Dashboard để tránh phụ thuộc vào một tài khoản duy nhất.
+       - Chuẩn bị sẵn cấu hình Docker Compose cho PostgreSQL 17 local làm môi trường fallback khi mạng quốc tế có sự cố.
 
 ### Handoff #018: Kiểm thử tích hợp FE–BE–Supabase cho luồng Auth CMP-6 (13/11/2026)
 
