@@ -12,6 +12,23 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Người tiếp nhận:** Backend Tech Lead (Review PR & `BE-01-T03` Guards / Migration `0002`), Frontend Developer (`FE-AUTH-01`, `FE-AUTH-02`)
 - **Branch hiện tại:** `feat/be-auth-otp-session` (rẽ từ `develop`)
 - **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), giữ nguyên 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql`, và đã chuẩn hóa chiều khóa ngoại (`user_preferences.user_id -> users.id`, `sell_details.post_id -> posts.id`, `buy_request_details.post_id -> posts.id`). `UserRepository.createUser` thực hiện `INSERT` trực tiếp vào bảng `users`.
+### Cập nhật Frontend — CMP-29 (2026-11-12)
+
+- **Người thực hiện:** Đình Thạch (Frontend), với Codex hỗ trợ.
+- **Branch:** `feat/fe-cmp-29-auth-ui`, rẽ từ `develop` tại `7a82cc2`, đồng bộ các cập nhật BE Lead đến `5417dd3` trước khi mở PR.
+- **Trạng thái:** Đã triển khai auth và nối luồng sau auth theo hồ sơ v1.2: đăng ký đến `/verification`, đăng nhập đến `/`, `PENDING` được xem bảng tin giới hạn. Chờ kiểm tra thủ công, tích hợp backend và tạo/review PR. Chưa đánh dấu Jira Done.
+- **Kiểm chứng FE:** ESLint 0 warnings, TypeScript không lỗi, Vitest **58/58 PASS** trong hai file test hiện có, Next.js production build PASS với `/`, `/login`, `/register`, `/verification`.
+- **Giới hạn:** Chưa kiểm chứng OTP email thật, multipart/storage và quyền server trong CMP-31. Lần xem trình duyệt mới không kết nối được localhost:5173 vì server chưa chạy; người dùng cần chạy lại frontend. Backend unit/E2E và quyền liệt kê tài khoản Git Credential Manager ở phiên trước bị từ chối, không thử lại các thao tác đó. Đã commit phần triển khai `9a6e801`, đồng bộ develop bằng `3f2a590` và push thành công nhánh FE; chưa tạo PR vì yêu cầu quyền tạo Draft PR bị từ chối. Session chỉ giữ trong bộ nhớ, reload cần đăng nhập lại.
+- **Hướng dẫn chạy và nội dung PR:** `apps/frontend/src/features/auth/README.md`, `apps/frontend/src/features/auth/PR_DESCRIPTION.md`.
+
+Thông tin nền tảng BE Lead cập nhật ngày 2026-11-12 được giữ bên dưới:
+
+- **Giai đoạn:** Sprint 1 — Foundation, Monorepo & Database Migration Verified (CMP-26 & CMP-27 DONE)
+- **Cập nhật lần cuối:** 2026-11-12 14:15
+- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
+- **Người tiếp nhận:** Sprint 1 Developers (BE-01, BE-02, FE)
+- **Branch hiện tại:** `develop`
+- **Tình trạng Database:** Kết nối an toàn qua TLS Certificate Verification (`rejectUnauthorized: true`), đã chạy migration `0001_dbml_review_fixes.sql` thành công qua `pnpm db:migrate`. Đã sửa triệt để 3 câu lệnh Foreign Key bị ngược trong file DDL gốc `database/baseline/schema_v1.2.sql` (cho `user_preferences`, `sell_details`, `buy_request_details`), bảo đảm 100% khớp với cấu trúc chuẩn đang chạy trên Supabase. Xác nhận đủ 18/18 bảng baseline v1.2, bảng theo dõi `_migrations`, cột `deleted_at` cho `posts`/`users`, và Partial UNIQUE Index `uq_active_report_per_buyer` trên Supabase PostgreSQL 17.11 Pooler.
 - **Tình trạng Kiến trúc & Công nghệ:** Đã hội tụ và chốt đồng nhất 100%:
   - Frontend: **Next.js 14+ (App Router)** kèm React 18, TypeScript, Vitest 19/19 tests PASS, `next build` prerender 4/4 static pages thành công. Đã ban hành tài liệu kiến trúc chính thức [`docs/decisions/ADR-003-nextjs-app-router-frontend.md`](file:///d:/Documents/PTIT DOC/SPM/campus-marketplace/docs/decisions/ADR-003-nextjs-app-router-frontend.md) theo Quyết định D11.
   - Database: **PostgreSQL trên Supabase** (PostgreSQL 17.11, 18 bảng baseline v1.2, SQL-first `node-postgres (pg)`, TLS Certificate Verification).
@@ -26,6 +43,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Lịch sử bàn giao (Handoff Log)
 
+<<<<<<< HEAD
 ### Handoff #014: Triển khai API Email OTP, Tạo tài khoản PENDING và Đăng nhập JWT (CMP-6 / BE-01-T01 & BE-01-T02) (12/11/2026)
 
 - **Ngày:** 2026-11-12
@@ -57,6 +75,53 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - `pnpm test`: PASS (12/12 Backend suites - 73/73 tests; 2/2 Frontend suites - 19/19 tests).
   - `pnpm test:e2e`: PASS (4/4 Backend E2E suites - 40/40 tests).
   - `pnpm build`: PASS (Next.js 14 App Router + NestJS build thành công).
+=======
+### Handoff #017: Commit và push CMP-29, chờ mở Draft PR (12/11/2026)
+
+- **Quy trình đã thực hiện:** Đọc lại toàn bộ AGENTS/CLAUDE, Gitflow/DoD, mẫu task/PR, CI và quy tắc định dạng; giữ nhánh `feat/fe-cmp-29-auth-ui`, PR đích `develop`, không merge trực tiếp vào develop/main.
+- **Commit triển khai:** `9a6e801` — `feat(frontend): add OTP auth and pending student flow (CMP-29)`, gồm 28 file đã rà soát (FE, dependency/lockfile đã được duyệt và nhật ký), không có `.env`, dependencies, file build hoặc secret thực.
+- **Đồng bộ nền:** Fetch develop mới đến `5417dd3` gồm hai commit của BE Lead; merge vào nhánh FE bằng `3f2a590`. Chỉ xung đột nhật ký và đã giữ toàn bộ nội dung hai bên. Nhận nguyên trạng bản sửa database của BE Lead; chênh lệch PR so với develop không chứa sửa backend/database/contract. Giữ Handoff BE #014, đánh số mục FE thành #015–016 để không trùng.
+- **Push:** Thành công tới `origin/feat/fe-cmp-29-auth-ui`, đã thiết lập upstream. `git diff --check` và kiểm tra định dạng PASS; giữ bằng chứng FE 58/58 tests, lint/typecheck/build PASS từ lần kiểm chứng mã nguồn gần nhất (phần đồng bộ chỉ thay tài liệu và baseline DB của BE).
+- **PR:** Chưa có PR được xác nhận tạo thành công. Lần gọi đầu chưa trả thông tin PR hợp lệ; yêu cầu quyền hoàn tất tạo Draft PR bị từ chối và đã dừng, không thử cách khác. Người dùng có thể mở `https://github.com/danielnguyendbk/campus-marketplace/pull/new/feat/fe-cmp-29-auth-ui`, chọn base `develop`, dùng nội dung trong `apps/frontend/src/features/auth/PR_DESCRIPTION.md` và chọn Create draft pull request.
+- **Còn chờ:** Xác nhận giao diện desktop/mobile, PR/review/CI cho thay đổi này và tích hợp thật CMP-31. Không đánh dấu CMP-29 hoặc toàn bộ FE Sprint 1 Done.
+
+### Handoff #016: Nối Auth với hồ sơ và bảng tin PENDING theo nghiệp vụ v1.2 (12/11/2026)
+
+- **Yêu cầu đã xác nhận:** Người dùng yêu cầu đọc lại hồ sơ nghiệp vụ tại `D:\TÀI LIỆU PTITHCM\7. NĂM 4_HỌC KỲ 1\QUẢN LÝ DỰ ÁN PHẦN MỀM\Dự án\Ho_so_nghiep_vu_Campus_Marketplace_v1.2.docx`, xác nhận PENDING được đăng nhập/xem feed giới hạn và yêu cầu thực hiện phần nối luồng. Căn cứ: §2, §3.1, FR-04, BR-04, AT-03, phụ lục Chốt 01; OpenAPI `/feed` + `PendingFeedPage`.
+- **Branch:** `feat/fe-cmp-29-auth-ui`, không đổi backend, database, contract, dependencies hoặc cấu hình môi trường trong phần bổ sung này.
+- **Phiên và điều hướng:** Auth API giữ session trong bộ nhớ có subscription và thời hạn `expiresIn`; dùng chung token/transport cho auth, feed, hồ sơ. Đăng ký thành công chuyển `/verification`; đăng nhập PENDING/APPROVED chuyển `/`, REJECTED chuyển hồ sơ; người chưa đăng nhập, hết hạn/HTTP 401 và đăng xuất trở về `/login`. Không lưu token vào browser storage, không tạo endpoint refresh/logout.
+- **Trang chủ:** Thay màn hình bootstrap tại `/` bằng bảng tin. PENDING chỉ nhận/hiển thị trường tóm tắt `id`, `title`, `postType`, `thumbnailUrl`, `createdAt`, không thêm giá/liên hệ, không link chi tiết và không gửi search/filter. Khóa các nút tìm kiếm/lọc/đăng tin/chat, chỉ dẫn hoàn thiện hồ sơ. Có loading/empty/error/retry, từ chối hiển thị feed cho REJECTED. Chưa xây dựng Marketplace đầy đủ cho APPROVED hoặc màn hình Admin.
+- **Hồ sơ tối thiểu:** `/verification` gọi `GET /me/verification`, nộp/nộp lại bằng `POST /me/evidence` dạng FormData; trường, mã sinh viên, ảnh thẻ bắt buộc theo schema, kiểm tra ảnh tối đa 10 MB theo phản hồi 413 trong contract. ApiClient không ép Content-Type JSON khi body là FormData. Không tạo preview/URL ảnh thẻ, xóa lựa chọn ảnh và dữ liệu form sau nộp; không trả ảnh ở trạng thái duyệt. Nộp hồ sơ không tự nâng APPROVED.
+- **Mock:** Bổ sung đúng GET feed/status và POST evidence theo contract, yêu cầu Bearer token mock, trả envelope chuẩn. Feed PENDING chỉ có summary, POST evidence giữ PENDING; dữ liệu/file không đi ra backend/storage. Các tùy chọn seed trạng thái và feed phục vụ kiểm thử, không bổ sung API tự duyệt. SVG thay thumbnail rỗng là minh họa, không phải ảnh thật sản phẩm.
+- **Kiểm chứng:** Hai file test hiện có đạt 58/58 (19 nền tảng + 39 auth/phiên/quyền/hồ sơ). FE lint, typecheck, production build PASS. Đã kiểm tra cả lỗi 401/403, hết phiên, logout, REJECTED, ảnh sai loại/quá dung lượng và hợp đồng multipart. Chưa xác nhận trực quan desktop/mobile vì server local connection refused. Không chạy lại các thao tác backend/GitHub đã bị từ chối quyền ở phiên trước.
+- **Bàn giao:** Hướng dẫn và PR body đã cập nhật trong `apps/frontend/src/features/auth/README.md`, `PR_DESCRIPTION.md`. Phần nối UI-02/UI-03 là phạm vi tối thiểu được người dùng yêu cầu để auth không bị cụt; không tuyên bố hoàn tất toàn bộ hồ sơ/Marketplace/backend. CMP-29 chỉ sẵn sàng để review mã nguồn; còn kiểm tra thủ công, PR, CI và review trước khi Done. CMP-31 cần xác minh API thật, quyền server và WebSocket cùng BE.
+
+### Handoff #015: Triển khai giao diện Auth CMP-29, chờ kiểm tra thủ công và PR (12/11/2026)
+
+- **Truy vết:** CMP-29 → CMP-6, FR-01, UI-01; FE đề xuất size **M**, chờ PM chốt.
+- **Phạm vi:** `apps/frontend` và nhật ký bàn giao này; giữ nguyên backend, database và API contract. Đã bổ sung `@types/node@20.19.43` cùng importer trong `pnpm-lock.yaml` theo xác nhận riêng trước đó, để Next.js build không tự cài dependency.
+- **Giao diện:** Auth layout navy/vàng, minh họa SVG nội bộ, responsive; `/register` gồm email → OTP → mật khẩu; `/login` có validation, loading, hiện/ẩn mật khẩu, lỗi và kết quả đăng nhập. Không mở bước mật khẩu trước `otpTicket` hợp lệ; đổi email, ticket hết hạn hoặc register HTTP 422 sẽ hủy trạng thái xác thực và xóa mật khẩu.
+- **API:** Typed auth service gọi đúng bốn POST endpoint `/auth/request-otp`, `/auth/verify-otp`, `/auth/register`, `/auth/login` qua `src/services/api.ts`. Register chỉ gửi `otpTicket`, `displayName`, `password`. Success envelope bắt buộc `{ success: true, data, timestamp }`; tài khoản mới `USER/PENDING`, không tự cấp quyền Marketplace.
+- **Mock:** Thêm transport tùy chọn vào ApiClient, giữ nguyên cách gọi và kiểm tra envelope hiện có. Adapter chỉ bật với `NEXT_PUBLIC_AUTH_API_MODE=mock`, có nhãn rõ trên UI, tài khoản/mật khẩu giả chỉ giữ trong bộ nhớ. Có OTP sai/hết hạn/đã dùng, resend/rate limit, ticket hết hạn/đã dùng, email trùng và đăng nhập sai. Không tự chuyển sang mock khi kết nối thật thất bại; mock token tách khỏi client thật.
+- **Kiểm thử:** Chỉ mở rộng `src/test/App.test.tsx` và `src/test/api.test.ts`, không tạo file test mới. 19 tests nền tảng + 21 tests auth = **40 PASS**. FE lint, typecheck và production build PASS. Next build có cảnh báo cấu hình ESLint thiếu Next plugin sẵn có; không đổi cấu hình ngoài phạm vi.
+- **Bàn giao tiếp theo:** Người dùng khởi động lại dev server ở `apps/frontend` với `NEXT_PUBLIC_AUTH_API_MODE=mock`, mở `/register` và `/login` (trang `/` vẫn là bootstrap). BE cung cấp API thật/allowlist/CORS/SMTP cho CMP-31. PR về `develop` cần review, CI và xác nhận thủ công trước khi đóng CMP-29. Chưa commit/push/tạo PR trong phiên này; nội dung theo template đã chuẩn bị tại `features/auth/PR_DESCRIPTION.md`.
+
+### Handoff #014: Khắc phục Triệt để Khóa ngoại Bị ngược trong Baseline DDL v1.2 (12/11/2026)
+
+- **Ngày:** 2026-11-12
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `develop`
+- **Mục tiêu đạt được:**
+  1. **Khắc phục lỗi Foreign Key bị ngược chiều trong `database/baseline/schema_v1.2.sql`:**
+     - Phát hiện 3 câu lệnh `ALTER TABLE` bị tool export (dbdiagram.io) sinh ngược chiều khóa ngoại cho các quan hệ 1-1 extension:
+       - `users.id` trỏ sang `user_preferences.user_id` $\to$ Sửa thành: `user_preferences(user_id) REFERENCES users(id)`.
+       - `posts.id` trỏ sang `sell_details.post_id` $\to$ Sửa thành: `sell_details(post_id) REFERENCES posts(id)`.
+       - `posts.id` trỏ sang `buy_request_details.post_id` $\to$ Sửa thành: `buy_request_details(post_id) REFERENCES posts(id)`.
+  2. **Đối soát tính toàn vẹn với CSDL Supabase:**
+     - Xác nhận trên Supabase thực tế, các foreign keys đã được thiết lập đúng chiều (`fk_user_preferences_user`, `fk_sell_details_post`, `fk_buy_request_details_post`).
+     - Chạy lại `pnpm db:test` và `pnpm db:verify` PASS 100%.
+  3. **Commit & Push:** Đã commit và push đồng bộ lên nhánh `develop` (commit `b586305`).
+>>>>>>> origin/develop
 
 ---
 
