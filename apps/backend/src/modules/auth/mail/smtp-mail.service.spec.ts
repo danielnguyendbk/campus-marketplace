@@ -13,7 +13,7 @@ describe('SmtpMailService', () => {
     });
   });
 
-  it('sends both text fallback, responsive Doge HTML template, and inline CID attachments', async () => {
+  it('sends text fallback, responsive Campus Marketplace HTML template, and inline CID attachments', async () => {
     const service = new SmtpMailService({
       transport: 'smtp',
       from: 'Campus Marketplace <no-reply@campus.local>',
@@ -40,24 +40,21 @@ describe('SmtpMailService', () => {
     expect(mailOptions.text).toContain('482910');
     expect(mailOptions.text).toContain('10 phút');
 
+    expect(mailOptions.html).toContain('XÁC THỰC OTP EMAIL SINH VIÊN');
     expect(mailOptions.html).toContain('482910');
-    expect(mailOptions.html).toContain('Campus Marketplace');
-    expect(mailOptions.html).toContain('campus.sender@student.ptithcm.edu.vn');
-    expect(mailOptions.html).toContain('đến tôi (student@ptithcm.edu.vn)');
+    expect(mailOptions.html).toContain('Campus');
+    expect(mailOptions.html).toContain('Marketplace');
     expect(mailOptions.html).toContain('cid:sender-avatar');
-    expect(mailOptions.html).toContain('cid:scene-top');
-    expect(mailOptions.html).toContain('cid:scene-left');
-    expect(mailOptions.html).toContain('cid:scene-right');
-    expect(mailOptions.html).toContain('cid:scene-bottom');
-    expect(mailOptions.html).toContain('@media only screen and (max-width: 640px)');
+    expect(mailOptions.html).toContain('cid:illust-left');
+    expect(mailOptions.html).toContain('cid:illust-right');
+    expect(mailOptions.html).toContain('@media only screen and (max-width: 720px)');
+    expect(mailOptions.html).toContain('@media only screen and (max-width: 480px)');
 
     expect(mailOptions.attachments).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ cid: 'sender-avatar', filename: 'sender-avatar.png' }),
-        expect.objectContaining({ cid: 'scene-top', filename: 'scene-top.jpg' }),
-        expect.objectContaining({ cid: 'scene-left', filename: 'scene-left.jpg' }),
-        expect.objectContaining({ cid: 'scene-right', filename: 'scene-right.jpg' }),
-        expect.objectContaining({ cid: 'scene-bottom', filename: 'scene-bottom.jpg' }),
+        expect.objectContaining({ cid: 'illust-left', filename: 'illust-left.jpg' }),
+        expect.objectContaining({ cid: 'illust-right', filename: 'illust-right.jpg' }),
       ]),
     );
   });
