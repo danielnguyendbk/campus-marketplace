@@ -81,6 +81,15 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
 
 > **Mục tiêu:** Xây dựng lõi xác thực sinh viên, hệ thống Guards, nộp minh chứng thẻ SV và danh mục dữ liệu mẫu. Kết thúc Sprint 1 đạt Milestone 1: Sinh viên có thể đăng ký, đăng nhập, nộp ảnh thẻ và Admin có thể duyệt thẻ.
 
+#### QA — Kiểm thử tích hợp FE–BE–Database (CMP-6 · FR-01 · AT-01)
+
+- [x] **QA-CMP6: Kiểm thử tích hợp thật FE (Next.js) ↔ BE (NestJS) ↔ Supabase cho luồng OTP → Register → Login → PENDING** — **Done 2026-11-13** (nhánh `feat/cmp-31`, BE:4000, FE:3000, `MAIL_TRANSPORT=smtp`).
+  - **Phạm vi đã chạy:** 4 endpoint `/auth/*` + `/health`, Pha A (A1–A7 negative trước đăng ký), Pha B (B1–B4 happy path), Pha C (C1–C5 negative sau đăng ký), Pha D (D1 mất BE, D2 sai `DATABASE_URL`), đối chiếu `openapi.yaml`, quét rò rỉ secret/OTP.
+  - **Kết quả:** 40/41 mục kiểm đạt (25 mục API/DB + 16 mục UI); 1 phát hiện lỗi `/health` lộ message driver PostgreSQL — Bug CMP-6-01; contract khớp (register **201**, ErrorEnvelope không trường thừa); `otp_verifications` chỉ lưu `code_hash`; `users.verification_status = PENDING`, mật khẩu `$2b$12$`; log/response/browser storage **không** lộ OTP, mật khẩu hay token; 0 secret trong log.
+  - **Bug phát hiện (Minor, không chặn luồng chính — đã soạn nội dung Jira):** `/health` lộ message driver PostgreSQL; FE gộp mọi lỗi 429 thành một thông báo; `ErrorEnvelope.details` dùng sai khoá `additional: false`.
+  - **Còn chờ người dùng:** ảnh nội dung email OTP khi quay video; tạo 3 Jira bug từ bản nháp (agent không có quyền Jira).
+  - **Tài liệu:** [`docs/qa/CMP-6-integration-checklist.md`](../docs/qa/CMP-6-integration-checklist.md) · [`docs/qa/CMP-6-jira-bug-drafts.md`](../docs/qa/CMP-6-jira-bug-drafts.md).
+
 #### BE-01 (Backend Tech Lead)
 
 - [x] **BE-01-T01: Core Auth — University Email OTP Dispatcher & Verification** (P0, 5 SP)

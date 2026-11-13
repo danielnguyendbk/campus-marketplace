@@ -54,3 +54,6 @@ temp/
 .turbo/
 .cache/
 .eslintcache
+
+# docs
+docs/qa/evidence/
