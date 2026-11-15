@@ -47,6 +47,45 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Cập nhật BA — CMP-30 (2026-11-15)
+
+- **Phạm vi:** Phân tích CMP-6, soạn BDD và test case đăng ký OTP/đăng nhập; không thay đổi code, database, yêu cầu gốc hoặc trạng thái Jira.
+- **Tài liệu:** `docs/qa/CMP-30/README.md`, `CMP-6-auth.feature`, `Test_Cases.md`, `Traceability_Matrix.md`, `Jira_Handover.md` trong cùng thư mục. Đã đối chiếu hồ sơ v1.2, hợp đồng, code và các quyết định hiện có; 14 ca bắt buộc và 5 ca đề xuất, chưa thực thi.
+- **Tiếp nhận:** BE/FE/PM review Q01–Q09 và ghi xác nhận; chú ý chính sách OTP, domain, thời điểm nhập tên, mâu thuẫn AT-01 với quyền feed PENDING, ticket một lần và điều kiện môi trường. Chưa có bằng chứng xác nhận hoặc đủ DoD; người dùng sẽ đính kèm và đăng nội dung nháp trên Jira.
+- **Kiểm tra tài liệu:** đối chiếu 19 mã BDD/TC và đường dẫn tương đối; không chạy các bộ test ứng dụng vì chỉ thay đổi tài liệu. Chưa tạo PR.
+
+---
+
+### Cập nhật thực thi CMP-30 (2026-11-15)
+
+- Đã thực thi một phần trên commit `00494ba316d37218bd2f903546141085b35f7739`, PostgreSQL local cô lập và mail console; không truy cập Supabase. Kết quả **30 Pass, 0 Fail, 7 Blocked, 6 Not Run** trên 43 ca con trong `docs/qa/CMP-30/Test_Execution_Report.md`.
+- SMTP/hộp thư thật chưa kiểm; backend bản chạy chưa có feed/detail (404), các ca quyền tương ứng Blocked; Q01–Q09 còn các phần chưa xác nhận. Không sửa code ứng dụng, không đổi trạng thái Jira. Không suy ra ca cha Pass từ một phần.
+- Tiếp theo: BE/FE/PM review, chốt thông số, cung cấp môi trường test có SMTP/hộp thư và feed/detail cùng fixture, sau đó chạy lại các ca còn thiếu; đính kèm tài liệu và xác nhận trong Jira.
+
+---
+
+### Cập nhật UI CMP-30 — phiên tiếp theo (2026-11-15)
+
+- Dựng lại PostgreSQL local riêng và backend/frontend cùng commit `00494ba316d37218bd2f903546141085b35f7739`; EX-04B và EX-15C Pass, bằng chứng đã che tại `docs/qa/CMP-30/evidence/UI_2026-11-15.md`. Không kiểm SMTP thật.
+- Phiên điều khiển trình duyệt bị gián đoạn và công cụ không còn khả dụng. EX-10B, EX-12D, EX-14B và EX-16B Blocked; EX-16B đã đến bước OTP nhưng chưa kiểm xác nhận mật khẩu. Tổng 43 ca: 32 Pass, 0 Fail, 11 Blocked, 0 Not Run. Khôi phục trình duyệt và môi trường local để tiếp tục; EX-14B còn phụ thuộc chức năng được bảo vệ thực sự triển khai.
+- Không sửa code, commit, push hoặc cập nhật Jira.
+
+---
+
+### Cập nhật kiểm thử UI CMP-30 bằng Playwright (2026-11-15)
+
+- CUA `getState` và tạo tab trả `unsupported call: mcp__cua_repljs`; theo yêu cầu đã dùng Playwright/Chrome với PostgreSQL local riêng, backend/frontend thật và mail console. EX-10B, EX-12D, EX-16B Pass. EX-14B UI chuyển login nhưng Blocked về bảo vệ server vì `/feed` và `/me/verification` chưa triển khai. Tổng 43 ca: **35 Pass, 0 Fail, 8 Blocked, 0 Not Run**.
+- Bằng chứng đã che: `docs/qa/CMP-30/evidence/ui-round3/README.md`, ảnh và `results.json`. Đăng ký UI trả 201 và lưu USER/PENDING; trang hồ sơ báo lỗi do endpoint thiếu. SMTP thật, quyền server, Q01–Q09 và review BE/FE vẫn chờ. Không sửa ứng dụng, commit, push hoặc cập nhật Jira.
+
+---
+
+### Cập nhật rà soát quy định CMP-30 (2026-11-15)
+
+- Theo chỉ đạo nhóm đã thống nhất nghiệp vụ, đối chiếu code, contract và cấu hình dự án; cụ thể hóa mặc định OTP/allowlist, phân biệt override phiên test, đóng Q01/Q02/Q06/Q09 về quy định và ghi các phần rõ của Q04/Q05/Q08.
+- Sai khác R01–R06 và phụ thuộc chưa triển khai còn để review trong `docs/qa/CMP-30/README.md`; đã đồng bộ BDD, test case, ma trận, báo cáo và Jira handover. Kết quả thực thi giữ nguyên 35 Pass / 8 Blocked; chưa có xác nhận BE/FE, chưa gửi Jira.
+
+---
+
 ## Lịch sử bàn giao (Handoff Log)
 
 ### Handoff #019: Khắc phục Sự cố Môi trường ISS-01 & Tái tạo CSDL Supabase Sạch (CMP-33) (13/11/2026)
