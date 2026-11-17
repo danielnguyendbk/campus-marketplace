@@ -26,6 +26,20 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
+### Cập nhật Backend/QA — CMP-37: Xác minh concurrency/replay OTP ticket, biên thời gian & thống nhất Oracle R01–R06 (2026-11-17)
+
+- **Người thực hiện:** Backend Agent (theo `cmp_37_auth_race_boundary_plan.md`). **Branch:** `feat/cmp-9-10-37`; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`.
+- **Code đã sửa:**
+  1. `otp.repository.ts`: `expireActiveByEmail` thu hồi cả bản ghi đã verify chưa tiêu thụ; `incrementAttempts` chỉ tăng khi `expires_at > now()`; `markVerified(id, maxAttempts, ticketTtlSeconds)` kiểm tra `verified_at IS NULL AND expires_at > now() AND attempts < $2` và gia hạn TTL ticket; thêm `consumeVerifiedTicket(id)` tiêu thụ nguyên tử.
+  2. `otp.service.ts`: `markVerified` nhận cấu hình attempts/TTL; `verifyOtpTicket` từ chối bản ghi đã hết hạn/đã consume; thêm `verifyOtpTicketClaims` (chỉ chữ ký/cấu trúc + domain) và `consumeOtpTicket` (verify + consume nguyên tử).
+  3. `auth.service.ts`: `register` = claims → `existsByEmail` (409) → `consumeOtpTicket` trước khi hash/insert; thua race consume → 400 `OTP_TICKET_INVALID` hoặc 409 nếu tài khoản đã được tạo; vẫn bắt `23505` → 409 (giữ EX-03B = 409).
+  4. `email.util.ts` (R05): allowlist TLD giáo dục (`edu.vn`, `ac.uk`) bắt buộc có nhãn tên trường phía trước; từ chối `user@edu.vn`, vẫn nhận `ptit.edu.vn` và subdomain.
+- **Sự cố phát hiện & xử lý:** bản SQL consume dùng `now()` (thời điểm bắt đầu transaction) khiến hai request chờ row lock cùng consume thành công; đổi sang `clock_timestamp()` cho cả `SET` và điều kiện `WHERE`.
+- **Test:** `otp.service.spec.ts`, `auth.service.spec.ts`, `email.util.spec.ts` cập nhật/bổ sung; `auth.e2e-spec.ts` thêm 7 ca CMP-37 (race verify-otp, race register, thu hồi ticket khi resend, biên cooldown 59/60 giây, quota 5/giờ, biên `expires_at` trước/đúng/sau hạn, biên 5 lần thử); thêm `test/cmp37-otp-race-isolated-db.e2e-spec.ts` chạy SQL PostgreSQL thật trên schema cô lập `cmp37_isolated_test` (pool 5 kết nối, `Promise.all`, đối soát `rowCount`, `DROP SCHEMA … CASCADE`; tự skip khi không có `DATABASE_URL`).
+- **Kiểm chứng:** `posts` + `auth` unit/e2e đã xanh; chạy lại toàn bộ chuỗi DoD (lint, typecheck, test, test:e2e, build) ở bước cuối. Test schema cô lập: 7/7 Pass, sau phiên không còn schema `cmp37%` và `public` giữ nguyên 19 bảng.
+- **Tài liệu:** `docs/qa/CMP-30/Test_Execution_Report.md` (EX-17B/EX-18B/EX-19A chuyển Pass, 38 Pass / 5 Blocked, thêm mục phiên CMP-37), `README.md` (Q01/Q02/Q07 đóng, bảng quyết định R01–R06, trạng thái bằng chứng SMTP), `Test_Cases.md` (TC-17/18/19).
+- **Giới hạn:** chưa có SMTP/hộp thư trường thật; `EX-13B/C/D` và `EX-14A/B` vẫn Blocked theo phụ thuộc `/feed`, `/posts/{id}`, `/me/verification`. Chưa commit/push/PR.
+
 ### Cập nhật Backend — CMP-10: Đăng nhu cầu tìm mua sản phẩm (`BUY_REQUEST`) (2026-11-17)
 
 - **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_10_buy_request_plan.md`).

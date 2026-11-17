@@ -27,7 +27,9 @@ describe('AuthService', () => {
   };
 
   let accessTokenJwt: JwtService;
-  let otpService: jest.Mocked<Pick<OtpService, 'verifyOtpTicket'>>;
+  let otpService: jest.Mocked<
+    Pick<OtpService, 'verifyOtpTicketClaims' | 'consumeOtpTicket'>
+  >;
   let userRepository: jest.Mocked<
     Pick<
       UserRepository,
@@ -39,7 +41,11 @@ describe('AuthService', () => {
   beforeEach(() => {
     accessTokenJwt = new JwtService({ secret: config.jwtSecret });
     otpService = {
-      verifyOtpTicket: jest.fn(),
+      verifyOtpTicketClaims: jest.fn(),
+      consumeOtpTicket: jest.fn().mockResolvedValue({
+        email: 'sv01@ptit.edu.vn',
+        otpId: '11111111-2222-3333-4444-555555555555',
+      }),
     };
     userRepository = {
       existsByEmail: jest.fn().mockResolvedValue(false),
@@ -57,7 +63,7 @@ describe('AuthService', () => {
 
   describe('register', () => {
     it('does not hash password or create user when otpTicket is invalid', async () => {
-      otpService.verifyOtpTicket.mockRejectedValueOnce(
+      otpService.verifyOtpTicketClaims.mockRejectedValueOnce(
         new BadRequestException({
           code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
           message: 'Invalid ticket',
@@ -76,7 +82,7 @@ describe('AuthService', () => {
     });
 
     it(' creates a PENDING USER with bcrypt-hashed password and returns AuthSession', async () => {
-      otpService.verifyOtpTicket.mockResolvedValue({
+      otpService.verifyOtpTicketClaims.mockResolvedValue({
         email: 'sv01@ptit.edu.vn',
         otpId: '11111111-2222-3333-4444-555555555555',
       });
@@ -92,6 +98,11 @@ describe('AuthService', () => {
         displayName: '  Sinh viên A  ',
         password: 'StrongPassword123',
       });
+
+      expect(otpService.consumeOtpTicket).toHaveBeenCalledWith('valid-ticket');
+      expect(
+        otpService.consumeOtpTicket.mock.invocationCallOrder[0],
+      ).toBeLessThan(userRepository.createUser.mock.invocationCallOrder[0]);
 
       expect(userRepository.createUser).toHaveBeenCalledTimes(1);
       const createCall = userRepository.createUser.mock.calls[0][0];
@@ -128,7 +139,7 @@ describe('AuthService', () => {
     });
 
     it('returns 409 EMAIL_ALREADY_REGISTERED when email exists or DB raises 23505', async () => {
-      otpService.verifyOtpTicket.mockResolvedValue({
+      otpService.verifyOtpTicketClaims.mockResolvedValue({
         email: 'sv01@ptit.edu.vn',
         otpId: '11111111-2222-3333-4444-555555555555',
       });
@@ -141,6 +152,8 @@ describe('AuthService', () => {
           password: 'StrongPassword123',
         }),
       ).rejects.toBeInstanceOf(ConflictException);
+      // An existing account never consumes the ticket.
+      expect(otpService.consumeOtpTicket).not.toHaveBeenCalled();
 
       // Race condition: existsByEmail returns false, then INSERT hits unique constraint 23505
       userRepository.existsByEmail.mockResolvedValueOnce(false);
@@ -157,6 +170,59 @@ describe('AuthService', () => {
       ).rejects.toMatchObject({
         response: { code: AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED },
       });
+    });
+
+    it('rejects a lost consume race with 400 OTP_TICKET_INVALID and creates nothing', async () => {
+      otpService.verifyOtpTicketClaims.mockResolvedValue({
+        email: 'sv02@ptit.edu.vn',
+        otpId: '11111111-2222-3333-4444-555555555555',
+      });
+      otpService.consumeOtpTicket.mockRejectedValueOnce(
+        new BadRequestException({
+          code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
+          message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
+        }),
+      );
+
+      await expect(
+        authService.register({
+          otpTicket: 'valid-ticket',
+          displayName: 'Sinh viên B',
+          password: 'StrongPassword123',
+        }),
+      ).rejects.toMatchObject({
+        status: 400,
+        response: { code: AUTH_ERROR_CODES.OTP_TICKET_INVALID },
+      });
+      expect(userRepository.createUser).not.toHaveBeenCalled();
+    });
+
+    it('returns 409 when the consume race was lost but the account exists meanwhile', async () => {
+      otpService.verifyOtpTicketClaims.mockResolvedValue({
+        email: 'sv03@ptit.edu.vn',
+        otpId: '11111111-2222-3333-4444-555555555555',
+      });
+      otpService.consumeOtpTicket.mockRejectedValueOnce(
+        new BadRequestException({
+          code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
+          message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
+        }),
+      );
+      userRepository.existsByEmail
+        .mockResolvedValueOnce(false) // before consume
+        .mockResolvedValueOnce(true); // after the concurrent winner committed
+
+      await expect(
+        authService.register({
+          otpTicket: 'valid-ticket',
+          displayName: 'Sinh viên C',
+          password: 'StrongPassword123',
+        }),
+      ).rejects.toMatchObject({
+        status: 409,
+        response: { code: AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED },
+      });
+      expect(userRepository.createUser).not.toHaveBeenCalled();
     });
   });
 

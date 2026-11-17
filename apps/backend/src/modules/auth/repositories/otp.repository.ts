@@ -44,13 +44,16 @@ export class OtpRepository extends BaseRepository<OtpVerificationRow> {
     };
   }
 
+  /**
+   * Revokes every still-valid OTP record of the email, including verified records
+   * whose ticket has not been consumed yet (R04 / CMP-37).
+   */
   async expireActiveByEmail(email: string, client?: PoolClient): Promise<void> {
     const sql = `
       UPDATE "otp_verifications"
       SET "expires_at" = now()
       WHERE "email" = $1
         AND "purpose" = 'REGISTER'
-        AND "verified_at" IS NULL
         AND "expires_at" > now();
     `;
     await this.executeQuery(sql, [email], client);
@@ -101,8 +104,9 @@ export class OtpRepository extends BaseRepository<OtpVerificationRow> {
   }
 
   /**
-   * Atomically increments `attempts` only while below `maxAttempts`.
-   * Returns the updated attempt count, or null if the limit was already reached.
+   * Atomically increments `attempts` only while the record is still usable
+   * (unverified, not expired and below `maxAttempts`).
+   * Returns the updated attempt count, or null if the limit/expiry was already reached.
    */
   async incrementAttempts(
     id: string,
@@ -114,6 +118,7 @@ export class OtpRepository extends BaseRepository<OtpVerificationRow> {
       SET "attempts" = "attempts" + 1
       WHERE "id" = $1
         AND "verified_at" IS NULL
+        AND "expires_at" > now()
         AND "attempts" < $2
       RETURNING "attempts";
     `;
@@ -125,11 +130,51 @@ export class OtpRepository extends BaseRepository<OtpVerificationRow> {
     return res.rows[0]?.attempts ?? null;
   }
 
-  async markVerified(id: string, client?: PoolClient): Promise<boolean> {
+  /**
+   * Atomically marks an OTP verified (single successful transition per record) and
+   * extends its lifetime to the ticket TTL. Only records that are still unverified,
+   * unexpired and below `maxAttempts` can be verified.
+   */
+  async markVerified(
+    id: string,
+    maxAttempts: number,
+    ticketTtlSeconds: number,
+    client?: PoolClient,
+  ): Promise<boolean> {
     const sql = `
       UPDATE "otp_verifications"
-      SET "verified_at" = now()
-      WHERE "id" = $1 AND "verified_at" IS NULL
+      SET "verified_at" = now(),
+          "expires_at" = now() + ($3 * interval '1 second')
+      WHERE "id" = $1
+        AND "verified_at" IS NULL
+        AND "expires_at" > now()
+        AND "attempts" < $2
+      RETURNING "id";
+    `;
+    const res = await this.executeQuery<{ id: string }>(
+      sql,
+      [id, maxAttempts, ticketTtlSeconds],
+      client,
+    );
+    return (res.rowCount ?? res.rows.length) > 0;
+  }
+
+  /**
+   * Atomically consumes a verified OTP ticket. Exactly one concurrent caller can win
+   * because the UPDATE only matches while the record is still verified and unexpired;
+   * the winner expires the record so later replays return zero rows (R04 / CMP-37).
+   *
+   * `clock_timestamp()` (real time) is required instead of `now()`: `now()` is the
+   * transaction start, so a request blocked on the row lock would still see a later
+   * timestamp written by the winner and could consume the same ticket twice.
+   */
+  async consumeVerifiedTicket(id: string, client?: PoolClient): Promise<boolean> {
+    const sql = `
+      UPDATE "otp_verifications"
+      SET "expires_at" = clock_timestamp()
+      WHERE "id" = $1
+        AND "verified_at" IS NOT NULL
+        AND "expires_at" > clock_timestamp()
       RETURNING "id";
     `;
     const res = await this.executeQuery<{ id: string }>(sql, [id], client);
