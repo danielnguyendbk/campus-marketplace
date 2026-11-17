@@ -47,39 +47,62 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let details: ApiErrorDetail[] | undefined = undefined;
 
     const isHttpException = exception instanceof HttpException;
-    const rawStatus = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const isMulterError =
+      Boolean(exception) &&
+      typeof exception === 'object' &&
+      (exception as { name?: string }).name === 'MulterError';
+
+    let rawStatus = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    if (isMulterError) {
+      const multerErr = exception as { code?: string; message?: string };
+      rawStatus =
+        multerErr.code === 'LIMIT_FILE_SIZE'
+          ? HttpStatus.PAYLOAD_TOO_LARGE
+          : HttpStatus.BAD_REQUEST;
+    }
 
     // All errors with HTTP status 500 (including InternalServerErrorException and non-HttpExceptions)
     // must strictly return safe generic messages and hide all internal diagnostics.
-    if (isHttpException && rawStatus !== HttpStatus.INTERNAL_SERVER_ERROR) {
+    if ((isHttpException || isMulterError) && rawStatus !== HttpStatus.INTERNAL_SERVER_ERROR) {
       status = rawStatus;
-      const exceptionResponse = exception.getResponse();
-
       resolvedMessage = 'Request failed';
       errorCode = 'REQUEST_FAILED';
 
-      if (typeof exceptionResponse === 'string') {
-        resolvedMessage = exceptionResponse;
-      } else if (exceptionResponse && typeof exceptionResponse === 'object') {
-        const respObj = exceptionResponse as Record<string, unknown>;
-        if (Array.isArray(respObj.message)) {
-          details = respObj.message.map((msg: unknown) => ({
-            message: String(msg),
-          }));
-          resolvedMessage = (respObj.message as string[]).join(', ');
-          errorCode = 'VALIDATION_FAILED';
-        } else if (typeof respObj.message === 'string') {
-          resolvedMessage = respObj.message;
+      if (isMulterError) {
+        const multerErr = exception as { code?: string; message?: string };
+        if (multerErr.code === 'LIMIT_FILE_SIZE') {
+          errorCode = 'FILE_TOO_LARGE';
+          resolvedMessage = 'Tệp vượt giới hạn 10 MB.';
+        } else {
+          errorCode = 'BAD_REQUEST';
+          resolvedMessage = multerErr.message || 'Lỗi tải lên tệp.';
         }
+      } else {
+        const exceptionResponse = (exception as HttpException).getResponse();
 
-        if (typeof respObj.code === 'string') {
-          errorCode = respObj.code;
-        } else if (typeof respObj.error === 'string' && errorCode !== 'VALIDATION_FAILED') {
-          errorCode = respObj.error.toUpperCase().replace(/\s+/g, '_');
-        }
+        if (typeof exceptionResponse === 'string') {
+          resolvedMessage = exceptionResponse;
+        } else if (exceptionResponse && typeof exceptionResponse === 'object') {
+          const respObj = exceptionResponse as Record<string, unknown>;
+          if (Array.isArray(respObj.message)) {
+            details = respObj.message.map((msg: unknown) => ({
+              message: String(msg),
+            }));
+            resolvedMessage = (respObj.message as string[]).join(', ');
+            errorCode = 'VALIDATION_FAILED';
+          } else if (typeof respObj.message === 'string') {
+            resolvedMessage = respObj.message;
+          }
 
-        if (Array.isArray(respObj.details)) {
-          details = respObj.details as ApiErrorDetail[];
+          if (typeof respObj.code === 'string') {
+            errorCode = respObj.code;
+          } else if (typeof respObj.error === 'string' && errorCode !== 'VALIDATION_FAILED') {
+            errorCode = respObj.error.toUpperCase().replace(/\s+/g, '_');
+          }
+
+          if (Array.isArray(respObj.details)) {
+            details = respObj.details as ApiErrorDetail[];
+          }
         }
       }
 
@@ -100,6 +123,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
             break;
           case HttpStatus.CONFLICT:
             errorCode = 'CONFLICT';
+            break;
+          case HttpStatus.PAYLOAD_TOO_LARGE:
+            errorCode = 'FILE_TOO_LARGE';
+            break;
+          case HttpStatus.UNSUPPORTED_MEDIA_TYPE:
+            errorCode = 'UNSUPPORTED_MEDIA_TYPE';
             break;
           case HttpStatus.UNPROCESSABLE_ENTITY:
             errorCode = 'UNPROCESSABLE_ENTITY';

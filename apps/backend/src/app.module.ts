@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { HealthModule } from './modules/health/health.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { VerificationModule } from './modules/verification/verification.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { PostsModule } from './modules/posts/posts.module';
     AuthModule,
     CategoriesModule,
     PostsModule,
+    VerificationModule,
   ],
 })
 export class AppModule {}

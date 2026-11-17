@@ -6,20 +6,24 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 1 — Sự cố ISS-01 Đã Khắc Phục, CSDL Supabase Mới Sẵn Sàng & Regression Test Toàn Diện Đạt 100% (CMP-33 In Progress)
-- **Cập nhật lần cuối:** 2026-11-13 23:20
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành toàn bộ CMP-7 (Gửi yêu cầu xác minh) và CMP-8 (Admin xét duyệt xác minh sinh viên).
+- **Cập nhật lần cuối:** 2026-11-17 15:40
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 1 Team (Huy, Thạch, Phú)
-- **Branch hiện tại:** `develop`
-- **Tình trạng Database:** Đã tái tạo môi trường CSDL sạch trên Supabase mới (Project `ybguidivvmgwxspowkor`, AWS Sydney Pooler, TLS Certificate Verification `rejectUnauthorized: true`). Áp dụng thành công 100% cấu trúc 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql` (kèm bảng tracking `_migrations`, cột `deleted_at`, partial unique index `uq_active_report_per_buyer`, và 8 ràng buộc CHECK nghiệp vụ). Đã chạy kiểm toán `pnpm db:verify` PASS 100%. Connection string được quản lý an toàn qua biến môi trường cục bộ (`.env` và `apps/backend/.env`), không rò rỉ secret lên Git/Jira.
-- **Tình trạng Kiểm thử & Chất lượng Toàn diện:**
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team
+- **Branch hiện tại:** `feat/be-02-admin-verification`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Toàn bộ bảng `student_evidences`, `users`, `audit_logs`, `notifications` hoạt động chính xác theo schema v1.2.
+- **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 132/132 tests (Frontend Vitest 58/58 + Backend Jest 74/74).
-  - `pnpm test:e2e`: PASS 40/40 tests across 4 test suites (bao gồm `auth.e2e-spec.ts` tương tác trực tiếp CSDL Supabase).
+  - `pnpm test`: PASS 173/173 tests (Frontend Vitest 58/58 + Backend Jest 115/115).
+  - `pnpm test:e2e`: PASS 58/58 tests across 6 test suites (bao gồm `admin-verification.e2e-spec.ts` 9/9 tests, `verification.e2e-spec.ts` 9/9 tests, `contract-schemas.e2e-spec.ts`).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **In Progress** (Hoàn thành phạm vi BE Lead, chờ PM nghiệm thu)
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
+  - [CMP-34](https://chauviplong1701.atlassian.net/browse/CMP-34): `[Bug] Health endpoint trả về chi tiết lỗi database nội bộ` -> **Done**
+  - [CMP-36](https://chauviplong1701.atlassian.net/browse/CMP-36): `[Bug] OpenAPI ErrorEnvelope dùng additional: false sai cú pháp` -> **Done**
+  - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **Done**
   - `CMP-6` / `CMP-28`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> Đã merge vào `develop` (PR #3)
   - `CMP-29`: `[Sprint 1][FE1] Màn hình đăng ký, OTP và đăng nhập` -> Đã merge vào `develop` (PR #2)
   - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
@@ -101,6 +105,85 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #023: Triển khai Bộ API Admin Xét duyệt Xác minh Sinh viên (CMP-8 / BE-02-T02) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-admin-verification`
+- **Truy vết:** `CMP-8`, `BE-02-T02`, `BR-03`, `BR-18`, `Security Directives`
+- **Mục tiêu đạt được theo Definition of Done của CMP-8:**
+  1. **Triển khai 3 API Endpoints Chuẩn OpenAPI v1.2:**
+     - `GET /api/v1/admin/verifications`: Lấy danh sách hồ sơ xác minh với phân trang root-level (`PageMeta`) và bộ lọc trạng thái (`status`), trả về mảng `AdminVerification[]`.
+     - `GET /api/v1/admin/verifications/{verificationId}`: Xem chi tiết một hồ sơ xác minh kèm `cardImageUrl` (presigned URL tạm thời từ private storage). Tự động ghi `audit_logs` khi Admin truy cập xem ảnh thẻ sinh viên (`action: VIEW_EVIDENCE`).
+     - `PATCH /api/v1/admin/verifications/{verificationId}`: Admin đưa ra quyết định (`APPROVED` hoặc `REJECTED`).
+       - Nếu `APPROVED`: Cập nhật `users.verification_status = 'APPROVED'`, `student_evidences.reviewed_by = adminId`, ghi nhận audit log `APPROVE_VERIFICATION`, gửi thông báo in-app `notifications`.
+       - Nếu `REJECTED`: Bắt buộc kèm `reason` (ném HTTP 400 nếu thiếu), cập nhật `users.verification_status = 'REJECTED'`, `student_evidences.reason = reason`, ghi nhận audit log `REJECT_VERIFICATION`, gửi thông báo in-app `notifications`.
+  2. **Bảo mật & Phân quyền Role-Based (RBAC):**
+     - Xây dựng `@Roles('ADMIN')` decorator và `RolesGuard` (`src/common/auth/roles.guard.ts`).
+     - Chặn 401 khi chưa đăng nhập, chặn 403 khi role không phải `ADMIN`.
+     - Tuyệt đối bảo vệ ảnh thẻ sinh viên trong private storage, chỉ sinh presigned URL ngắn hạn cho Admin.
+  3. **Kiểm thử Toàn diện & Xác thực Chất lượng (DoD):**
+     - Unit tests: 19/19 test suites PASS, 115 unit tests backend (bao gồm `roles.guard.spec.ts`, `admin-verification.controller.spec.ts`, `verification.service.spec.ts`, `evidence.repository.spec.ts`).
+     - E2E tests: Thêm `test/admin-verification.e2e-spec.ts` (9/9 tests PASS). Toàn bộ 6 E2E test suites (58/58 tests PASS).
+     - `pnpm lint`: 0 warnings across workspace.
+     - `pnpm typecheck`: 0 errors across workspace.
+     - `pnpm build`: Biên dịch thành công cả backend NestJS và frontend Next.js 14 App Router.
+
+---
+
+### Handoff #022: Triển khai API Nộp Minh chứng Thẻ Sinh viên & Tra cứu Hồ sơ (CMP-7 / BE-02-T01) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-evidence-submit`
+- **Truy vết:** `CMP-7`, `BE-02-T01`, `BR-03`, `BR-04`, `Security Directives`
+- **Mục tiêu đạt được theo Definition of Done của CMP-7:**
+  1. **Triển khai 2 API Endpoints Chuẩn OpenAPI v1.2:**
+     - `POST /api/v1/me/evidence`: Tiếp nhận multipart form-data (`school`, `studentCode`, `major`, `className`, `cohort`, `province`, `cardImage`), lưu ảnh an toàn vào private storage, ghi bản ghi `student_evidences`, cập nhật trạng thái `users` thành `PENDING` và cập nhật thông tin sinh viên trên database qua transaction. Phản hồi HTTP 201 với Success Envelope `{ success: true, data: { status, reason, submittedAt }, timestamp }`.
+     - `GET /api/v1/me/verification`: Trả về trạng thái xác minh hiện tại của người dùng đã đăng nhập (`PENDING`, `APPROVED`, `REJECTED`, `SUSPENDED`).
+  2. **Bảo mật Tối cao & Bảo vệ Dữ liệu Thẻ Sinh viên (BR-03 & Security Directives):**
+     - Tuyệt đối KHÔNG trả về `card_image_ref`, URL ảnh thẻ hay bất kỳ trường nội bộ nào ra ngoài người dùng thông thường (`VerificationState` tuân thủ nghiêm ngặt `additionalProperties: false`).
+     - Chỉ Admin mới có quyền xem ảnh thẻ sinh viên qua presigned URL có thời hạn ngắn (chuẩn bị trong CMP-8).
+     - Giới hạn tệp: Dung lượng tối đa 10 MB (ném HTTP 413 `FILE_TOO_LARGE`), định dạng chỉ chấp nhận JPEG/PNG (ném HTTP 415 `UNSUPPORTED_MEDIA_TYPE`).
+     - Chặn người dùng có trạng thái `SUSPENDED` (HTTP 403) hoặc đã `APPROVED` (HTTP 400). Cho phép người dùng `REJECTED` nộp lại minh chứng để quay về `PENDING`.
+  3. **Module & Infrastructure Hoàn thiện:**
+     - `apps/backend/src/common/decorators/current-user.decorator.ts`: `@CurrentUser()` decorator trích xuất payload từ `JwtAuthGuard`.
+     - `apps/backend/src/common/filters/http-exception.filter.ts`: Hỗ trợ chuẩn hóa mã lỗi 413 (`FILE_TOO_LARGE`), 415 (`UNSUPPORTED_MEDIA_TYPE`) và bắt `MulterError`.
+     - `apps/backend/src/modules/verification/`: Gồm `StorageService`, `EvidenceRepository`, `VerificationService`, `VerificationController`, `SubmitEvidenceDto`.
+  4. **Kiểm thử Toàn diện & Xác thực Chất lượng (DoD):**
+     - Unit tests: 19/19 tests PASS (bao gồm `storage.service.spec.ts`, `evidence.repository.spec.ts`, `verification.service.spec.ts`, `verification.controller.spec.ts`).
+     - E2E tests: `verification.e2e-spec.ts` đạt 9/9 tests PASS kiểm thử toàn diện cả negative/positive paths và envelope schema.
+     - Toàn bộ monorepo test suites: 151/151 unit tests PASS, 49/49 E2E tests PASS.
+     - `pnpm lint`: 0 warnings, `pnpm typecheck`: 0 errors, `pnpm build`: PASS toàn bộ.
+
+---
+
+### Handoff #021: Khắc phục Lỗi Cú pháp Schema ErrorEnvelope (additional: false) trong OpenAPI Spec (CMP-36) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `fix/cmp-36-spec-error-envelope`
+- **Truy vết:** `CMP-36`
+- **Mục tiêu đạt được:**
+  1. Loại bỏ từ khóa sai cú pháp `additional: false` tại `packages/api-contract/openapi.yaml` (dòng 853) và `docs/api/Campus_Marketplace_OpenAPI_v1.2.yaml` (dòng 853).
+  2. Bổ sung assertion kiểm tra tĩnh trong `apps/backend/test/contract-schemas.e2e-spec.ts` để ngăn ngừa tái phát từ khóa phi tiêu chuẩn trong OpenAPI schemas.
+  3. Toàn bộ test suites, lint và build đều đạt 100%. Ticket CMP-36 đã chuyển sang `Done`.
+
+---
+
+### Handoff #020: Khắc phục Lỗi Rò rỉ Driver PostgreSQL tại Health Endpoint (CMP-34) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `fix/cmp-34-health-db-error`
+- **Truy vết:** `CMP-34`, `Security Directives`
+- **Mục tiêu đạt được:**
+  1. Thay thế việc trả về `driverError.message` trực tiếp ra HTTP response tại `GET /api/v1/health` bằng thông điệp generic an toàn: `Database ping failed`.
+  2. Toàn bộ chi tiết lỗi nội bộ, credentials hoặc stack trace chỉ được ghi vào server logs qua `Logger.warn/error`.
+  3. Bổ sung unit test trong `health.controller.spec.ts` kiểm chứng không rò rỉ driver error message. Ticket CMP-34 đã chuyển sang `Done`.
+
+---
 
 ### Handoff #019: Khắc phục Sự cố Môi trường ISS-01 & Tái tạo CSDL Supabase Sạch (CMP-33) (13/11/2026)
 

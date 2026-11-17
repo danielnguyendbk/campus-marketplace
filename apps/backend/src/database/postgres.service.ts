@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { getDatabaseConfig } from '../config/database.config';
+import { sanitizeLogMessage } from '../common/filters/http-exception.filter';
 
 export type DbHealthStatus = 'connected' | 'disconnected' | 'not_configured';
 
@@ -40,13 +41,16 @@ export class PostgresService implements OnModuleInit, OnModuleDestroy {
 
       // Handle pool errors gracefully to prevent crashing the server
       this.pool.on('error', (err) => {
-        this.logger.error('Unexpected error on idle PostgreSQL client:', err.message);
+        this.logger.error(
+          `Unexpected error on idle PostgreSQL client: ${sanitizeLogMessage(err.message)}`,
+        );
       });
 
       this.logger.log('PostgreSQL pool initialized successfully.');
     } catch (error) {
+      const rawError = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `PostgreSQL pool could not be initialized: ${error instanceof Error ? error.message : error}`,
+        `PostgreSQL pool could not be initialized: ${sanitizeLogMessage(rawError)}`,
       );
       this.pool = null;
       this.isConfigured = false;
@@ -90,9 +94,13 @@ export class PostgresService implements OnModuleInit, OnModuleDestroy {
         client.release();
       }
     } catch (error) {
+      const rawError = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `PostgreSQL health check probe failed: ${sanitizeLogMessage(rawError)}`,
+      );
       return {
         status: 'disconnected',
-        message: error instanceof Error ? error.message : 'Database ping failed',
+        message: 'Database connection unavailable',
       };
     }
   }

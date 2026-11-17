@@ -12,7 +12,7 @@ Source of Truth nghiệp vụ của dự án được lưu trữ tại file:
 - **Trạng thái tài khoản ban đầu (`PENDING`):**
   - Sau khi xác thực OTP và đặt mật khẩu, tài khoản ở trạng thái `PENDING`.
   - **Quyền hạn của `PENDING` (BR-04, FR-04):**
-    - Được phép: Đăng nhập, xem và nộp lại hồ sơ minh chứng sinh viên, xem trạng thái phê duyệt cá nhân (`GET /me`, `GET /verifications/my-status`), và xem bảng tin `ACTIVE` ở chế độ giới hạn (`GET /feed` trả về `PendingFeedPage`).
+    - Được phép: Đăng nhập, xem và nộp lại hồ sơ minh chứng sinh viên, xem trạng thái phê duyệt cá nhân (`GET /me`, `GET /me/verification`), và xem bảng tin `ACTIVE` ở chế độ giới hạn (`GET /feed` trả về `PendingFeedPage`).
     - **BỊ CHẶN HOÀN TOÀN:**
       - Tuyệt đối **KHÔNG** được tìm kiếm hay lọc tin (`GET /posts` yêu cầu `APPROVED`, trả về HTTP 403 Forbidden).
       - Tuyệt đối **KHÔNG** được xem chi tiết bài đăng (`GET /posts/{id}` yêu cầu `APPROVED`, trả về HTTP 403 Forbidden).
@@ -32,7 +32,7 @@ Source of Truth nghiệp vụ của dự án được lưu trữ tại file:
 
 ### 2. Tin đăng & Vòng đời Bài đăng (Posts & Listings)
 - **Loại tin đăng:**
-  - `SELL`: Đăng bán đồ dùng cũ (yêu cầu giá `price > 0`, tình trạng hàng, tùy chọn thương lượng `is_negotiable`, ảnh minh họa).
+  - `SELL`: Đăng bán đồ dùng cũ (yêu cầu giá `price > 0`, tình trạng hàng `condition`, tùy chọn cho phép xem số điện thoại `allow_phone_reveal`, ảnh minh họa).
   - `BUY_REQUEST`: Đăng tin cần mua đồ dùng học tập/sinh hoạt (yêu cầu khoảng ngân sách `budget_min >= 0`, `budget_max >= budget_min`).
 - **Vòng đời trạng thái bài đăng (`post_status`):**
   - `ACTIVE`: Đang hiển thị công khai và cho phép tìm kiếm / ghép đôi matching.
@@ -51,7 +51,7 @@ Source of Truth nghiệp vụ của dự án được lưu trữ tại file:
 ---
 
 ### 4. Báo cáo vi phạm & Máy trạng thái Báo cáo (Trust & Safety)
-- **Điều kiện gửi báo cáo:** Chỉ người mua đã có cuộc hội thoại hợp lệ với người bán HOẶC đã phát sinh sự kiện xem số điện thoại (`phone_reveal_events`) gắn với tin đăng `SELL` mới có quyền gửi báo cáo (`POST /reports`). Hệ thống chống báo cáo trùng lặp qua index `(buyer_id, post_id, reason_code)`.
+- **Điều kiện gửi báo cáo:** Chỉ người mua đã có cuộc hội thoại hợp lệ với người bán HOẶC đã phát sinh sự kiện xem số điện thoại (`phone_reveal_events`) gắn với tin đăng `SELL` mới có quyền gửi báo cáo (`POST /reports`). Hệ thống chống báo cáo trùng lặp qua partial unique index `uq_active_report_per_buyer (buyer_id, post_id)` khi báo cáo đang ở trạng thái xử lý (`SUBMITTED`, `WAITING_SELLER_RESPONSE`, `UNDER_REVIEW`).
 - **Máy trạng thái Báo cáo (`report_status` theo CSDL PostgreSQL v1.2):**
   1. `SUBMITTED`: Báo cáo vừa được người mua tạo thành công.
   2. `WAITING_SELLER_RESPONSE`: Báo cáo được chuyển đến người bán kèm thời hạn phản hồi (`response_deadline_at`). Đây là trạng thái mặc định của báo cáo trong CSDL.
