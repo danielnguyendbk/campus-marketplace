@@ -1,4 +1,9 @@
-import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  NotFoundException,
+} from '@nestjs/common';
 import { AuthenticatedUser } from '../../common/auth/authenticated-user.interface';
 import { StorageService } from '../../common/storage/storage.service';
 import { PostgresService } from '../../database/postgres.service';
@@ -59,6 +64,8 @@ describe('PostsService', () => {
   const insertPostImagesMock = jest.fn();
   const findPostDetailByIdMock = jest.fn();
   const findMyPostsPaginatedMock = jest.fn();
+  const findPostForPhoneRevealMock = jest.fn();
+  const insertPhoneRevealEventMock = jest.fn();
   const postRepoMock = {
     insertPost: insertPostMock,
     insertSellDetails: insertSellDetailsMock,
@@ -66,6 +73,8 @@ describe('PostsService', () => {
     insertPostImages: insertPostImagesMock,
     findPostDetailById: findPostDetailByIdMock,
     findMyPostsPaginated: findMyPostsPaginatedMock,
+    findPostForPhoneReveal: findPostForPhoneRevealMock,
+    insertPhoneRevealEvent: insertPhoneRevealEventMock,
   } as unknown as PostRepository;
 
   const findActiveByIdMock = jest.fn();
@@ -441,5 +450,170 @@ describe('PostsService', () => {
       expect.anything(),
     );
     expect(insertBuyRequestDetailsMock).not.toHaveBeenCalled();
+  });
+
+  describe('revealSellerPhone', () => {
+    const sellerId = 'seller-user-uuid';
+    const otherUser: AuthenticatedUser = {
+      id: 'buyer-user-uuid',
+      schoolEmail: 'buyer@ptithcm.edu.vn',
+      role: 'USER',
+      verificationStatus: 'APPROVED',
+      displayName: 'Người mua B',
+      reputationScore: 5.0,
+      province: 'TP. Hồ Chí Minh',
+    };
+
+    it('reveals phone number when post is SELL, ACTIVE, and allowPhoneReveal is true', async () => {
+      findPostForPhoneRevealMock.mockResolvedValueOnce({
+        id: 'post-1',
+        seller_id: sellerId,
+        post_type: 'SELL',
+        status: 'ACTIVE',
+        allow_phone_reveal: true,
+        phone_number: '0901234567',
+      });
+      insertPhoneRevealEventMock.mockResolvedValueOnce({
+        id: 'event-1',
+        viewer_id: otherUser.id,
+        post_id: 'post-1',
+        seller_id: sellerId,
+        revealed_at: new Date('2026-11-17T09:00:00Z'),
+      });
+
+      const res = await service.revealSellerPhone('post-1', otherUser);
+
+      expect(res.phoneNumber).toBe('0901234567');
+      expect(res.revealedAt).toBe('2026-11-17T09:00:00.000Z');
+      expect(insertPhoneRevealEventMock).toHaveBeenCalledWith(
+        otherUser.id,
+        'post-1',
+        sellerId,
+      );
+    });
+
+    it('returns null phoneNumber when allowPhoneReveal is false but still records event', async () => {
+      findPostForPhoneRevealMock.mockResolvedValueOnce({
+        id: 'post-1',
+        seller_id: sellerId,
+        post_type: 'SELL',
+        status: 'ACTIVE',
+        allow_phone_reveal: false,
+        phone_number: '0901234567',
+      });
+      insertPhoneRevealEventMock.mockResolvedValueOnce({
+        id: 'event-1',
+        viewer_id: otherUser.id,
+        post_id: 'post-1',
+        seller_id: sellerId,
+        revealed_at: new Date('2026-11-17T09:00:00Z'),
+      });
+
+      const res = await service.revealSellerPhone('post-1', otherUser);
+
+      expect(res.phoneNumber).toBeNull();
+      expect(res.revealedAt).toBe('2026-11-17T09:00:00.000Z');
+      expect(insertPhoneRevealEventMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns phoneNumber to the owner even if allowPhoneReveal is false', async () => {
+      const ownerUser: AuthenticatedUser = {
+        ...otherUser,
+        id: sellerId,
+      };
+      findPostForPhoneRevealMock.mockResolvedValueOnce({
+        id: 'post-1',
+        seller_id: sellerId,
+        post_type: 'SELL',
+        status: 'ACTIVE',
+        allow_phone_reveal: false,
+        phone_number: '0901234567',
+      });
+      insertPhoneRevealEventMock.mockResolvedValueOnce({
+        id: 'event-2',
+        viewer_id: sellerId,
+        post_id: 'post-1',
+        seller_id: sellerId,
+        revealed_at: new Date('2026-11-17T09:00:00Z'),
+      });
+
+      const res = await service.revealSellerPhone('post-1', ownerUser);
+
+      expect(res.phoneNumber).toBe('0901234567');
+      expect(res.revealedAt).toBe('2026-11-17T09:00:00.000Z');
+    });
+
+    it('throws NotFoundException when post does not exist', async () => {
+      findPostForPhoneRevealMock.mockResolvedValueOnce(null);
+
+      const err = await catchError(
+        service.revealSellerPhone('missing-post', otherUser),
+      );
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect((err?.getResponse() as Record<string, unknown>)?.code).toBe(
+        'POST_NOT_FOUND',
+      );
+    });
+
+    it('throws ConflictException when post_type is BUY_REQUEST', async () => {
+      findPostForPhoneRevealMock.mockResolvedValueOnce({
+        id: 'post-buy-1',
+        seller_id: sellerId,
+        post_type: 'BUY_REQUEST',
+        status: 'ACTIVE',
+        allow_phone_reveal: null,
+        phone_number: '0901234567',
+      });
+
+      const err = await catchError(
+        service.revealSellerPhone('post-buy-1', otherUser),
+      );
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err?.getResponse() as Record<string, unknown>)?.code).toBe(
+        'INVALID_POST_TYPE',
+      );
+    });
+
+    it('throws ConflictException when post is SOLD or CLOSED', async () => {
+      findPostForPhoneRevealMock.mockResolvedValueOnce({
+        id: 'post-sold-1',
+        seller_id: sellerId,
+        post_type: 'SELL',
+        status: 'SOLD',
+        allow_phone_reveal: true,
+        phone_number: '0901234567',
+      });
+
+      const err = await catchError(
+        service.revealSellerPhone('post-sold-1', otherUser),
+      );
+
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err?.getResponse() as Record<string, unknown>)?.code).toBe(
+        'POST_NOT_ACTIVE',
+      );
+    });
+
+    it('throws NotFoundException when post is HIDDEN and viewer is neither owner nor admin', async () => {
+      findPostForPhoneRevealMock.mockResolvedValueOnce({
+        id: 'post-hidden-1',
+        seller_id: sellerId,
+        post_type: 'SELL',
+        status: 'HIDDEN',
+        allow_phone_reveal: true,
+        phone_number: '0901234567',
+      });
+
+      const err = await catchError(
+        service.revealSellerPhone('post-hidden-1', otherUser),
+      );
+
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect((err?.getResponse() as Record<string, unknown>)?.code).toBe(
+        'POST_NOT_FOUND',
+      );
+    });
   });
 });

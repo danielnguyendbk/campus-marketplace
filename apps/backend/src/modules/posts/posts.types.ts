@@ -68,3 +68,8 @@ export interface PostSummaryDto {
   thumbnailUrl?: string | null;
   createdAt: string;
 }
+
+export interface PhoneRevealDto {
+  phoneNumber: string | null;
+  revealedAt: string;
+}

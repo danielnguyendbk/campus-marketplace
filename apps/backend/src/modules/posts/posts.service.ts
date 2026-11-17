@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   HttpException,
   HttpStatus,
   Injectable,
@@ -16,6 +17,7 @@ import {
   ALLOWED_POST_IMAGE_MIMES,
   MAX_POST_IMAGES_COUNT,
   MAX_POST_IMAGE_BYTES,
+  PhoneRevealDto,
   PostDetailDto,
   PostImageDto,
   PostStatus,
@@ -555,5 +557,58 @@ export class PostsService {
     return value instanceof Date
       ? value.toISOString()
       : new Date(value).toISOString();
+  }
+
+  async revealSellerPhone(
+    postId: string,
+    viewer: AuthenticatedUser,
+  ): Promise<PhoneRevealDto> {
+    const post = await this.postRepository.findPostForPhoneReveal(postId);
+    if (!post) {
+      throw new NotFoundException({
+        code: 'POST_NOT_FOUND',
+        message: 'Không tìm thấy bài đăng.',
+      });
+    }
+
+    if (post.post_type !== 'SELL') {
+      throw new ConflictException({
+        code: 'INVALID_POST_TYPE',
+        message: 'Chức năng xem số điện thoại chỉ áp dụng cho tin đăng bán (SELL).',
+      });
+    }
+
+    if (post.status === 'SOLD' || post.status === 'CLOSED') {
+      throw new ConflictException({
+        code: 'POST_NOT_ACTIVE',
+        message: 'Bài đăng không còn ở trạng thái hoạt động.',
+      });
+    }
+
+    if (
+      post.status === 'HIDDEN' &&
+      viewer.id !== post.seller_id &&
+      viewer.role !== 'ADMIN'
+    ) {
+      throw new NotFoundException({
+        code: 'POST_NOT_FOUND',
+        message: 'Không tìm thấy bài đăng.',
+      });
+    }
+
+    const event = await this.postRepository.insertPhoneRevealEvent(
+      viewer.id,
+      postId,
+      post.seller_id,
+    );
+
+    const isOwner = viewer.id === post.seller_id;
+    const canReveal = isOwner || post.allow_phone_reveal === true;
+    const phoneNumber = canReveal ? (post.phone_number ?? null) : null;
+
+    return {
+      phoneNumber,
+      revealedAt: this.toIsoString(event.revealed_at),
+    };
   }
 }

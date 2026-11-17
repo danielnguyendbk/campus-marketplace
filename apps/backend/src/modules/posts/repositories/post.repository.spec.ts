@@ -125,4 +125,47 @@ describe('PostRepository', () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
     await expect(repo.findPostDetailById('missing-id')).resolves.toBeNull();
   });
+
+  it('finds post for phone reveal and maps columns correctly', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'post-1',
+          seller_id: 'user-seller-1',
+          post_type: 'SELL',
+          status: 'ACTIVE',
+          allow_phone_reveal: true,
+          phone_number: '0912345678',
+        },
+      ],
+    });
+
+    const res = await repo.findPostForPhoneReveal('post-1');
+    expect(res).not.toBeNull();
+    expect(res?.seller_id).toBe('user-seller-1');
+    expect(res?.phone_number).toBe('0912345678');
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0][0]).toContain('FROM "posts" p');
+    expect(queryMock.mock.calls[0][0]).toContain('LEFT JOIN "sell_details" sd');
+  });
+
+  it('inserts phone reveal event and returns row', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'event-1',
+          viewer_id: 'viewer-1',
+          post_id: 'post-1',
+          seller_id: 'seller-1',
+          revealed_at: new Date('2026-11-17T09:00:00Z'),
+        },
+      ],
+    });
+
+    const res = await repo.insertPhoneRevealEvent('viewer-1', 'post-1', 'seller-1');
+    expect(res.id).toBe('event-1');
+    expect(res.viewer_id).toBe('viewer-1');
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0][0]).toContain('INSERT INTO "phone_reveal_events"');
+  });
 });

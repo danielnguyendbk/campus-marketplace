@@ -153,7 +153,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
 
 #### BE-01 (Backend Tech Lead)
 
-- [ ] **BE-01-T05: Privacy & Security — Controlled Phone Reveal Flow** (P0, 3 SP)
+- [x] **BE-01-T05: Privacy & Security — Controlled Phone Reveal Flow** (P0, 3 SP)
   - **API:** `POST /posts/{id}/reveal-phone`.
   - **Database:** `phone_reveal_events`, `posts`, `sell_details`, `users`.
   - **Files:** `src/modules/posts/phone-reveal.controller.ts`, `services/phone-reveal.service.ts`.
