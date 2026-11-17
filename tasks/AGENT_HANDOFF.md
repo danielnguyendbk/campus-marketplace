@@ -26,6 +26,20 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
+### Cập nhật Backend — CMP-9: Đăng tin bán sản phẩm đã qua sử dụng (`SELL`) (2026-11-17)
+
+- **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_9_sell_post_plan.md`).
+- **Branch:** `feat/cmp-9-10-37` (chỉ phạm vi Backend + `database/seeds/01_categories_seed.sql`, không chỉnh sửa `apps/frontend/`).
+- **Nội dung đã triển khai:**
+  1. **Chuẩn hóa Seed danh mục:** Sửa `database/seeds/01_categories_seed.sql` khớp schema `categories` (`id`, `name`, `slug`, `is_active`, `sort_order`) với 5 danh mục chuẩn (`TEXTBOOK`, `ELECTRONICS`, `FURNITURE`, `APPLIANCES`, `OTHER`).
+  2. **Shared Kernel Guards & Local Storage:**
+     - `VerificationGuard` (`src/common/auth/verification.guard.ts`): Truy vấn live bảng `users` kiểm tra `verification_status === 'APPROVED'` (chặn `PENDING`/`REJECTED` với `403 ACCOUNT_NOT_VERIFIED`, `SUSPENDED` với `403 ACCOUNT_SUSPENDED`).
+     - `StorageService` (`src/common/storage/storage.service.ts`): Lưu ảnh bài đăng cục bộ (`uploads/posts/...`) và ánh xạ `storage_key` sang URL công khai qua `PUBLIC_MEDIA_BASE_URL` / `/uploads/...`, không lộ `storageKey` ra JSON.
+  3. **CategoriesModule (`GET /api/v1/categories`):** Trả `CategoryPage` phân trang chuẩn OpenAPI, tự động seed 5 danh mục mặc định nếu bảng trống.
+  4. **PostsModule (`POST /api/v1/posts`, `GET /api/v1/posts/:id`, `GET /api/v1/me/posts`):**
+     - Tạo tin `SELL` qua `multipart/form-data` (yêu cầu `price > 0`, `condition`, `allowPhoneReveal`, `1..5` ảnh JPEG/PNG/WebP $\le 10\text{MB}$); lưu atomic trong `PostgresService.withTransaction` (`posts` + `sell_details` + `post_images`) với `status = 'ACTIVE'`, trả HTTP `201 Created` (`PostResponse`). Tuyệt đối không dùng `is_negotiable`.
+     - Xem lại chi tiết tin (`GET /api/v1/posts/:id`) và danh sách tin của tôi (`GET /api/v1/me/posts`) cho tài khoản `APPROVED`.
+
 ### Cập nhật QA — Kiểm thử tích hợp CMP-6 (2026-11-13)
 
 - **Người thực hiện:** QA Agent (phiên kiểm thử tích hợp), theo kế hoạch `integration_test_plan.md` (v2).
