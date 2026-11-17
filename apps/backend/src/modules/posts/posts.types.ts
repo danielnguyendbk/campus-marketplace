@@ -26,6 +26,11 @@ export interface SellDetailDto {
   allowPhoneReveal: boolean;
 }
 
+export interface BuyRequestDetailDto {
+  budgetMin: number;
+  budgetMax: number;
+}
+
 export interface PostImageDto {
   id: string;
   url: string;
@@ -42,6 +47,7 @@ export interface PostDetailDto {
   province: string;
   status: PostStatus;
   sellDetail?: SellDetailDto;
+  buyRequestDetail?: BuyRequestDetailDto;
   images: PostImageDto[];
   createdAt: string;
   updatedAt: string;
@@ -57,6 +63,8 @@ export interface PostSummaryDto {
   province: string;
   status: PostStatus;
   price?: number | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
   thumbnailUrl?: string | null;
   createdAt: string;
 }

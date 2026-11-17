@@ -67,12 +67,8 @@ class InMemoryOtpRepository {
   async expireActiveByEmail(email: string): Promise<void> {
     const now = new Date();
     for (const r of this.rows) {
-      if (
-        r.email === email &&
-        r.purpose === 'REGISTER' &&
-        r.verified_at === null &&
-        r.expires_at > now
-      ) {
+      // R04: also revokes verified records whose ticket was never consumed.
+      if (r.email === email && r.purpose === 'REGISTER' && r.expires_at > now) {
         r.expires_at = now;
       }
     }
@@ -119,18 +115,46 @@ class InMemoryOtpRepository {
   }
 
   async incrementAttempts(id: string, maxAttempts: number): Promise<number | null> {
+    const now = new Date();
     const found = this.rows.find(
-      (r) => r.id === id && r.verified_at === null && r.attempts < maxAttempts,
+      (r) =>
+        r.id === id &&
+        r.verified_at === null &&
+        r.expires_at > now &&
+        r.attempts < maxAttempts,
     );
     if (!found) return null;
     found.attempts += 1;
     return found.attempts;
   }
 
-  async markVerified(id: string): Promise<boolean> {
-    const found = this.rows.find((r) => r.id === id && r.verified_at === null);
+  async markVerified(
+    id: string,
+    maxAttempts: number,
+    ticketTtlSeconds: number,
+  ): Promise<boolean> {
+    const now = new Date();
+    const found = this.rows.find(
+      (r) =>
+        r.id === id &&
+        r.verified_at === null &&
+        r.expires_at > now &&
+        r.attempts < maxAttempts,
+    );
     if (!found) return false;
-    found.verified_at = new Date();
+    found.verified_at = now;
+    found.expires_at = new Date(now.getTime() + ticketTtlSeconds * 1000);
+    return true;
+  }
+
+  async consumeVerifiedTicket(id: string): Promise<boolean> {
+    const now = new Date();
+    // Check-and-set without any await: a single winner even under concurrent callers.
+    const found = this.rows.find(
+      (r) => r.id === id && r.verified_at !== null && r.expires_at > now,
+    );
+    if (!found) return false;
+    found.expires_at = now;
     return true;
   }
 
@@ -438,6 +462,182 @@ describe('Auth Flow (e2e) — CMP-6 / OpenAPI v1.2 Contract', () => {
       .send({ email: 'nobody@ptit.edu.vn', password: 'Password123' })
       .expect(401);
     expect(badLogin.body.error.code).toBe(AUTH_ERROR_CODES.INVALID_CREDENTIALS);
+  });
+
+  describe('CMP-37 — concurrency, ticket lifecycle and time/attempt boundaries', () => {
+    const requestOtpFor = (email: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/request-otp').send({ email });
+
+    const verifyFor = (email: string, code: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/verify-otp').send({ email, code });
+
+    const registerWith = (otpTicket: string) =>
+      request(app.getHttpServer()).post('/api/v1/auth/register').send({
+        otpTicket,
+        displayName: 'Sinh viên CMP37',
+        password: 'StudentPassword123',
+      });
+
+    const lastCodeFor = (email: string): string => {
+      const entry = [...fakeMail.sent].reverse().find((s) => s.to === email);
+      if (!entry) throw new Error('No OTP email was sent for this address');
+      return entry.code;
+    };
+
+    const rowsFor = (email: string) => otpRepo.rows.filter((r) => r.email === email);
+    const lastRowFor = (email: string): OtpVerificationRow => {
+      const rows = rowsFor(email);
+      return rows[rows.length - 1];
+    };
+
+    it('EX-17B: only one of five concurrent verify-otp requests receives an otpTicket', async () => {
+      const email = 'race.verify@ptit.edu.vn';
+      await requestOtpFor(email).expect(200);
+      const code = lastCodeFor(email);
+
+      const responses = await Promise.all(
+        Array.from({ length: 5 }, () => verifyFor(email, code)),
+      );
+
+      const accepted = responses.filter((r) => r.status === 200);
+      const rejected = responses.filter((r) => r.status === 400);
+      expect(accepted).toHaveLength(1);
+      expect(rejected).toHaveLength(4);
+      for (const res of rejected) {
+        expect(res.body.error.code).toBe(AUTH_ERROR_CODES.OTP_INVALID);
+      }
+      expect(Object.keys(accepted[0].body.data).sort()).toEqual(
+        ['expiresIn', 'otpTicket'].sort(),
+      );
+      expect(rowsFor(email).filter((r) => r.verified_at !== null)).toHaveLength(1);
+    });
+
+    it('EX-17B: only one of five concurrent register requests creates the account', async () => {
+      const email = 'race.register@ptit.edu.vn';
+      await requestOtpFor(email).expect(200);
+      const verifyRes = await verifyFor(email, lastCodeFor(email)).expect(200);
+      const otpTicket: string = verifyRes.body.data.otpTicket;
+
+      const responses = await Promise.all(
+        Array.from({ length: 5 }, () => registerWith(otpTicket)),
+      );
+
+      const created = responses.filter((r) => r.status === 201);
+      const rejected = responses.filter((r) => r.status === 400 || r.status === 409);
+      expect(created).toHaveLength(1);
+      expect(rejected).toHaveLength(4);
+      for (const res of rejected) {
+        expect([
+          AUTH_ERROR_CODES.OTP_TICKET_INVALID,
+          AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED,
+        ]).toContain(res.body.error.code);
+      }
+      expect(userRepo.users.filter((u) => u.school_email === email)).toHaveLength(1);
+    });
+
+    it('EX-17B: a newer request-otp revokes the previous unconsumed otpTicket', async () => {
+      const email = 'ticket.revoke@ptit.edu.vn';
+      await requestOtpFor(email).expect(200);
+      const firstTicket: string = (
+        await verifyFor(email, lastCodeFor(email)).expect(200)
+      ).body.data.otpTicket;
+
+      lastRowFor(email).created_at = new Date(Date.now() - 61_000);
+      await requestOtpFor(email).expect(200);
+
+      // No account exists yet, so this rejection proves independent ticket revocation.
+      const replay = await registerWith(firstTicket).expect(400);
+      expect(replay.body.error.code).toBe(AUTH_ERROR_CODES.OTP_TICKET_INVALID);
+      expect(userRepo.users).toHaveLength(0);
+    });
+
+    it('EX-18B: enforces the 60s resend cooldown and revokes the replaced OTP', async () => {
+      const email = 'resend.boundary@ptit.edu.vn';
+      await requestOtpFor(email).expect(200);
+      const firstCode = lastCodeFor(email);
+
+      const immediate = await requestOtpFor(email).expect(429);
+      expect(immediate.body.error.code).toBe(AUTH_ERROR_CODES.OTP_RATE_LIMITED);
+
+      lastRowFor(email).created_at = new Date(Date.now() - 59_000);
+      await requestOtpFor(email).expect(429);
+
+      lastRowFor(email).created_at = new Date(Date.now() - 60_000);
+      await requestOtpFor(email).expect(200);
+      const secondCode = lastCodeFor(email);
+      expect(secondCode).not.toBe(firstCode);
+
+      const oldCodeRes = await verifyFor(email, firstCode).expect(400);
+      expect(oldCodeRes.body.error.code).toBe(AUTH_ERROR_CODES.OTP_INVALID);
+
+      await verifyFor(email, secondCode).expect(200);
+    });
+
+    it('EX-18B: enforces OTP_MAX_PER_HOUR=5 then allows sending once the hour window slides', async () => {
+      const email = 'resend.quota@ptit.edu.vn';
+      await requestOtpFor(email).expect(200);
+
+      for (let i = 1; i < 5; i++) {
+        lastRowFor(email).created_at = new Date(Date.now() - 61_000);
+        await requestOtpFor(email).expect(200);
+      }
+      expect(rowsFor(email)).toHaveLength(5);
+
+      lastRowFor(email).created_at = new Date(Date.now() - 61_000);
+      const sixth = await requestOtpFor(email).expect(429);
+      expect(sixth.body.error.code).toBe(AUTH_ERROR_CODES.OTP_RATE_LIMITED);
+      expect(fakeMail.sent.filter((m) => m.to === email)).toHaveLength(5);
+
+      for (const row of rowsFor(email)) {
+        row.created_at = new Date(Date.now() - 3_700_000);
+      }
+      await requestOtpFor(email).expect(200);
+    });
+
+    it('EX-19A: enforces the expires_at boundary exactly', async () => {
+      const cases: { email: string; offsetMs: number; expected: number }[] = [
+        { email: 'expiry.before@ptit.edu.vn', offsetMs: 500, expected: 200 },
+        { email: 'expiry.at@ptit.edu.vn', offsetMs: 0, expected: 400 },
+        { email: 'expiry.after@ptit.edu.vn', offsetMs: -1, expected: 400 },
+      ];
+
+      for (const testCase of cases) {
+        await requestOtpFor(testCase.email).expect(200);
+        lastRowFor(testCase.email).expires_at = new Date(
+          Date.now() + testCase.offsetMs,
+        );
+
+        const res = await verifyFor(testCase.email, lastCodeFor(testCase.email));
+        expect(res.status).toBe(testCase.expected);
+        if (testCase.expected === 400) {
+          expect(res.body.error.code).toBe(AUTH_ERROR_CODES.OTP_INVALID);
+        }
+      }
+    });
+
+    it('EX-19A: enforces the five-attempt boundary exactly', async () => {
+      const luckyEmail = 'attempts.correct@ptit.edu.vn';
+      await requestOtpFor(luckyEmail).expect(200);
+      const luckyCode = lastCodeFor(luckyEmail);
+      for (let i = 0; i < 4; i++) {
+        await verifyFor(luckyEmail, '000000').expect(400);
+      }
+      // The 5th request is still allowed because only 4 attempts were consumed.
+      await verifyFor(luckyEmail, luckyCode).expect(200);
+
+      const lockedEmail = 'attempts.exceeded@ptit.edu.vn';
+      await requestOtpFor(lockedEmail).expect(200);
+      const lockedCode = lastCodeFor(lockedEmail);
+      for (let i = 0; i < 4; i++) {
+        await verifyFor(lockedEmail, '000000').expect(400);
+      }
+
+      const fifth = await verifyFor(lockedEmail, '000000').expect(429);
+      expect(fifth.body.error.code).toBe(AUTH_ERROR_CODES.OTP_ATTEMPTS_EXCEEDED);
+
+      const sixth = await verifyFor(lockedEmail, lockedCode).expect(429);
+      expect(sixth.body.error.code).toBe(AUTH_ERROR_CODES.OTP_ATTEMPTS_EXCEEDED);
+    });
   });
 });
 

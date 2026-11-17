@@ -42,7 +42,7 @@ export class PostsController {
     @Body() dto: CreatePostDto,
     @UploadedFiles() files: Express.Multer.File[] = [],
   ): Promise<PostDetailDto> {
-    return this.postsService.createSellPost(req.user!, dto, files);
+    return this.postsService.createPost(req.user!, dto, files);
   }
 
   @Get('posts/:id')

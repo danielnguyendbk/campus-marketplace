@@ -8,13 +8,18 @@ import {
   IsString,
   MaxLength,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 const trimString = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
 const parseBooleanDefaultTrue = ({ value }: { value: unknown }): unknown => {
-  if (value === undefined || value === null || value === '') {
+  // Keep absent values absent so the default is applied once, in PostsService.
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  if (value === '') {
     return true;
   }
   if (typeof value === 'boolean') {
@@ -29,6 +34,11 @@ const parseBooleanDefaultTrue = ({ value }: { value: unknown }): unknown => {
 };
 
 const parseStrictNumber = ({ value }: { value: unknown }): unknown => {
+  // Preserve absence instead of coercing it to NaN, so optional-field
+  // semantics stay correct regardless of class-transformer configuration.
+  if (value === undefined || value === null) {
+    return undefined;
+  }
   if (typeof value === 'number') {
     return value;
   }
@@ -42,10 +52,10 @@ const parseStrictNumber = ({ value }: { value: unknown }): unknown => {
 
 export class CreatePostDto {
   @Transform(trimString)
-  @IsIn(['SELL'], {
-    message: 'Loại bài đăng không hợp lệ. Hiện tại chỉ hỗ trợ SELL.',
+  @IsIn(['SELL', 'BUY_REQUEST'], {
+    message: 'Loại bài đăng phải là SELL hoặc BUY_REQUEST.',
   })
-  postType!: 'SELL';
+  postType!: 'SELL' | 'BUY_REQUEST';
 
   @Transform(trimString)
   @IsString({ message: 'Tiêu đề bài đăng phải là chuỗi.' })
@@ -70,22 +80,47 @@ export class CreatePostDto {
   @MaxLength(100, { message: 'Tỉnh/Thành phố tối đa 100 ký tự.' })
   province!: string;
 
+  @ValidateIf((o: CreatePostDto) => o.postType === 'SELL')
   @Transform(parseStrictNumber)
   @IsNumber(
     { allowNaN: false, allowInfinity: false },
     { message: 'Giá bán phải là một số hợp lệ.' },
   )
   @Min(0.01, { message: 'Giá bán phải lớn hơn 0.' })
-  price!: number;
+  price?: number;
 
+  @ValidateIf((o: CreatePostDto) => o.postType === 'SELL')
   @Transform(trimString)
   @IsString({ message: 'Tình trạng sản phẩm phải là chuỗi.' })
   @IsNotEmpty({ message: 'Tình trạng sản phẩm không được để trống.' })
   @MaxLength(255, { message: 'Tình trạng sản phẩm tối đa 255 ký tự.' })
-  condition!: string;
+  condition?: string;
 
+  @ValidateIf((o: CreatePostDto) => o.postType === 'SELL')
   @IsOptional()
   @Transform(parseBooleanDefaultTrue)
   @IsBoolean({ message: 'allowPhoneReveal phải là giá trị boolean.' })
-  allowPhoneReveal?: boolean = true;
+  allowPhoneReveal?: boolean;
+
+  @ValidateIf((o: CreatePostDto) => o.postType === 'BUY_REQUEST')
+  @Transform(parseStrictNumber)
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: 'Ngân sách tối thiểu (budgetMin) phải là một số hợp lệ.' },
+  )
+  @Min(0, {
+    message: 'Ngân sách tối thiểu (budgetMin) phải lớn hơn hoặc bằng 0.',
+  })
+  budgetMin?: number;
+
+  @ValidateIf((o: CreatePostDto) => o.postType === 'BUY_REQUEST')
+  @Transform(parseStrictNumber)
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: 'Ngân sách tối đa (budgetMax) phải là một số hợp lệ.' },
+  )
+  @Min(0, {
+    message: 'Ngân sách tối đa (budgetMax) phải lớn hơn hoặc bằng 0.',
+  })
+  budgetMax?: number;
 }
