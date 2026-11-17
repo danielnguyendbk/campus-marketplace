@@ -6,20 +6,21 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-17 (Xem số điện thoại người đăng tin `POST /api/v1/posts/{id}/reveal-phone`), tích hợp đầy đủ cùng CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
-- **Cập nhật lần cuối:** 2026-11-17 16:15
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-15 (Quản lý cuộc trò chuyện Chat `POST /api/v1/conversations`, `GET /api/v1/conversations`), tích hợp đầy đủ cùng CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
+- **Cập nhật lần cuối:** 2026-11-17 16:45
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
 - **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team
-- **Branch hiện tại:** `feat/be-01-phone-reveal`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Bảng `phone_reveal_events` (`viewer_id`, `post_id`, `seller_id`, `revealed_at`) hoạt động chính xác theo schema v1.2.
+- **Branch hiện tại:** `feat/be-01-chat-conversations`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Bảng `conversations` (`post_id`, `member_low_id`, `member_high_id`, `status`, `last_message_at`) hoạt động chính xác với ràng buộc duy nhất `uq_conversation_post_members`.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 220/220 tests (Frontend Vitest 58/58 + Backend Jest 162/162).
-  - `pnpm test:e2e`: PASS 90/90 tests across 8 test suites (bao gồm `posts.e2e-spec.ts` 17/17 tests với 9 AC của CMP-17, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests, `cmp37-otp-race-isolated-db.e2e-spec.ts`).
+  - `pnpm test`: PASS 233/233 tests (Frontend Vitest 58/58 + Backend Jest 175/175).
+  - `pnpm test:e2e`: PASS 104/104 tests across 9 test suites (bao gồm `chat.e2e-spec.ts` 14/14 tests với các AC của CMP-15, `posts.e2e-spec.ts` 17/17 tests, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
   - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done**
   - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
   - [CMP-9](https://chauviplong1701.atlassian.net/browse/CMP-9): `[Sprint 2][BE2] Tạo tin đăng bán sản phẩm` -> **Done**
@@ -33,6 +34,60 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
+
+### Cập nhật Backend — CMP-15: Chat Domain — Conversations Management & Access Boundaries (`POST /api/v1/conversations`, `GET /api/v1/conversations`) (2026-11-17)
+
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn).
+- **Branch:** `feat/be-01-chat-conversations` (chỉ phạm vi Backend + test; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTOs:**
+     - `apps/backend/src/modules/chat/chat.types.ts`: Định nghĩa `UserSummary`, `PostSummaryInConversation`, `ConversationDto`, `ConversationPageDto`. Khớp 100% schema `Conversation` và `ConversationPage` của OpenAPI contract (`additionalProperties: false`).
+     - `CreateConversationDto`: Validate `postId` là UUID v4 hợp lệ bằng `class-validator` `@IsUUID('4')`.
+     - `ListConversationsDto`: Phân trang với `page` ($\ge 1$, mặc định 1) và `limit` ($1 \le \text{limit} \le 100$, mặc định 20) qua `@Type(() => Number)`.
+  2. **Data Layer (`ConversationRepository`):**
+     - `findPostForConversation(postId)`: Lấy thông tin bài đăng, seller ID và trạng thái để phục vụ kiểm tra điều kiện chat.
+     - `upsertConversation(postId, memberLowId, memberHighId)`: Lưu hoặc tìm bản ghi hội thoại duy nhất với cơ chế chống race condition qua `ON CONFLICT ("post_id", "member_low_id", "member_high_id") DO UPDATE SET "post_id" = "conversations"."post_id" RETURNING ...`. Tự động sắp xếp từ điển `[memberLowId, memberHighId]` đảm bảo tuân thủ ràng buộc toàn vẹn CSDL.
+     - `findConversationsByUserId(userId, limit, offset)`: Lấy danh sách hội thoại của người dùng với phân trang, trả về dữ liệu bài đăng, thông tin người bán và người mua.
+     - `countConversationsByUserId(userId)`: Đếm tổng số hội thoại cho metadata phân trang.
+     - `getUsersSummary(userIds)`: Lấy thông tin tóm tắt an toàn của thành viên (chỉ gồm `id`, `displayName`, `avatarUrl`, `verificationStatus`), tuyệt đối không để lộ thông tin nhạy cảm (`schoolEmail`, `phoneNumber`, `passwordHash`, `cardImageRef`).
+  3. **Service Layer (`ChatService`):**
+     - `createConversation(currentUser, dto)`:
+       - Kiểm tra bài đăng tồn tại (`404 POST_NOT_FOUND`).
+       - Chặn người mua tự trò chuyện với chính mình (`buyerId === sellerId` -> `400 SELF_CONVERSATION_NOT_ALLOWED`).
+       - Ràng buộc loại bài đăng: Chỉ tin `SELL` mới mở cuộc trò chuyện (`409 INVALID_POST_TYPE` với `BUY_REQUEST`).
+       - Ràng buộc trạng thái bài đăng: Chỉ tin `ACTIVE` mới cho phép tạo cuộc trò chuyện (`409 POST_NOT_ACTIVE` với tin `SOLD` hoặc `CLOSED`). Tin `HIDDEN` từ chối nếu không phải chính chủ seller (`404 POST_NOT_FOUND`).
+       - Tính toán cờ `canSend` động: `status === 'OPEN' && post.status === 'ACTIVE' && buyer.verificationStatus === 'APPROVED' && seller.verificationStatus !== 'SUSPENDED'`.
+       - Đảm bảo tính Idempotent: Nếu cuộc hội thoại giữa 2 người trên cùng bài đăng đã tồn tại thì trả về cuộc hội thoại đó với mã HTTP 201 Created.
+     - `listConversations(currentUser, query)`: Lấy danh sách hội thoại của user hiện tại, gắn thông tin members và tính toán `canSend` cho từng hội thoại, kèm metadata phân trang root-level chuẩn OpenAPI (`page`, `limit`, `totalItems`, `totalPages`).
+  4. **Controller Layer (`ChatController`):**
+     - Endpoints:
+       - `POST /api/v1/conversations`: `@HttpCode(HttpStatus.CREATED)` (201 Created) bảo vệ bởi `JwtAuthGuard` + `VerificationGuard`.
+       - `GET /api/v1/conversations`: `@HttpCode(HttpStatus.OK)` (200 OK) bảo vệ bởi `JwtAuthGuard` + `VerificationGuard`.
+     - Phân quyền: Từ chối tài khoản chưa xác thực `401`, tài khoản `PENDING`/`REJECTED` với `403 ACCOUNT_NOT_VERIFIED`, tài khoản `SUSPENDED` với `403 ACCOUNT_SUSPENDED`.
+  5. **Unit Tests & E2E Tests:**
+     - Unit tests: 13 tests mới đạt 100% PASS (`conversation.repository.spec.ts` 4 tests, `chat.service.spec.ts` 5 tests, `chat.controller.spec.ts` 4 tests).
+     - E2E tests: `chat.e2e-spec.ts` gồm 14 tests toàn diện kiểm thử mọi Acceptance Criteria: tạo hội thoại thành công, idempotency khi gọi lại, chặn self-chat, chặn bài `BUY_REQUEST`, chặn bài không active, chặn unauthenticated/pending, phân trang `GET /conversations`, tính đúng `canSend`.
+- **Kiểm chứng toàn diện (DoD):**
+  - `pnpm lint`: PASS (0 warnings, 0 errors).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS 233/233 tests (Backend Jest 175/175 + Frontend Vitest 58/58).
+  - `pnpm test:e2e`: PASS 104/104 tests across 9 test suites.
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages).
+- **Files thay đổi & mới:**
+  - `apps/backend/src/app.module.ts` (đăng ký `ChatModule`)
+  - `apps/backend/src/modules/chat/chat.module.ts`
+  - `apps/backend/src/modules/chat/chat.types.ts`
+  - `apps/backend/src/modules/chat/dto/create-conversation.dto.ts`
+  - `apps/backend/src/modules/chat/dto/list-conversations.dto.ts`
+  - `apps/backend/src/modules/chat/repositories/conversation.repository.ts`
+  - `apps/backend/src/modules/chat/repositories/conversation.repository.spec.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.controller.spec.ts`
+  - `apps/backend/test/chat.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+  - `tasks/BACKLOG.md`
 
 ### Cập nhật Backend — CMP-17: Xem số điện thoại người đăng tin (`POST /api/v1/posts/{id}/reveal-phone`) (2026-11-17)
 
