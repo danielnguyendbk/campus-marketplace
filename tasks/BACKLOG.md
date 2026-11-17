@@ -160,7 +160,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** Chỉ tài khoản `APPROVED` mới được xem; bài đăng phải ở trạng thái `ACTIVE` (hoặc `HIDDEN` với chính chủ); ghi bản ghi `phone_reveal_events`; trả về số điện thoại định dạng E.164.
   - **Tests:** E2E test chặn Unauthenticated/PENDING, test ghi nhận lịch sử mở số, test bài đăng closed/sold trả 400.
   - **Branch:** `feat/be-01-phone-reveal`
-- [ ] **BE-01-T06: Chat Domain — Conversations Management & Access Boundaries** (P0, 5 SP)
+- [x] **BE-01-T06: Chat Domain — Conversations Management & Access Boundaries** (P0, 5 SP)
   - **API:** `POST /conversations`, `GET /conversations`, `GET /conversations/{id}`.
   - **Database:** `conversations`, `posts`, `users`.
   - **Files:** `src/modules/chat/chat.controller.ts`, `chat.service.ts`, `repositories/conversation.repository.ts`.
