@@ -6,21 +6,25 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành toàn bộ CMP-7 (Gửi yêu cầu xác minh) và CMP-8 (Admin xét duyệt xác minh sinh viên).
-- **Cập nhật lần cuối:** 2026-11-17 15:40
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-17 (Xem số điện thoại người đăng tin `POST /api/v1/posts/{id}/reveal-phone`), tích hợp đầy đủ cùng CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
+- **Cập nhật lần cuối:** 2026-11-17 16:15
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
 - **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team
-- **Branch hiện tại:** `feat/be-02-admin-verification`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Toàn bộ bảng `student_evidences`, `users`, `audit_logs`, `notifications` hoạt động chính xác theo schema v1.2.
+- **Branch hiện tại:** `feat/be-01-phone-reveal`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Bảng `phone_reveal_events` (`viewer_id`, `post_id`, `seller_id`, `revealed_at`) hoạt động chính xác theo schema v1.2.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
-  - `pnpm lint`: PASS (0 warnings across workspace).
+  - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 173/173 tests (Frontend Vitest 58/58 + Backend Jest 115/115).
-  - `pnpm test:e2e`: PASS 58/58 tests across 6 test suites (bao gồm `admin-verification.e2e-spec.ts` 9/9 tests, `verification.e2e-spec.ts` 9/9 tests, `contract-schemas.e2e-spec.ts`).
+  - `pnpm test`: PASS 220/220 tests (Frontend Vitest 58/58 + Backend Jest 162/162).
+  - `pnpm test:e2e`: PASS 90/90 tests across 8 test suites (bao gồm `posts.e2e-spec.ts` 17/17 tests với 9 AC của CMP-17, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests, `cmp37-otp-race-isolated-db.e2e-spec.ts`).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done**
   - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
+  - [CMP-9](https://chauviplong1701.atlassian.net/browse/CMP-9): `[Sprint 2][BE2] Tạo tin đăng bán sản phẩm` -> **Done**
+  - [CMP-10](https://chauviplong1701.atlassian.net/browse/CMP-10): `[Sprint 2][BE2] Tạo tin tìm mua sản phẩm` -> **Done**
+  - [CMP-37](https://chauviplong1701.atlassian.net/browse/CMP-37): `[CMP-6][QA/BE] Xác minh OTP ticket một lần và các ca biên chưa kiểm thử` -> **Done**
   - [CMP-34](https://chauviplong1701.atlassian.net/browse/CMP-34): `[Bug] Health endpoint trả về chi tiết lỗi database nội bộ` -> **Done**
   - [CMP-36](https://chauviplong1701.atlassian.net/browse/CMP-36): `[Bug] OpenAPI ErrorEnvelope dùng additional: false sai cú pháp` -> **Done**
   - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **Done**
@@ -29,6 +33,43 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
+
+### Cập nhật Backend — CMP-17: Xem số điện thoại người đăng tin (`POST /api/v1/posts/{id}/reveal-phone`) (2026-11-17)
+
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn).
+- **Branch:** `feat/be-01-phone-reveal` (chỉ phạm vi Backend + test; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTO:** Bổ sung `PhoneRevealDto` (`phoneNumber: string | null`, `revealedAt: string`) khớp 100% OpenAPI schema `PhoneReveal` (`additionalProperties: false`).
+  2. **Data Layer (`PostRepository`):**
+     - Thêm `findPostForPhoneReveal(postId)`: Truy vấn kết hợp `posts`, `users`, `sell_details` để lấy thông tin người bán, trạng thái tin, cờ `allow_phone_reveal` và `phone_number`.
+     - Thêm `insertPhoneRevealEvent(viewerId, postId, sellerId)`: Ghi nhận sự kiện xem số điện thoại vào bảng `phone_reveal_events` sử dụng `clock_timestamp()` nguyên tử.
+  3. **Service Layer (`PostsService.revealSellerPhone`):**
+     - Kiểm tra bài đăng tồn tại (`404 POST_NOT_FOUND`).
+     - Ràng buộc loại bài đăng: Chỉ tin `SELL` mới có tính năng xem số điện thoại (`409 INVALID_POST_TYPE` khi gọi trên `BUY_REQUEST`).
+     - Ràng buộc trạng thái bài đăng: Từ chối bài đã `SOLD` hoặc `CLOSED` (`409 POST_NOT_ACTIVE`); bài `HIDDEN` từ chối nếu không phải chính chủ seller hoặc admin (`404 POST_NOT_FOUND`).
+     - Ghi nhận sự kiện `phone_reveal_events` vào CSDL cho mọi lượt reveal hợp lệ (phục vụ điều kiện tạo báo cáo BR-11/BR-13).
+     - Trả về `phoneNumber`: Lấy số điện thoại người bán nếu `allow_phone_reveal === true` hoặc viewer là chính chủ seller; trả về `null` nếu seller tắt cờ `allow_phone_reveal`.
+  4. **Controller Layer (`PostsController.revealSellerPhone`):**
+     - Endpoint `POST /api/v1/posts/:id/reveal-phone` bảo vệ bởi `JwtAuthGuard` (chặn 401 Unauthenticated) và `VerificationGuard` (chặn 403 `ACCOUNT_NOT_VERIFIED` với tài khoản `PENDING`/`REJECTED`, chặn 403 `ACCOUNT_SUSPENDED`).
+     - Trả mã HTTP `200 OK` qua `@HttpCode(HttpStatus.OK)` theo đúng OpenAPI contract.
+     - Validate path parameter `id` là UUID v4 hợp lệ bằng `ParseUUIDPipe` với factory trả `400 VALIDATION_FAILED`.
+- **Kiểm chứng:**
+  - `pnpm lint`: PASS (0 warnings, 0 errors).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS 220/220 tests (Backend Jest 162/162, bao gồm `posts.controller.spec.ts`, `posts.service.spec.ts` 7 tests, `post.repository.spec.ts`).
+  - `pnpm test:e2e`: PASS 90/90 tests across 8 suites (riêng `posts.e2e-spec.ts` 17/17 tests kiểm thử đủ 9 Acceptance Criteria AC1–AC9 của CMP-17; `contract-schemas.e2e-spec.ts` 32/32 tests xác minh envelope `PhoneRevealResponse`).
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages).
+- **Files thay đổi:**
+  - `apps/backend/src/modules/posts/posts.types.ts`
+  - `apps/backend/src/modules/posts/repositories/post.repository.ts`
+  - `apps/backend/src/modules/posts/repositories/post.repository.spec.ts`
+  - `apps/backend/src/modules/posts/posts.service.ts`
+  - `apps/backend/src/modules/posts/posts.service.spec.ts`
+  - `apps/backend/src/modules/posts/posts.controller.ts`
+  - `apps/backend/src/modules/posts/posts.controller.spec.ts` (mới)
+  - `apps/backend/test/posts.e2e-spec.ts`
+  - `apps/backend/test/contract-schemas.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
 
 ### Cập nhật Backend/QA — CMP-37: Xác minh concurrency/replay OTP ticket, biên thời gian & thống nhất Oracle R01–R06 (2026-11-17)
 

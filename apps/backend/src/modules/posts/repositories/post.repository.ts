@@ -66,6 +66,23 @@ export interface PostSummaryRow {
   created_at: Date | string;
 }
 
+export interface PostPhoneRevealRow {
+  id: string;
+  seller_id: string;
+  post_type: PostType;
+  status: PostStatus;
+  allow_phone_reveal: boolean | null;
+  phone_number: string | null;
+}
+
+export interface PhoneRevealEventRow {
+  id: string;
+  viewer_id: string;
+  post_id: string;
+  seller_id: string;
+  revealed_at: Date | string;
+}
+
 @Injectable()
 export class PostRepository extends BaseRepository<PostRow> {
   constructor(postgresService: PostgresService) {
@@ -241,5 +258,40 @@ export class PostRepository extends BaseRepository<PostRow> {
     );
 
     return { rows: rowsRes.rows, total };
+  }
+
+  async findPostForPhoneReveal(postId: string): Promise<PostPhoneRevealRow | null> {
+    const res = await this.executeQuery<PostPhoneRevealRow>(
+      `SELECT
+         p."id",
+         p."owner_id" AS "seller_id",
+         p."post_type",
+         p."status",
+         sd."allow_phone_reveal",
+         u."phone_number"
+       FROM "posts" p
+       INNER JOIN "users" u ON u."id" = p."owner_id"
+       LEFT JOIN "sell_details" sd ON sd."post_id" = p."id"
+       WHERE p."id" = $1
+         AND p."deleted_at" IS NULL
+         AND u."deleted_at" IS NULL
+       LIMIT 1;`,
+      [postId],
+    );
+    return res.rows[0] ?? null;
+  }
+
+  async insertPhoneRevealEvent(
+    viewerId: string,
+    postId: string,
+    sellerId: string,
+  ): Promise<PhoneRevealEventRow> {
+    const res = await this.executeQuery<PhoneRevealEventRow>(
+      `INSERT INTO "phone_reveal_events" ("viewer_id", "post_id", "seller_id", "revealed_at")
+       VALUES ($1, $2, $3, clock_timestamp())
+       RETURNING "id", "viewer_id", "post_id", "seller_id", "revealed_at";`,
+      [viewerId, postId, sellerId],
+    );
+    return res.rows[0];
   }
 }

@@ -21,6 +21,7 @@ interface FakeUserRecord {
   verification_status: VerificationStatus;
   reputation_score: number;
   province: string | null;
+  phone_number?: string | null;
 }
 
 class InMemoryPostgresForPosts {
@@ -36,6 +37,7 @@ class InMemoryPostgresForPosts {
   public sellDetails = new Map<string, Record<string, unknown>>();
   public buyRequestDetails = new Map<string, Record<string, unknown>>();
   public postImages: Array<Record<string, unknown>> = [];
+  public phoneRevealEvents: Array<Record<string, unknown>> = [];
 
   seedUser(user: FakeUserRecord) {
     this.users.set(user.id, user);
@@ -138,6 +140,43 @@ class InMemoryPostgresForPosts {
       return { rows: [row] };
     }
 
+    if (normalized.startsWith('INSERT INTO "phone_reveal_events"')) {
+      const now = new Date();
+      const row = {
+        id: randomUUID(),
+        viewer_id: params[0],
+        post_id: params[1],
+        seller_id: params[2],
+        revealed_at: now,
+      };
+      this.phoneRevealEvents.push(row);
+      return { rows: [row] };
+    }
+
+    if (
+      normalized.includes('FROM "posts" p') &&
+      normalized.includes('sd."allow_phone_reveal"') &&
+      normalized.includes('u."phone_number"')
+    ) {
+      const post = this.posts.find((p) => p.id === params[0]);
+      if (!post) return { rows: [] };
+      const owner = this.users.get(String(post.owner_id));
+      if (!owner) return { rows: [] };
+      const sd = this.sellDetails.get(String(post.id));
+      return {
+        rows: [
+          {
+            id: post.id,
+            seller_id: post.owner_id,
+            post_type: post.post_type,
+            status: post.status,
+            allow_phone_reveal: sd ? sd.allow_phone_reveal : null,
+            phone_number: owner.phone_number ?? null,
+          },
+        ],
+      };
+    }
+
     if (normalized.includes('FROM "posts" p INNER JOIN "users" u')) {
       const post = this.posts.find((p) => p.id === params[0]);
       if (!post) return { rows: [] };
@@ -218,6 +257,18 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
     verification_status: 'APPROVED',
     reputation_score: 5.0,
     province: 'TP. Hồ Chí Minh',
+    phone_number: '0987654321',
+  };
+
+  const buyerApprovedUser: FakeUserRecord = {
+    id: randomUUID(),
+    school_email: 'buyer.approved@student.ptithcm.edu.vn',
+    display_name: 'Sinh viên Mua Hàng',
+    role: 'USER',
+    verification_status: 'APPROVED',
+    reputation_score: 5.0,
+    province: 'TP. Hồ Chí Minh',
+    phone_number: '0912345678',
   };
 
   const pendingUser: FakeUserRecord = {
@@ -241,12 +292,14 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
   };
 
   let approvedToken: string;
+  let buyerToken: string;
   let pendingToken: string;
   let suspendedToken: string;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     fakeDb.seedUser(approvedUser);
+    fakeDb.seedUser(buyerApprovedUser);
     fakeDb.seedUser(pendingUser);
     fakeDb.seedUser(suspendedUser);
 
@@ -270,6 +323,13 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
       email: approvedUser.school_email,
       role: approvedUser.role,
       verificationStatus: approvedUser.verification_status,
+      typ: 'access',
+    });
+    buyerToken = await jwtService.signAsync({
+      sub: buyerApprovedUser.id,
+      email: buyerApprovedUser.school_email,
+      role: buyerApprovedUser.role,
+      verificationStatus: buyerApprovedUser.verification_status,
       typ: 'access',
     });
     pendingToken = await jwtService.signAsync({
@@ -725,6 +785,185 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
       price: 120000,
       budgetMin: null,
       budgetMax: null,
+    });
+  });
+
+  describe('CMP-17: Controlled Phone Reveal Flow (e2e)', () => {
+    let sellPostWithPhoneId: string;
+    let sellPostWithoutPhoneId: string;
+    let buyRequestPostId: string;
+
+    beforeAll(async () => {
+      // 1. Tạo 1 SELL post cho phép reveal phone
+      const sellWithPhoneRes = await request(app.getHttpServer())
+        .post('/api/v1/posts')
+        .set('Authorization', `Bearer ${approvedToken}`)
+        .field('postType', 'SELL')
+        .field('title', 'Sách giải tích 1 còn mới')
+        .field('description', 'Sách bìa mềm')
+        .field('categoryId', 'TEXTBOOK')
+        .field('province', 'TP. Hồ Chí Minh')
+        .field('price', '45000')
+        .field('condition', 'Tốt')
+        .field('allowPhoneReveal', 'true')
+        .attach('images', Buffer.from('fake-image-bytes-1'), {
+          filename: 'book1.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      sellPostWithPhoneId = sellWithPhoneRes.body.data.id;
+
+      // 2. Tạo 1 SELL post TẮT allowPhoneReveal
+      const sellWithoutPhoneRes = await request(app.getHttpServer())
+        .post('/api/v1/posts')
+        .set('Authorization', `Bearer ${approvedToken}`)
+        .field('postType', 'SELL')
+        .field('title', 'Sách vật lý đại cương')
+        .field('description', 'Sách bìa cứng')
+        .field('categoryId', 'TEXTBOOK')
+        .field('province', 'TP. Hồ Chí Minh')
+        .field('price', '60000')
+        .field('condition', 'Như mới')
+        .field('allowPhoneReveal', 'false')
+        .attach('images', Buffer.from('fake-image-bytes-2'), {
+          filename: 'book2.png',
+          contentType: 'image/png',
+        })
+        .expect(201);
+      sellPostWithoutPhoneId = sellWithoutPhoneRes.body.data.id;
+
+      // 3. Tạo 1 BUY_REQUEST post
+      const buyRequestRes = await request(app.getHttpServer())
+        .post('/api/v1/posts')
+        .set('Authorization', `Bearer ${approvedToken}`)
+        .field('postType', 'BUY_REQUEST')
+        .field('title', 'Tìm mua bàn học gấp')
+        .field('description', 'Bàn gấp sinh viên')
+        .field('categoryId', 'FURNITURE')
+        .field('province', 'TP. Hồ Chí Minh')
+        .field('budgetMin', '50000')
+        .field('budgetMax', '100000')
+        .expect(201);
+      buyRequestPostId = buyRequestRes.body.data.id;
+    });
+
+    it('CMP-17 AC1: APPROVED buyer reveals phone on active SELL post with allowPhoneReveal=true', async () => {
+      const initialEventCount = fakeDb.phoneRevealEvents.length;
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${sellPostWithPhoneId}/reveal-phone`)
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({
+        phoneNumber: '0987654321',
+      });
+      expect(typeof res.body.data.revealedAt).toBe('string');
+      expect(new Date(res.body.data.revealedAt).getTime()).not.toBeNaN();
+      expect(res.body.timestamp).toBeDefined();
+
+      // Kiểm tra sự kiện đã được lưu vào database
+      expect(fakeDb.phoneRevealEvents.length).toBe(initialEventCount + 1);
+      const recordedEvent = fakeDb.phoneRevealEvents[fakeDb.phoneRevealEvents.length - 1];
+      expect(recordedEvent.viewer_id).toBe(buyerApprovedUser.id);
+      expect(recordedEvent.post_id).toBe(sellPostWithPhoneId);
+      expect(recordedEvent.seller_id).toBe(approvedUser.id);
+    });
+
+    it('CMP-17 AC2: APPROVED buyer reveals phone on SELL post with allowPhoneReveal=false (returns null phoneNumber, records event)', async () => {
+      const initialEventCount = fakeDb.phoneRevealEvents.length;
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${sellPostWithoutPhoneId}/reveal-phone`)
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.phoneNumber).toBeNull();
+      expect(typeof res.body.data.revealedAt).toBe('string');
+
+      // Vẫn phải ghi nhận sự kiện vào database để phục vụ điều kiện báo cáo BR-11/BR-13
+      expect(fakeDb.phoneRevealEvents.length).toBe(initialEventCount + 1);
+      const recordedEvent = fakeDb.phoneRevealEvents[fakeDb.phoneRevealEvents.length - 1];
+      expect(recordedEvent.viewer_id).toBe(buyerApprovedUser.id);
+      expect(recordedEvent.post_id).toBe(sellPostWithoutPhoneId);
+    });
+
+    it('CMP-17 AC3: Owner viewing own post receives phone number even if allowPhoneReveal=false', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${sellPostWithoutPhoneId}/reveal-phone`)
+        .set('Authorization', `Bearer ${approvedToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.phoneNumber).toBe('0987654321');
+    });
+
+    it('CMP-17 AC4: PENDING user receives 403 ACCOUNT_NOT_VERIFIED', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${sellPostWithPhoneId}/reveal-phone`)
+        .set('Authorization', `Bearer ${pendingToken}`)
+        .expect(403);
+
+      expect(res.body.error.code).toBe('ACCOUNT_NOT_VERIFIED');
+    });
+
+    it('CMP-17 AC5: Unauthenticated request receives 401 UNAUTHORIZED', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${sellPostWithPhoneId}/reveal-phone`)
+        .expect(401);
+
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('CMP-17 AC6: Requesting reveal-phone on BUY_REQUEST post returns 409 INVALID_POST_TYPE', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${buyRequestPostId}/reveal-phone`)
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .expect(409);
+
+      expect(res.body.error.code).toBe('INVALID_POST_TYPE');
+    });
+
+    it('CMP-17 AC7: Non-existent post returns 404 POST_NOT_FOUND', async () => {
+      const randomPostId = randomUUID();
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${randomPostId}/reveal-phone`)
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .expect(404);
+
+      expect(res.body.error.code).toBe('POST_NOT_FOUND');
+    });
+
+    it('CMP-17 AC8: Invalid UUID format in URL path returns 400 VALIDATION_FAILED', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/posts/not-a-valid-uuid/reveal-phone')
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .expect(400);
+
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+      expect(res.body.error.details).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: 'id' }),
+        ]),
+      );
+    });
+
+    it('CMP-17 AC9: Strict OpenAPI envelope adherence for PhoneRevealResponse', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/api/v1/posts/${sellPostWithPhoneId}/reveal-phone`)
+        .set('Authorization', `Bearer ${buyerToken}`)
+        .expect(200);
+
+      // OpenAPI schema: PhoneRevealResponse có success, data, timestamp; additionalProperties: false
+      const keys = Object.keys(res.body);
+      expect(keys.sort()).toEqual(['data', 'success', 'timestamp'].sort());
+      expect(res.body.success).toBe(true);
+
+      // Data keys: phoneNumber, revealedAt; additionalProperties: false
+      const dataKeys = Object.keys(res.body.data);
+      expect(dataKeys.sort()).toEqual(['phoneNumber', 'revealedAt'].sort());
     });
   });
 });

@@ -22,7 +22,7 @@ import { VerificationGuard } from '../../common/auth/verification.guard';
 import { PaginatedResult } from '../../common/interfaces/api-response.interface';
 import { CreatePostDto } from './dto/create-post.dto';
 import { PostsService } from './posts.service';
-import { PostDetailDto, PostSummaryDto } from './posts.types';
+import { PhoneRevealDto, PostDetailDto, PostSummaryDto } from './posts.types';
 
 @Controller()
 export class PostsController {
@@ -82,5 +82,27 @@ export class PostsController {
       parsedLimit,
       status,
     );
+  }
+
+  @Post('posts/:id/reveal-phone')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, VerificationGuard)
+  async revealSellerPhone(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException({
+            code: 'VALIDATION_FAILED',
+            message: 'ID bài đăng không đúng định dạng UUID.',
+            details: [{ field: 'id', message: 'id phải là UUID hợp lệ.' }],
+          }),
+      }),
+    )
+    id: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PhoneRevealDto> {
+    return this.postsService.revealSellerPhone(id, req.user!);
   }
 }

@@ -34,6 +34,14 @@ class MockContractController {
     };
   }
 
+  @Post('phone-reveal')
+  getPhoneReveal() {
+    return {
+      phoneNumber: '0987654321',
+      revealedAt: '2026-11-17T09:00:00.000Z',
+    };
+  }
+
   @Get('post-page')
   getPostPage(): PaginatedResult<unknown> {
     const meta: PageMeta = {
@@ -216,6 +224,22 @@ describe('OpenAPI v1.2 Contract Schemas & Runtime Envelope E2E', () => {
 
       // Strict envelope keys
       expect(Object.keys(body).sort()).toEqual(['data', 'success', 'timestamp']);
+    });
+
+    it('PhoneRevealResponse conforms to success envelope with phoneNumber and revealedAt', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/api/v1/mock-contract/phone-reveal')
+        .expect(201);
+
+      const body = response.body;
+      expect(body.success).toBe(true);
+      expect(body.data).toEqual({
+        phoneNumber: '0987654321',
+        revealedAt: '2026-11-17T09:00:00.000Z',
+      });
+      expect(typeof body.timestamp).toBe('string');
+      expect(Object.keys(body).sort()).toEqual(['data', 'success', 'timestamp']);
+      expect(Object.keys(body.data).sort()).toEqual(['phoneNumber', 'revealedAt']);
     });
 
     it('paginated response conforms strictly to { success: true, data, meta, timestamp } at root', async () => {
