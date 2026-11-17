@@ -6,23 +6,23 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-34, CMP-36 và hoàn tất Triển khai CMP-7 (BE-02-T01: Gửi yêu cầu xác minh sinh viên). Chuẩn bị chuyển sang CMP-8 (Admin xét duyệt xác minh).
-- **Cập nhật lần cuối:** 2026-11-17 09:10
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành toàn bộ CMP-7 (Gửi yêu cầu xác minh) và CMP-8 (Admin xét duyệt xác minh sinh viên).
+- **Cập nhật lần cuối:** 2026-11-17 15:40
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
 - **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team
-- **Branch hiện tại:** `feat/be-02-evidence-submit`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Bảng `student_evidences` và các cột sinh viên trong `users` hoạt động chuẩn hóa theo schema v1.2.
+- **Branch hiện tại:** `feat/be-02-admin-verification`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Toàn bộ bảng `student_evidences`, `users`, `audit_logs`, `notifications` hoạt động chính xác theo schema v1.2.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 151/151 tests (Frontend Vitest 58/58 + Backend Jest 93/93).
-  - `pnpm test:e2e`: PASS 49/49 tests across 5 test suites (bao gồm `verification.e2e-spec.ts` 9/9 tests và `contract-schemas.e2e-spec.ts`).
+  - `pnpm test`: PASS 173/173 tests (Frontend Vitest 58/58 + Backend Jest 115/115).
+  - `pnpm test:e2e`: PASS 58/58 tests across 6 test suites (bao gồm `admin-verification.e2e-spec.ts` 9/9 tests, `verification.e2e-spec.ts` 9/9 tests, `contract-schemas.e2e-spec.ts`).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
   - [CMP-34](https://chauviplong1701.atlassian.net/browse/CMP-34): `[Bug] Health endpoint trả về chi tiết lỗi database nội bộ` -> **Done**
   - [CMP-36](https://chauviplong1701.atlassian.net/browse/CMP-36): `[Bug] OpenAPI ErrorEnvelope dùng additional: false sai cú pháp` -> **Done**
-  - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
-  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **To Do / Next Up**
   - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **Done**
   - `CMP-6` / `CMP-28`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> Đã merge vào `develop` (PR #3)
   - `CMP-29`: `[Sprint 1][FE1] Màn hình đăng ký, OTP và đăng nhập` -> Đã merge vào `develop` (PR #2)
@@ -52,6 +52,32 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #023: Triển khai Bộ API Admin Xét duyệt Xác minh Sinh viên (CMP-8 / BE-02-T02) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-admin-verification`
+- **Truy vết:** `CMP-8`, `BE-02-T02`, `BR-03`, `BR-18`, `Security Directives`
+- **Mục tiêu đạt được theo Definition of Done của CMP-8:**
+  1. **Triển khai 3 API Endpoints Chuẩn OpenAPI v1.2:**
+     - `GET /api/v1/admin/verifications`: Lấy danh sách hồ sơ xác minh với phân trang root-level (`PageMeta`) và bộ lọc trạng thái (`status`), trả về mảng `AdminVerification[]`.
+     - `GET /api/v1/admin/verifications/{verificationId}`: Xem chi tiết một hồ sơ xác minh kèm `cardImageUrl` (presigned URL tạm thời từ private storage). Tự động ghi `audit_logs` khi Admin truy cập xem ảnh thẻ sinh viên (`action: VIEW_EVIDENCE`).
+     - `PATCH /api/v1/admin/verifications/{verificationId}`: Admin đưa ra quyết định (`APPROVED` hoặc `REJECTED`).
+       - Nếu `APPROVED`: Cập nhật `users.verification_status = 'APPROVED'`, `student_evidences.reviewed_by = adminId`, ghi nhận audit log `APPROVE_VERIFICATION`, gửi thông báo in-app `notifications`.
+       - Nếu `REJECTED`: Bắt buộc kèm `reason` (ném HTTP 400 nếu thiếu), cập nhật `users.verification_status = 'REJECTED'`, `student_evidences.reason = reason`, ghi nhận audit log `REJECT_VERIFICATION`, gửi thông báo in-app `notifications`.
+  2. **Bảo mật & Phân quyền Role-Based (RBAC):**
+     - Xây dựng `@Roles('ADMIN')` decorator và `RolesGuard` (`src/common/auth/roles.guard.ts`).
+     - Chặn 401 khi chưa đăng nhập, chặn 403 khi role không phải `ADMIN`.
+     - Tuyệt đối bảo vệ ảnh thẻ sinh viên trong private storage, chỉ sinh presigned URL ngắn hạn cho Admin.
+  3. **Kiểm thử Toàn diện & Xác thực Chất lượng (DoD):**
+     - Unit tests: 19/19 test suites PASS, 115 unit tests backend (bao gồm `roles.guard.spec.ts`, `admin-verification.controller.spec.ts`, `verification.service.spec.ts`, `evidence.repository.spec.ts`).
+     - E2E tests: Thêm `test/admin-verification.e2e-spec.ts` (9/9 tests PASS). Toàn bộ 6 E2E test suites (58/58 tests PASS).
+     - `pnpm lint`: 0 warnings across workspace.
+     - `pnpm typecheck`: 0 errors across workspace.
+     - `pnpm build`: Biên dịch thành công cả backend NestJS và frontend Next.js 14 App Router.
+
+---
 
 ### Handoff #022: Triển khai API Nộp Minh chứng Thẻ Sinh viên & Tra cứu Hồ sơ (CMP-7 / BE-02-T01) (17/11/2026)
 
