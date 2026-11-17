@@ -11,9 +11,9 @@ Dự án Campus Marketplace bao gồm **18 bảng** được phân loại theo c
 ## 2. Phân hệ Tin đăng & Hàng hóa (Listings & Catalog)
 - `categories`: Danh mục sản phẩm (sách, điện tử, đồ gia dụng...).
 - `posts`: Bài đăng chung (loại: `SELL` hoặc `BUY_REQUEST`), tiêu đề, mô tả, danh mục, trạng thái (`ACTIVE`, `HIDDEN`, `SOLD`, `CLOSED`).
-- `sell_details`: Chi tiết cho tin bán (giá tiền VND, tình trạng hàng cũ/mới, có chấp nhận thương lượng giá hay không).
+- `sell_details`: Chi tiết cho tin bán (giá tiền VND `price > 0`, tình trạng hàng cũ/mới `condition`, tùy chọn cho phép xem số điện thoại `allow_phone_reveal`).
 - `buy_request_details`: Chi tiết cho tin tìm mua (khoảng giá mong muốn `budget_min`, `budget_max`).
-- `post_images`: Ảnh minh họa bài đăng, có cờ `is_primary` và thứ tự hiển thị `display_order`.
+- `post_images`: Ảnh minh họa bài đăng, đường dẫn lưu trữ `storage_key` và thứ tự hiển thị `sort_order`.
 
 ## 3. Phân hệ Trao đổi & Tin nhắn (Communication)
 - `conversations`: Cuộc trò chuyện gắn liền với một bài đăng (`post_id`) giữa người mua (`buyer_id`) và người bán (`seller_id`).

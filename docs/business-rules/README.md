@@ -32,7 +32,7 @@ Source of Truth nghiệp vụ của dự án được lưu trữ tại file:
 
 ### 2. Tin đăng & Vòng đời Bài đăng (Posts & Listings)
 - **Loại tin đăng:**
-  - `SELL`: Đăng bán đồ dùng cũ (yêu cầu giá `price > 0`, tình trạng hàng, tùy chọn thương lượng `is_negotiable`, ảnh minh họa).
+  - `SELL`: Đăng bán đồ dùng cũ (yêu cầu giá `price > 0`, tình trạng hàng `condition`, tùy chọn cho phép xem số điện thoại `allow_phone_reveal`, ảnh minh họa).
   - `BUY_REQUEST`: Đăng tin cần mua đồ dùng học tập/sinh hoạt (yêu cầu khoảng ngân sách `budget_min >= 0`, `budget_max >= budget_min`).
 - **Vòng đời trạng thái bài đăng (`post_status`):**
   - `ACTIVE`: Đang hiển thị công khai và cho phép tìm kiếm / ghép đôi matching.
