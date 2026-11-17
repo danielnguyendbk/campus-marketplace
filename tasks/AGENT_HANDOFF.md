@@ -26,6 +26,18 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
 
+### Cập nhật Backend — CMP-10: Đăng nhu cầu tìm mua sản phẩm (`BUY_REQUEST`) (2026-11-17)
+
+- **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_10_buy_request_plan.md`).
+- **Branch:** `feat/cmp-9-10-37` (chỉ phạm vi Backend + test; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTO:** `BuyRequestDetailDto` + `buyRequestDetail` trong `PostDetailDto`; `budgetMin`/`budgetMax` trong `PostSummaryDto`; `CreatePostDto.postType` nhận `'SELL' | 'BUY_REQUEST'`, dùng `@ValidateIf` cho nhóm trường SELL (`price`, `condition`, `allowPhoneReveal`) và BUY_REQUEST (`budgetMin >= 0`, `budgetMax >= 0`). Hai hàm `@Transform` (`parseStrictNumber`, `parseBooleanDefaultTrue`) trả `undefined` khi giá trị là `undefined`/`null` thay vì ép `NaN`/`true`, nên hành vi không phụ thuộc `exposeDefaultValues`/khóa `undefined` có sẵn; mặc định `allowPhoneReveal = true` được áp dụng duy nhất tại `PostsService.createSellPost`.
+  2. **Repository:** `insertBuyRequestDetails` ghi đúng 3 cột `(post_id, budget_min, budget_max)`; `findPostDetailById` và `findMyPostsPaginated` thêm `LEFT JOIN buy_request_details` để trả ngân sách.
+  3. **Service/Controller:** `createPost` điều phối theo `postType` (giữ alias `createSellPost`); BUY_REQUEST chặn trường SELL gửi kèm (`400 VALIDATION_FAILED`), kiểm tra `budgetMax >= budgetMin` (details field `budgetMax`), ảnh tùy chọn `0..5` (JPEG/PNG/WebP ≤ 10 MB), ghi `posts` + `buy_request_details` (+ ảnh nếu có) trong một transaction, trả `201` với `buyRequestDetail` và `images: []`, không có `sellDetail`. SELL ngược lại chặn `budgetMin`/`budgetMax`; `GET /posts/:id` và `GET /me/posts` phân biệt rõ hai loại (`price: null` hoặc `budgetMin/budgetMax: null`).
+- **Kiểm chứng:** `pnpm lint` PASS; `pnpm typecheck` PASS; `pnpm test` PASS (BE 100/100, 18 suites + FE 58/58); `pnpm test:e2e` PASS 48/48 (5 suites, riêng `posts.e2e-spec.ts` 8/8 gồm AC1–AC5 của CMP-10); `pnpm build` PASS (NestJS + Next.js 7/7 static pages).
+- **File thay đổi:** `apps/backend/src/modules/posts/{posts.types.ts, posts.service.ts, posts.controller.ts, dto/create-post.dto.ts, repositories/post.repository.ts}`, các file spec tương ứng, `apps/backend/test/posts.e2e-spec.ts`, `tasks/AGENT_HANDOFF.md`. Chưa commit/push/PR.
+- **Hướng dẫn người kế tiếp:** chạy lại 5 lệnh DoD ở trên; kiểm thử thủ công `POST /api/v1/posts` với `postType=BUY_REQUEST` trên môi trường Supabase (cần tài khoản `APPROVED`), sau đó review/PR theo template. Các endpoint chuyển trạng thái (`hide/activate/sold/close`) không thuộc phạm vi kế hoạch CMP-10 này và chưa được triển khai.
+
 ### Cập nhật Backend — CMP-9: Đăng tin bán sản phẩm đã qua sử dụng (`SELL`) (2026-11-17)
 
 - **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_9_sell_post_plan.md`).

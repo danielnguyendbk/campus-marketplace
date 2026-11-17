@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PoolClient } from 'pg';
 import { AuthenticatedUser } from '../../common/auth/authenticated-user.interface';
 import { PaginatedResult } from '../../common/interfaces/api-response.interface';
 import { StorageService } from '../../common/storage/storage.service';
@@ -19,11 +20,13 @@ import {
   PostImageDto,
   PostStatus,
   PostSummaryDto,
+  UserSummaryDto,
 } from './posts.types';
 import {
   PostDetailRow,
   PostImageRow,
   PostRepository,
+  PostRow,
 } from './repositories/post.repository';
 
 @Injectable()
@@ -35,26 +38,42 @@ export class PostsService {
     private readonly storageService: StorageService,
   ) {}
 
+  async createPost(
+    user: AuthenticatedUser,
+    dto: CreatePostDto,
+    files: Express.Multer.File[],
+  ): Promise<PostDetailDto> {
+    if (dto.postType === 'BUY_REQUEST') {
+      return this.createBuyRequestPost(user, dto, files);
+    }
+
+    return this.createSellPost(user, dto, files);
+  }
+
   async createSellPost(
     user: AuthenticatedUser,
     dto: CreatePostDto,
     files: Express.Multer.File[],
   ): Promise<PostDetailDto> {
-    this.validateImageFiles(files);
+    this.assertNoBudgetFields(dto);
+    this.validateImageFiles(files, true);
 
-    const category = await this.categoriesRepository.findActiveById(dto.categoryId);
-    if (!category) {
+    const price = dto.price;
+    const condition = dto.condition;
+    if (price === undefined || condition === undefined) {
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
-        message: 'Danh mục sản phẩm không hợp lệ.',
+        message: 'Tin đăng bán (SELL) bắt buộc có giá bán và tình trạng sản phẩm.',
         details: [
           {
-            field: 'categoryId',
-            message: 'Danh mục không tồn tại hoặc đã ngừng hoạt động.',
+            field: price === undefined ? 'price' : 'condition',
+            message: 'Giá bán và tình trạng sản phẩm là bắt buộc với tin SELL.',
           },
         ],
       });
     }
+
+    await this.assertActiveCategory(dto.categoryId);
 
     const allowPhoneReveal = dto.allowPhoneReveal ?? true;
 
@@ -75,26 +94,16 @@ export class PostsService {
         const createdSellDetail = await this.postRepository.insertSellDetails(
           {
             postId: createdPost.id,
-            price: dto.price,
-            condition: dto.condition,
+            price,
+            condition,
             allowPhoneReveal,
           },
           client,
         );
 
-        const uploadedImages: Array<{ storageKey: string; sortOrder: number }> = [];
-        for (let i = 0; i < files.length; i += 1) {
-          const storageKey = await this.storageService.savePostImage(
-            createdPost.id,
-            files[i],
-            i,
-          );
-          uploadedImages.push({ storageKey, sortOrder: i });
-        }
-
-        const createdImages = await this.postRepository.insertPostImages(
+        const createdImages = await this.uploadAndInsertImages(
           createdPost.id,
-          uploadedImages,
+          files,
           client,
         );
 
@@ -106,34 +115,98 @@ export class PostsService {
       },
     );
 
-    const ownerSummary = {
-      id: user.id,
-      displayName: user.displayName ?? user.schoolEmail,
-      verificationStatus: user.verificationStatus,
-      reputationScore: user.reputationScore ?? 5.0,
-      ...(user.province ? { province: user.province } : {}),
+    const detail = this.buildCreatedPostDetail(user, post, images);
+    detail.sellDetail = {
+      price: Number(sellDetail.price),
+      condition: sellDetail.condition,
+      allowPhoneReveal: sellDetail.allow_phone_reveal,
     };
 
-    return {
-      id: post.id,
-      owner: ownerSummary,
-      postType: post.post_type,
-      title: post.title,
-      description: post.description,
-      categoryId: post.category_id,
-      province: post.province,
-      status: post.status,
-      sellDetail: {
-        price: Number(sellDetail.price),
-        condition: sellDetail.condition,
-        allowPhoneReveal: sellDetail.allow_phone_reveal,
-      },
-      images: this.mapImages(images),
-      createdAt: this.toIsoString(post.created_at),
-      updatedAt: this.toIsoString(post.updated_at),
-      ...(post.ended_at ? { endedAt: this.toIsoString(post.ended_at) } : {}),
-      ...(post.close_reason !== null ? { closeReason: post.close_reason } : {}),
+    return detail;
+  }
+
+  private async createBuyRequestPost(
+    user: AuthenticatedUser,
+    dto: CreatePostDto,
+    files: Express.Multer.File[],
+  ): Promise<PostDetailDto> {
+    this.assertNoSellFields(dto);
+
+    const budgetMin = dto.budgetMin;
+    const budgetMax = dto.budgetMax;
+    if (budgetMin === undefined || budgetMax === undefined) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Tin tìm mua (BUY_REQUEST) bắt buộc có ngân sách tối thiểu và tối đa.',
+        details: [
+          {
+            field: budgetMin === undefined ? 'budgetMin' : 'budgetMax',
+            message: 'budgetMin và budgetMax là bắt buộc với tin BUY_REQUEST.',
+          },
+        ],
+      });
+    }
+
+    if (budgetMax < budgetMin) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Ngân sách tối đa phải lớn hơn hoặc bằng ngân sách tối thiểu.',
+        details: [
+          {
+            field: 'budgetMax',
+            message: 'budgetMax phải lớn hơn hoặc bằng budgetMin.',
+          },
+        ],
+      });
+    }
+
+    this.validateImageFiles(files, false);
+    await this.assertActiveCategory(dto.categoryId);
+
+    const { post, buyRequestDetail, images } =
+      await this.postgresService.withTransaction(async (client) => {
+        const createdPost = await this.postRepository.insertPost(
+          {
+            ownerId: user.id,
+            postType: 'BUY_REQUEST',
+            title: dto.title,
+            description: dto.description,
+            categoryId: dto.categoryId,
+            province: dto.province,
+          },
+          client,
+        );
+
+        const createdBuyRequestDetail =
+          await this.postRepository.insertBuyRequestDetails(
+            {
+              postId: createdPost.id,
+              budgetMin,
+              budgetMax,
+            },
+            client,
+          );
+
+        const createdImages = await this.uploadAndInsertImages(
+          createdPost.id,
+          files,
+          client,
+        );
+
+        return {
+          post: createdPost,
+          buyRequestDetail: createdBuyRequestDetail,
+          images: createdImages,
+        };
+      });
+
+    const detail = this.buildCreatedPostDetail(user, post, images);
+    detail.buyRequestDetail = {
+      budgetMin: Number(buyRequestDetail.budget_min),
+      budgetMax: Number(buyRequestDetail.budget_max),
     };
+
+    return detail;
   }
 
   async getPostById(
@@ -210,6 +283,8 @@ export class PostsService {
       province: row.province,
       status: row.status,
       price: row.price !== null ? Number(row.price) : null,
+      budgetMin: row.budget_min !== null ? Number(row.budget_min) : null,
+      budgetMax: row.budget_max !== null ? Number(row.budget_max) : null,
       thumbnailUrl: row.thumbnail_storage_key
         ? this.storageService.getPublicUrl(row.thumbnail_storage_key)
         : null,
@@ -227,8 +302,110 @@ export class PostsService {
     };
   }
 
-  private validateImageFiles(files: Express.Multer.File[]): void {
+  private assertNoBudgetFields(dto: CreatePostDto): void {
+    const details: Array<{ field: string; message: string }> = [];
+    if (dto.budgetMin !== undefined) {
+      details.push({
+        field: 'budgetMin',
+        message: 'Tin đăng bán (SELL) không được gửi kèm budgetMin.',
+      });
+    }
+    if (dto.budgetMax !== undefined) {
+      details.push({
+        field: 'budgetMax',
+        message: 'Tin đăng bán (SELL) không được gửi kèm budgetMax.',
+      });
+    }
+
+    if (details.length > 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message:
+          'Tin đăng bán (SELL) không được gửi kèm trường ngân sách của tin tìm mua (BUY_REQUEST).',
+        details,
+      });
+    }
+  }
+
+  private assertNoSellFields(dto: CreatePostDto): void {
+    const details: Array<{ field: string; message: string }> = [];
+    if (dto.price !== undefined) {
+      details.push({
+        field: 'price',
+        message: 'Tin tìm mua (BUY_REQUEST) không được gửi kèm price.',
+      });
+    }
+    if (dto.condition !== undefined) {
+      details.push({
+        field: 'condition',
+        message: 'Tin tìm mua (BUY_REQUEST) không được gửi kèm condition.',
+      });
+    }
+    if (dto.allowPhoneReveal !== undefined) {
+      details.push({
+        field: 'allowPhoneReveal',
+        message:
+          'Tin tìm mua (BUY_REQUEST) không được gửi kèm allowPhoneReveal.',
+      });
+    }
+
+    if (details.length > 0) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message:
+          'Tin tìm mua (BUY_REQUEST) không được gửi kèm trường của tin đăng bán (SELL).',
+        details,
+      });
+    }
+  }
+
+  private async assertActiveCategory(categoryId: string): Promise<void> {
+    const category = await this.categoriesRepository.findActiveById(categoryId);
+    if (!category) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Danh mục sản phẩm không hợp lệ.',
+        details: [
+          {
+            field: 'categoryId',
+            message: 'Danh mục không tồn tại hoặc đã ngừng hoạt động.',
+          },
+        ],
+      });
+    }
+  }
+
+  private async uploadAndInsertImages(
+    postId: string,
+    files: Express.Multer.File[],
+    client: PoolClient,
+  ): Promise<PostImageRow[]> {
     if (!files || files.length === 0) {
+      return [];
+    }
+
+    const uploadedImages: Array<{ storageKey: string; sortOrder: number }> = [];
+    for (let i = 0; i < files.length; i += 1) {
+      const storageKey = await this.storageService.savePostImage(
+        postId,
+        files[i],
+        i,
+      );
+      uploadedImages.push({ storageKey, sortOrder: i });
+    }
+
+    return this.postRepository.insertPostImages(postId, uploadedImages, client);
+  }
+
+  private validateImageFiles(
+    files: Express.Multer.File[],
+    requireAtLeastOne: boolean,
+  ): void {
+    if (!files || files.length === 0) {
+      if (!requireAtLeastOne) {
+        return;
+      }
+
       throw new BadRequestException({
         code: 'VALIDATION_FAILED',
         message: 'Tin đăng bán (SELL) bắt buộc có ít nhất 1 ảnh sản phẩm.',
@@ -290,6 +467,36 @@ export class PostsService {
     }));
   }
 
+  private buildCreatedPostDetail(
+    user: AuthenticatedUser,
+    post: PostRow,
+    images: PostImageRow[],
+  ): PostDetailDto {
+    const owner: UserSummaryDto = {
+      id: user.id,
+      displayName: user.displayName ?? user.schoolEmail,
+      verificationStatus: user.verificationStatus,
+      reputationScore: user.reputationScore ?? 5.0,
+      ...(user.province ? { province: user.province } : {}),
+    };
+
+    return {
+      id: post.id,
+      owner,
+      postType: post.post_type,
+      title: post.title,
+      description: post.description,
+      categoryId: post.category_id,
+      province: post.province,
+      status: post.status,
+      images: this.mapImages(images),
+      createdAt: this.toIsoString(post.created_at),
+      updatedAt: this.toIsoString(post.updated_at),
+      ...(post.ended_at ? { endedAt: this.toIsoString(post.ended_at) } : {}),
+      ...(post.close_reason !== null ? { closeReason: post.close_reason } : {}),
+    };
+  }
+
   private mapPostDetailRow(
     post: PostDetailRow,
     images: PostImageRow[],
@@ -319,6 +526,17 @@ export class PostsService {
         price: Number(post.price),
         condition: post.condition,
         allowPhoneReveal: Boolean(post.allow_phone_reveal),
+      };
+    }
+
+    if (
+      post.post_type === 'BUY_REQUEST' &&
+      post.budget_min !== null &&
+      post.budget_max !== null
+    ) {
+      detail.buyRequestDetail = {
+        budgetMin: Number(post.budget_min),
+        budgetMax: Number(post.budget_max),
       };
     }
 
