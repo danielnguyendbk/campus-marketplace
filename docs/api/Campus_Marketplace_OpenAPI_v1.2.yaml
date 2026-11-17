@@ -2526,7 +2526,6 @@ components:
                   message:
                     type: string
                 additionalProperties: false
-              additional: false
           required:
           - code
           - message

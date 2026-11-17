@@ -180,6 +180,18 @@ describe('OpenAPI v1.2 Contract Schemas & Runtime Envelope E2E', () => {
         expect(block).toContain('additionalProperties: false');
       },
     );
+
+    test('ErrorEnvelope schema in openapi.yaml must strictly enforce OpenAPI 3.x additionalProperties: false on error and details.items, and forbid invalid additional keyword (CMP-36)', () => {
+      const block = getSchemaBlock(openApiContent, 'ErrorEnvelope');
+      expect(block).not.toBeNull();
+      expect(block).toContain('additionalProperties: false');
+      expect(block).not.toContain('additional: false');
+      expect(block).toContain('- error');
+      expect(block).toContain('code:');
+      expect(block).toContain('message:');
+      expect(block).toContain('details:');
+      expect(block).toContain('items:');
+    });
   });
 
   describe('Part 2: Runtime HTTP Response Envelope Validation against OpenAPI Contract', () => {

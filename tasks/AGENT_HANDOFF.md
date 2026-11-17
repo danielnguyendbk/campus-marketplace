@@ -6,25 +6,26 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 1 — Sự cố ISS-01 Đã Khắc Phục, CSDL Supabase Mới Sẵn Sàng & Regression Test Toàn Diện Đạt 100% (CMP-33 In Progress)
-- **Cập nhật lần cuối:** 2026-11-13 23:20
+- **Giai đoạn:** Sprint 2 — Chuẩn Hóa Schema OpenAPI v1.2: Khắc Phục Lỗi additional: false Trong ErrorEnvelope (CMP-36 Done), Sẵn sàng triển khai CMP-7/8
+- **Cập nhật lần cuối:** 2026-11-17 08:45
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 1 Team (Huy, Thạch, Phú)
-- **Branch hiện tại:** `develop`
-- **Tình trạng Database:** Đã tái tạo môi trường CSDL sạch trên Supabase mới (Project `ybguidivvmgwxspowkor`, AWS Sydney Pooler, TLS Certificate Verification `rejectUnauthorized: true`). Áp dụng thành công 100% cấu trúc 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql` (kèm bảng tracking `_migrations`, cột `deleted_at`, partial unique index `uq_active_report_per_buyer`, và 8 ràng buộc CHECK nghiệp vụ). Đã chạy kiểm toán `pnpm db:verify` PASS 100%. Connection string được quản lý an toàn qua biến môi trường cục bộ (`.env` và `apps/backend/.env`), không rò rỉ secret lên Git/Jira.
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team (Huy, Thạch, Phú)
+- **Branch hiện tại:** `fix/cmp-36-spec-error-envelope`
+- **Tình trạng Database:** CSDL Supabase hoạt động ổn định trên project `ybguidivvmgwxspowkor` (AWS Sydney Pooler, TLS Certificate Verification `rejectUnauthorized: true`). 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql` đạt chuẩn.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện:**
   - `pnpm lint`: PASS (0 warnings across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 132/132 tests (Frontend Vitest 58/58 + Backend Jest 74/74).
-  - `pnpm test:e2e`: PASS 40/40 tests across 4 test suites (bao gồm `auth.e2e-spec.ts` tương tác trực tiếp CSDL Supabase).
+  - `pnpm test`: PASS 132/132 tests.
+  - `pnpm test:e2e`: PASS 41/41 tests across test suites (bao gồm static contract schema verification cho ErrorEnvelope).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **In Progress** (Hoàn thành phạm vi BE Lead, chờ PM nghiệm thu)
-  - `CMP-6` / `CMP-28`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> Đã merge vào `develop` (PR #3)
-  - `CMP-29`: `[Sprint 1][FE1] Màn hình đăng ký, OTP và đăng nhập` -> Đã merge vào `develop` (PR #2)
-  - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
-  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
-  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
+  - [CMP-36](https://chauviplong1701.atlassian.net/browse/CMP-36): `[CMP-6][Spec] Sửa additionalProperties trong ErrorEnvelope.details` -> **Done**
+  - [CMP-34](https://chauviplong1701.atlassian.net/browse/CMP-34): `[CMP-6][BE] Không trả thông báo lỗi PostgreSQL thô qua /health` -> **Done**
+  - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `Gửi yêu cầu xác minh tài khoản sinh viên` -> **To Do**
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `Admin xét duyệt yêu cầu xác minh` -> **To Do**
+  - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **Done**
+  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done**
+  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done**
 
 ### Cập nhật QA — Kiểm thử tích hợp CMP-6 (2026-11-13)
 
@@ -48,6 +49,27 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #021: Chuẩn Hóa Schema ErrorEnvelope trong OpenAPI Contract v1.2 (CMP-36) (17/11/2026)
+
+- **Ngày:** 2026-11-17 (08:42–08:48 GMT+7)
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `fix/cmp-36-spec-error-envelope`
+- **Truy vết:** `CMP-36`, `CMP-6`, `CMP-31`, `Bug 3 (CMP-6-03)`
+- **Mục tiêu đạt được theo Definition of Done của CMP-36:**
+  1. **Chuẩn hóa Schema ErrorEnvelope:**
+     - Loại bỏ từ khoá sai cú pháp `additional: false` tại [packages/api-contract/openapi.yaml](file:///d:/Documents/PTIT%20DOC/SPM/campus-marketplace/packages/api-contract/openapi.yaml#L2584) và [docs/api/Campus_Marketplace_OpenAPI_v1.2.yaml](file:///d:/Documents/PTIT%20DOC/SPM/campus-marketplace/docs/api/Campus_Marketplace_OpenAPI_v1.2.yaml#L2519).
+     - Xác nhận `details.items` (kiểu object) đã có `additionalProperties: false`, bảo đảm schema tuân thủ 100% chuẩn OpenAPI 3.x / JSON Schema và chống rò rỉ trường thừa khi ném validation errors.
+  2. **Bổ sung Kiểm thử Tự động:**
+     - [apps/backend/test/contract-schemas.e2e-spec.ts](file:///d:/Documents/PTIT%20DOC/SPM/campus-marketplace/apps/backend/test/contract-schemas.e2e-spec.ts): Bổ sung static contract verification test kiểm tra schema `ErrorEnvelope`, xác minh bắt buộc `error`, cấm thuộc tính thừa với `additionalProperties: false`, và cấm tuyệt đối từ khoá không hợp lệ `additional: false`.
+  3. **Kiểm tra Chất lượng Toàn diện (DoD):**
+     - `pnpm lint`: PASS (0 warnings across workspace).
+     - `pnpm typecheck`: PASS (0 errors across workspace).
+     - `pnpm test`: PASS 132/132 tests.
+     - `pnpm test:e2e`: PASS 41/41 tests across test suites.
+     - `pnpm build`: PASS (NestJS + Next.js App Router 7/7 static pages).
+  4. **Trạng thái Jira:**
+     - Chuyển `CMP-36` sang **Done**.
 
 ### Handoff #019: Khắc phục Sự cố Môi trường ISS-01 & Tái tạo CSDL Supabase Sạch (CMP-33) (13/11/2026)
 
