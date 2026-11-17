@@ -92,6 +92,35 @@ describe('PostRepository', () => {
     expect(clientQueryMock.mock.calls[2][0]).toContain('INSERT INTO "post_images"');
   });
 
+  it('inserts buy_request_details with post_id, budget_min and budget_max', async () => {
+    const clientQueryMock = jest.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          post_id: 'post-buy-1',
+          budget_min: '100000.00',
+          budget_max: '150000.00',
+        },
+      ],
+    });
+    const client = { query: clientQueryMock } as unknown as PoolClient;
+
+    const detail = await repo.insertBuyRequestDetails(
+      { postId: 'post-buy-1', budgetMin: 100000, budgetMax: 150000 },
+      client,
+    );
+
+    expect(detail.budget_min).toBe('100000.00');
+    expect(clientQueryMock).toHaveBeenCalledTimes(1);
+    expect(clientQueryMock.mock.calls[0][0]).toContain(
+      'INSERT INTO "buy_request_details"',
+    );
+    expect(clientQueryMock.mock.calls[0][1]).toEqual([
+      'post-buy-1',
+      100000,
+      150000,
+    ]);
+  });
+
   it('returns null when findPostDetailById finds no matching active row', async () => {
     queryMock.mockResolvedValueOnce({ rows: [] });
     await expect(repo.findPostDetailById('missing-id')).resolves.toBeNull();

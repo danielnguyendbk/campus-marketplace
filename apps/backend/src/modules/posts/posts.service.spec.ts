@@ -29,6 +29,16 @@ describe('PostsService', () => {
     allowPhoneReveal: true,
   };
 
+  const validBuyRequestDto: CreatePostDto = {
+    postType: 'BUY_REQUEST',
+    title: 'Tìm mua giáo trình Java',
+    description: 'Cần sách để học học kỳ này',
+    categoryId: 'TEXTBOOK',
+    province: 'TP. Hồ Chí Minh',
+    budgetMin: 100000,
+    budgetMax: 150000,
+  };
+
   const validFile = {
     originalname: 'book.jpg',
     mimetype: 'image/jpeg',
@@ -45,12 +55,14 @@ describe('PostsService', () => {
 
   const insertPostMock = jest.fn();
   const insertSellDetailsMock = jest.fn();
+  const insertBuyRequestDetailsMock = jest.fn();
   const insertPostImagesMock = jest.fn();
   const findPostDetailByIdMock = jest.fn();
   const findMyPostsPaginatedMock = jest.fn();
   const postRepoMock = {
     insertPost: insertPostMock,
     insertSellDetails: insertSellDetailsMock,
+    insertBuyRequestDetails: insertBuyRequestDetailsMock,
     insertPostImages: insertPostImagesMock,
     findPostDetailById: findPostDetailByIdMock,
     findMyPostsPaginated: findMyPostsPaginatedMock,
@@ -69,6 +81,17 @@ describe('PostsService', () => {
     savePostImage: savePostImageMock,
     getPublicUrl: getPublicUrlMock,
   } as unknown as StorageService;
+
+  const catchError = async (
+    promise: Promise<unknown>,
+  ): Promise<BadRequestException> => {
+    try {
+      await promise;
+    } catch (err) {
+      return err as BadRequestException;
+    }
+    throw new Error('Expected the request to fail, but it resolved.');
+  };
 
   const service = new PostsService(
     postgresMock,
@@ -197,5 +220,226 @@ describe('PostsService', () => {
       service.getPostById('missing-post', verifiedUser),
     ).rejects.toThrow(NotFoundException);
     expect(HttpException).toBeDefined();
+  });
+
+  it('creates BUY_REQUEST post without images and returns buyRequestDetail without sellDetail', async () => {
+    findActiveByIdMock.mockResolvedValueOnce({
+      id: 'TEXTBOOK',
+      name: 'Sách và giáo trình',
+      slug: 'textbooks',
+      sort_order: 1,
+    });
+    insertPostMock.mockResolvedValueOnce({
+      id: 'post-buy-1',
+      owner_id: verifiedUser.id,
+      post_type: 'BUY_REQUEST',
+      title: validBuyRequestDto.title,
+      description: validBuyRequestDto.description,
+      category_id: 'TEXTBOOK',
+      province: validBuyRequestDto.province,
+      status: 'ACTIVE',
+      close_reason: null,
+      ended_at: null,
+      created_at: new Date('2026-11-17T07:00:00Z'),
+      updated_at: new Date('2026-11-17T07:00:00Z'),
+    });
+    insertBuyRequestDetailsMock.mockResolvedValueOnce({
+      post_id: 'post-buy-1',
+      budget_min: '100000.00',
+      budget_max: '150000.00',
+    });
+
+    const result = await service.createPost(
+      verifiedUser,
+      validBuyRequestDto,
+      [],
+    );
+
+    expect(withTransactionMock).toHaveBeenCalledTimes(1);
+    expect(insertSellDetailsMock).not.toHaveBeenCalled();
+    expect(insertPostImagesMock).not.toHaveBeenCalled();
+    expect(insertBuyRequestDetailsMock).toHaveBeenCalledWith(
+      { postId: 'post-buy-1', budgetMin: 100000, budgetMax: 150000 },
+      expect.anything(),
+    );
+    expect(result.postType).toBe('BUY_REQUEST');
+    expect(result.status).toBe('ACTIVE');
+    expect(result.buyRequestDetail).toEqual({
+      budgetMin: 100000,
+      budgetMax: 150000,
+    });
+    expect(result.sellDetail).toBeUndefined();
+    expect(result.images).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain('storageKey');
+  });
+
+  it('creates BUY_REQUEST post with optional images attached', async () => {
+    findActiveByIdMock.mockResolvedValueOnce({
+      id: 'TEXTBOOK',
+      name: 'Sách và giáo trình',
+      slug: 'textbooks',
+      sort_order: 1,
+    });
+    insertPostMock.mockResolvedValueOnce({
+      id: 'post-buy-2',
+      owner_id: verifiedUser.id,
+      post_type: 'BUY_REQUEST',
+      title: validBuyRequestDto.title,
+      description: validBuyRequestDto.description,
+      category_id: 'TEXTBOOK',
+      province: validBuyRequestDto.province,
+      status: 'ACTIVE',
+      close_reason: null,
+      ended_at: null,
+      created_at: new Date('2026-11-17T07:10:00Z'),
+      updated_at: new Date('2026-11-17T07:10:00Z'),
+    });
+    insertBuyRequestDetailsMock.mockResolvedValueOnce({
+      post_id: 'post-buy-2',
+      budget_min: '100000.00',
+      budget_max: '150000.00',
+    });
+    savePostImageMock.mockResolvedValueOnce('posts/post-buy-2/0-ref.jpg');
+    insertPostImagesMock.mockResolvedValueOnce([
+      {
+        id: 'img-buy-1',
+        post_id: 'post-buy-2',
+        storage_key: 'posts/post-buy-2/0-ref.jpg',
+        sort_order: 0,
+      },
+    ]);
+
+    const result = await service.createPost(
+      verifiedUser,
+      validBuyRequestDto,
+      [validFile],
+    );
+
+    expect(savePostImageMock).toHaveBeenCalledTimes(1);
+    expect(result.images).toEqual([
+      {
+        id: 'img-buy-1',
+        url: 'http://localhost:4000/uploads/posts/post-buy-2/0-ref.jpg',
+        sortOrder: 0,
+      },
+    ]);
+    expect(result.buyRequestDetail).toEqual({
+      budgetMin: 100000,
+      budgetMax: 150000,
+    });
+  });
+
+  it('rejects BUY_REQUEST with 400 when budgetMax is lower than budgetMin', async () => {
+    const error = await catchError(
+      service.createPost(
+        verifiedUser,
+        { ...validBuyRequestDto, budgetMin: 200000, budgetMax: 100000 },
+        [],
+      ),
+    );
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error.getResponse()).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Ngân sách tối đa phải lớn hơn hoặc bằng ngân sách tối thiểu.',
+      details: [
+        {
+          field: 'budgetMax',
+          message: 'budgetMax phải lớn hơn hoặc bằng budgetMin.',
+        },
+      ],
+    });
+    expect(withTransactionMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects BUY_REQUEST when SELL-only fields (price/condition/allowPhoneReveal) are sent', async () => {
+    for (const extra of [
+      { price: 120000 },
+      { condition: 'Tốt' },
+      { allowPhoneReveal: true },
+    ]) {
+      const error = await catchError(
+        service.createPost(verifiedUser, { ...validBuyRequestDto, ...extra }, []),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(error.getResponse()).toMatchObject({ code: 'VALIDATION_FAILED' });
+    }
+
+    const error = await catchError(
+      service.createPost(verifiedUser, { ...validBuyRequestDto, price: 120000 }, []),
+    );
+    expect(
+      (error.getResponse() as { details: Array<{ field: string }> }).details[0]
+        .field,
+    ).toBe('price');
+    expect(withTransactionMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects SELL post when BUY_REQUEST-only budget fields are sent', async () => {
+    const error = await catchError(
+      service.createSellPost(
+        verifiedUser,
+        { ...validDto, budgetMin: 100000, budgetMax: 150000 },
+        [validFile],
+      ),
+    );
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect(error.getResponse()).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(
+      (error.getResponse() as { details: Array<{ field: string }> }).details.map(
+        (d) => d.field,
+      ),
+    ).toEqual(['budgetMin', 'budgetMax']);
+    expect(withTransactionMock).not.toHaveBeenCalled();
+  });
+
+  it('still defaults allowPhoneReveal to true for SELL when the field is omitted', async () => {
+    const dtoWithoutFlag: CreatePostDto = { ...validDto };
+    delete dtoWithoutFlag.allowPhoneReveal;
+    findActiveByIdMock.mockResolvedValueOnce({
+      id: 'TEXTBOOK',
+      name: 'Sách và giáo trình',
+      slug: 'textbooks',
+      sort_order: 1,
+    });
+    insertPostMock.mockResolvedValueOnce({
+      id: 'post-sell-2',
+      owner_id: verifiedUser.id,
+      post_type: 'SELL',
+      title: validDto.title,
+      description: validDto.description,
+      category_id: 'TEXTBOOK',
+      province: validDto.province,
+      status: 'ACTIVE',
+      close_reason: null,
+      ended_at: null,
+      created_at: new Date('2026-11-17T07:20:00Z'),
+      updated_at: new Date('2026-11-17T07:20:00Z'),
+    });
+    insertSellDetailsMock.mockResolvedValueOnce({
+      post_id: 'post-sell-2',
+      price: '95000.00',
+      condition: 'Như mới',
+      allow_phone_reveal: true,
+    });
+    savePostImageMock.mockResolvedValueOnce('posts/post-sell-2/0-img.jpg');
+    insertPostImagesMock.mockResolvedValueOnce([
+      {
+        id: 'img-sell-2',
+        post_id: 'post-sell-2',
+        storage_key: 'posts/post-sell-2/0-img.jpg',
+        sort_order: 0,
+      },
+    ]);
+
+    await service.createPost(verifiedUser, dtoWithoutFlag, [validFile]);
+
+    expect(insertSellDetailsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ allowPhoneReveal: true }),
+      expect.anything(),
+    );
+    expect(insertBuyRequestDetailsMock).not.toHaveBeenCalled();
   });
 });

@@ -37,6 +37,7 @@ describe('OtpService', () => {
       | 'findLatestActiveByEmail'
       | 'incrementAttempts'
       | 'markVerified'
+      | 'consumeVerifiedTicket'
       | 'findById'
     >
   >;
@@ -63,6 +64,7 @@ describe('OtpService', () => {
       findLatestActiveByEmail: jest.fn(),
       incrementAttempts: jest.fn(),
       markVerified: jest.fn().mockResolvedValue(true),
+      consumeVerifiedTicket: jest.fn().mockResolvedValue(true),
       findById: jest.fn(),
     };
     userRepository = {
@@ -82,6 +84,13 @@ describe('OtpService', () => {
   });
 
   describe('requestOtp', () => {
+    it('rejects an allowlisted education namespace without a school label (R05)', async () => {
+      await expect(service.requestOtp('admin@edu.vn')).rejects.toMatchObject({
+        response: { code: AUTH_ERROR_CODES.EMAIL_DOMAIN_NOT_ALLOWED },
+      });
+      expect(otpRepository.createOtp).not.toHaveBeenCalled();
+    });
+
     it('rejects non-allowlisted email domain with 400 EMAIL_DOMAIN_NOT_ALLOWED', async () => {
       await expect(service.requestOtp('user@gmail.com')).rejects.toMatchObject({
         response: { code: AUTH_ERROR_CODES.EMAIL_DOMAIN_NOT_ALLOWED },
@@ -223,7 +232,7 @@ describe('OtpService', () => {
       const result = await service.verifyOtp('  SV@PTIT.EDU.VN ', validCode);
       expect(result.expiresIn).toBe(600);
       expect(typeof result.otpTicket).toBe('string');
-      expect(otpRepository.markVerified).toHaveBeenCalledWith(row.id);
+      expect(otpRepository.markVerified).toHaveBeenCalledWith(row.id, 5, 600);
 
       const decoded = await otpTicketJwt.verifyAsync<OtpTicketPayload>(result.otpTicket);
       expect(decoded).toMatchObject({
@@ -234,6 +243,63 @@ describe('OtpService', () => {
 
       const verified = await service.verifyOtpTicket(result.otpTicket);
       expect(verified).toEqual({ email, otpId: row.id });
+    });
+
+    it('revokes a previously verified (unconsumed) ticket when a new OTP is requested', async () => {
+      const row = makeOtpRow({ verified_at: new Date() });
+      otpRepository.findLatestActiveByEmail.mockResolvedValue(row);
+      otpRepository.findById.mockResolvedValue(row);
+
+      const { otpTicket } = await service.verifyOtp(email, validCode);
+      expect(typeof otpTicket).toBe('string');
+
+      await service.requestOtp(email);
+
+      expect(otpRepository.expireActiveByEmail).toHaveBeenCalledWith(email);
+      expect(otpRepository.expireActiveByEmail.mock.invocationCallOrder[0]).toBeLessThan(
+        otpRepository.createOtp.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('rejects a ticket whose otp_verifications row is expired or already consumed', async () => {
+      const row = makeOtpRow({
+        verified_at: new Date(),
+        expires_at: new Date(Date.now() - 1),
+      });
+      otpRepository.findById.mockResolvedValue(row);
+
+      const ticket = await otpTicketJwt.signAsync({
+        sub: email,
+        otpId: row.id,
+        typ: 'otp_ticket',
+      });
+
+      await expect(service.verifyOtpTicket(ticket)).rejects.toMatchObject({
+        response: { code: AUTH_ERROR_CODES.OTP_TICKET_INVALID },
+      });
+    });
+
+    it('consumes an otpTicket exactly once', async () => {
+      const row = makeOtpRow({ verified_at: new Date() });
+      otpRepository.findById.mockResolvedValue(row);
+
+      const ticket = await otpTicketJwt.signAsync({
+        sub: email,
+        otpId: row.id,
+        typ: 'otp_ticket',
+      });
+
+      await expect(service.consumeOtpTicket(ticket)).resolves.toEqual({
+        email,
+        otpId: row.id,
+      });
+      expect(otpRepository.consumeVerifiedTicket).toHaveBeenCalledWith(row.id);
+
+      // Second (sequential) consumption loses the atomic UPDATE -> 400 OTP_TICKET_INVALID
+      otpRepository.consumeVerifiedTicket.mockResolvedValueOnce(false);
+      await expect(service.consumeOtpTicket(ticket)).rejects.toMatchObject({
+        response: { code: AUTH_ERROR_CODES.OTP_TICKET_INVALID },
+      });
     });
 
     it('rejects forged, expired, wrong-typ, or unverified otpTickets with 400 OTP_TICKET_INVALID', async () => {

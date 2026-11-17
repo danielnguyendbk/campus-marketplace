@@ -1,6 +1,6 @@
 # Báo cáo thực thi CMP-30 — 15/11/2026
 
-**Kết quả: chưa đủ điều kiện Done.** Các số sau đếm **43 ca thực thi con** độc lập sau khi tách theo hành vi/lớp: **Pass 35 · Fail 0 · Blocked 8 · Not Run 0**. Pass chỉ áp dụng cho kiểm tra nêu trong dòng, không mở rộng sang toàn bộ TC cha hoặc các phần chưa được kiểm chứng. Không tính báo cáo lịch sử hay test suite sẵn có vào kết quả này.
+**Kết quả: chưa đủ điều kiện Done.** Các số sau đếm **43 ca thực thi con** độc lập sau khi tách theo hành vi/lớp: **Pass 38 · Fail 0 · Blocked 5 · Not Run 0** (cập nhật sau phiên CMP-37 bên dưới). Pass chỉ áp dụng cho kiểm tra nêu trong dòng, không mở rộng sang toàn bộ TC cha hoặc các phần chưa được kiểm chứng. Không tính báo cáo lịch sử hay test suite sẵn có vào kết quả này.
 
 ## Môi trường và phương pháp
 
@@ -52,10 +52,19 @@
 | EX-16A | TC-16 | API | Pass | Register với ticket hợp lệ và password 7 ký tự | 400 VALIDATION_FAILED, user=0 |
 | EX-16B | TC-16 | UI | Pass | Verify OTP, nhập xác nhận khác rồi gửi | UI báo không khớp; 0 request register, DB user=0; [bằng chứng](evidence/ui-round3/README.md) |
 | EX-17A | TC-17 | API | Pass | Verify lại OTP đã dùng | 400 OTP_INVALID, không ticket |
-| EX-17B | TC-17 | API | Pass | Dùng lại ticket tuần tự sau đăng ký | 409 EMAIL_ALREADY_REGISTERED, một user; chưa chứng minh consume ticket độc lập hoặc race |
+| EX-17B | TC-17 | API | Pass | Dùng lại ticket tuần tự sau đăng ký; race `verify-otp` và `register`; ticket bị thu hồi khi resend | 409 EMAIL_ALREADY_REGISTERED, một user; 5 request verify-otp đồng thời → đúng 1 × 200 kèm `otpTicket`, 4 × 400 `OTP_INVALID`; 5 request register đồng thời cùng ticket → đúng 1 × 201, 4 × 400/409, đúng 1 user; ticket cũ đã verify bị vô hiệu hóa khi xin OTP mới → register 400 `OTP_TICKET_INVALID` dù email chưa có tài khoản |
 | EX-18A | TC-18 | API | Pass | Gửi OTP của email B cho email A | 400 OTP_INVALID, không ticket |
-| EX-18B | TC-18 | API | Blocked | Gửi lại sau 1 giây và thử OTP cũ | Quan sát 200 rồi 400 OTP_INVALID; trạng thái lịch sử Blocked; nay có oracle cấu hình dự án, chưa chạy lại |
-| EX-19A | TC-19 | API | Blocked | Thử mốc ngay trước/đúng/ngay sau hạn và các ngưỡng | Trạng thái lịch sử Blocked; nay đã mô tả mốc/đếm theo code, chưa chạy đủ biên |
+| EX-18B | TC-18 | API | Pass | Gửi lại ở biên cooldown 60 giây, quota 5 mã/giờ và thử OTP cũ | Gửi lại ở 59 giây → 429 `OTP_RATE_LIMITED`; ở 60 giây → 200; verify mã cũ → 400 `OTP_INVALID`; verify mã mới → 200; đủ 5 mã trong giờ → lần thứ 6 (dù qua cooldown) 429 `OTP_RATE_LIMITED`; khi các bản ghi lùi quá 1 giờ → 200 |
+| EX-19A | TC-19 | API | Pass | Thử mốc ngay trước/đúng/ngay sau hạn và các ngưỡng | Trước hạn (+500 ms) → 200; đúng mốc `expires_at == now()` → 400 `OTP_INVALID`; sau hạn (−1 ms) → 400 `OTP_INVALID`; sai 4 lần rồi đúng ở lần 5 → 200; sai 4 lần rồi sai lần 5 → 429 `OTP_ATTEMPTS_EXCEEDED`; lần 6 nhập đúng → vẫn 429 |
+
+## Phiên CMP-37 — kiểm chứng tự động race, vòng đời ticket và biên (17/11/2026)
+
+- **Phạm vi:** khắc phục các điểm tồn đọng `EX-17B`, `EX-18B`, `EX-19A` và chốt `R01–R06`; chạy trên nhánh `feat/cmp-9-10-37`, code backend sau khi bổ sung tiêu thụ `otpTicket` nguyên tử.
+- **Phương pháp:** (1) E2E Nest + supertest với repository in-memory, mỗi ca dùng email hư cấu riêng và dịch chuyển `created_at`/`expires_at` của fixture để đi đúng mốc biên thay vì chờ thời gian thật; (2) kiểm chứng thực nghiệm với SQL PostgreSQL thật trên schema cô lập `cmp37_isolated_test` (tạo → nạp `users`, `otp_verifications` → chạy `Promise.all` qua pool 5 kết nối → đối soát số dòng → `DROP SCHEMA … CASCADE`), schema `public` không bị chạm.
+- **Kết quả:** `auth.e2e-spec.ts` 9/9 Pass, trong đó 7 ca mới phủ `EX-17B`, `EX-18B`, `EX-19A`; test schema cô lập 7/7 Pass (verify-otp race, consume race, replay, thu hồi khi resend, biên `expires_at`/`attempts`, race `INSERT users`, dọn schema).
+- **Bằng chứng dòng DB (đã che):** 5 lần verify-otp đồng thời → 1 bản ghi `verified_at NOT NULL`, 1 bản ghi còn hạn; 5 lần consume đồng thời → 1 lần trả `rowCount = 1`, bản ghi còn hạn = 0; 5 lần `INSERT` cùng email → 1 thành công, 4 lỗi `23505`, `COUNT(*) = 1`; sau phiên, `pg_namespace` không còn schema `cmp37%` và số bảng `public` không đổi.
+- **Phát hiện trong lúc kiểm chứng:** bản SQL consume dùng `now()` (thời điểm bắt đầu transaction) cho phép hai request chờ lock cùng consume; đã chuyển sang `clock_timestamp()` để bảo đảm đúng một lần tiêu thụ. Đây là bằng chứng giá trị của bài test schema cô lập.
+- **Không lưu nhạy cảm:** không có OTP, mật khẩu, JWT, `otpTicket` hay chuỗi kết nối DB trong tài liệu; mọi giá trị OTP chỉ tồn tại trong bộ nhớ test.
 
 ## Sai khác / lỗi cần theo dõi
 
@@ -70,11 +79,11 @@ Không phát hiện lỗi auth được xác nhận khác trong phạm vi các c
 
 ## Đối chiếu Q01–Q09 sau rà soát
 
-Quy định cấu hình và kết luận Q01–Q09 hiện được duy trì tại [README](README.md#kết-quả-rà-soát-q01q09). Q01, Q02, Q06, Q09 đã được cụ thể hóa; các phần rõ của Q04, Q05, Q08 đã được ghi nhận. R01–R06 tiếp tục ghi sai khác hoặc phụ thuộc thực sự. `EX-18B` và `EX-19A` giữ Blocked theo kết quả phiên trước: mô tả oracle mới không phải là bằng chứng đã chạy lại. Kết quả 35 Pass / 8 Blocked không đổi.
+Quy định cấu hình và kết luận Q01–Q09 hiện được duy trì tại [README](README.md#kết-quả-rà-soát-q01q09). Q01, Q02, Q06, Q07, Q09 đã được cụ thể hóa và kiểm chứng; các phần rõ của Q04, Q05, Q08 đã được ghi nhận. `R01–R06` đã được BE/BA chốt hướng xử lý (bảng tại README); `R04` và `R05` đã được sửa trong code và có bằng chứng thực thi. `EX-18B` và `EX-19A` chuyển từ Blocked sang Pass bằng phiên CMP-37. Kết quả hiện tại: 38 Pass / 5 Blocked.
 
 ## Phạm vi đã kiểm chứng và còn thiếu
 
-API local đã thực thi nhánh OTP đúng/sai/hết hạn/sau ngưỡng, chặn ticket giả/thiếu, tạo PENDING, login đúng/sai và từ chối domain; UI đã kiểm tra email trống, sai domain, gửi OTP, OTP sai, login đúng/sai và hiển thị PENDING. Phiên tiếp theo đã kiểm UI verify đúng và email sai định dạng; [biên bản](evidence/UI_2026-11-15.md). Đã kiểm bổ sung UI đăng ký toàn bộ, login email chưa tồn tại và xác nhận mật khẩu. Chưa xác minh gửi thư thật, feed/detail guard, biên thời gian, chính sách resend và toàn bộ role/status. Không chạy lại lint/test suite/build vì đây là phiên thực thi ca thủ công/script, không sửa code ứng dụng.
+API local đã thực thi nhánh OTP đúng/sai/hết hạn/sau ngưỡng, chặn ticket giả/thiếu, tạo PENDING, login đúng/sai và từ chối domain; UI đã kiểm tra email trống, sai domain, gửi OTP, OTP sai, login đúng/sai và hiển thị PENDING. Phiên tiếp theo đã kiểm UI verify đúng và email sai định dạng; [biên bản](evidence/UI_2026-11-15.md). Đã kiểm bổ sung UI đăng ký toàn bộ, login email chưa tồn tại và xác nhận mật khẩu. Chưa xác minh gửi thư thật, feed/detail guard và toàn bộ role/status; biên thời gian, chính sách resend và vòng đời `otpTicket` đã được kiểm chứng tự động ở phiên CMP-37 (E2E + schema PostgreSQL cô lập). Không chạy lại lint/test suite/build vì đây là phiên thực thi ca thủ công/script, không sửa code ứng dụng.
 
 DoD CMP-30 còn thiếu BE/FE thống nhất, có người xác nhận và tài liệu được chia sẻ/đính kèm Jira; các sai khác/phụ thuộc được ghi nhận để nhóm review; các ca Blocked không phải điều kiện mới do báo cáo tự đặt cho DoD gốc. Không tự thay đổi trạng thái Jira.
 

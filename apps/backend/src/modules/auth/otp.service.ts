@@ -166,7 +166,11 @@ export class OtpService {
       });
     }
 
-    const marked = await this.otpRepository.markVerified(activeOtp.id);
+    const marked = await this.otpRepository.markVerified(
+      activeOtp.id,
+      this.config.otpMaxAttempts,
+      this.config.otpTtlSeconds,
+    );
     if (!marked) {
       throw new BadRequestException({
         code: AUTH_ERROR_CODES.OTP_INVALID,
@@ -190,15 +194,27 @@ export class OtpService {
     };
   }
 
-  async verifyOtpTicket(otpTicket: string): Promise<{ email: string; otpId: string }> {
+  private rejectInvalidTicket(): never {
+    throw new BadRequestException({
+      code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
+      message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
+    });
+  }
+
+  /**
+   * Verifies only the ticket signature/structure and the allowlisted owner domain.
+   * `AuthService.register` needs the email before touching the database so a replay of
+   * an already-consumed ticket of a registered email still returns
+   * 409 EMAIL_ALREADY_REGISTERED (Phương án A / EX-03B).
+   */
+  async verifyOtpTicketClaims(
+    otpTicket: string,
+  ): Promise<{ email: string; otpId: string }> {
     let payload: OtpTicketPayload;
     try {
       payload = await this.otpTicketJwt.verifyAsync<OtpTicketPayload>(otpTicket);
     } catch {
-      throw new BadRequestException({
-        code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
-        message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
-      });
+      this.rejectInvalidTicket();
     }
 
     if (
@@ -207,33 +223,47 @@ export class OtpService {
       typeof payload.sub !== 'string' ||
       typeof payload.otpId !== 'string'
     ) {
-      throw new BadRequestException({
-        code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
-        message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
-      });
+      this.rejectInvalidTicket();
     }
 
     const email = normalizeEmail(payload.sub);
     if (!isAllowedSchoolEmail(email, this.config.allowedSchoolDomains)) {
-      throw new BadRequestException({
-        code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
-        message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
-      });
+      this.rejectInvalidTicket();
     }
 
-    const otpRow = await this.otpRepository.findById(payload.otpId);
+    return { email, otpId: payload.otpId };
+  }
+
+  async verifyOtpTicket(otpTicket: string): Promise<{ email: string; otpId: string }> {
+    const { email, otpId } = await this.verifyOtpTicketClaims(otpTicket);
+
+    const otpRow = await this.otpRepository.findById(otpId);
     if (
       !otpRow ||
       normalizeEmail(otpRow.email) !== email ||
-      otpRow.verified_at === null
+      otpRow.verified_at === null ||
+      new Date(otpRow.expires_at).getTime() <= Date.now()
     ) {
-      throw new BadRequestException({
-        code: AUTH_ERROR_CODES.OTP_TICKET_INVALID,
-        message: 'Phiên xác thực OTP không hợp lệ hoặc đã hết hạn.',
-      });
+      this.rejectInvalidTicket();
     }
 
     return { email, otpId: otpRow.id };
+  }
+
+  /**
+   * Verifies an otpTicket and atomically consumes it so it can be used exactly once.
+   */
+  async consumeOtpTicket(
+    otpTicket: string,
+  ): Promise<{ email: string; otpId: string }> {
+    const { email, otpId } = await this.verifyOtpTicket(otpTicket);
+
+    const consumed = await this.otpRepository.consumeVerifiedTicket(otpId);
+    if (!consumed) {
+      this.rejectInvalidTicket();
+    }
+
+    return { email, otpId };
   }
 }
 

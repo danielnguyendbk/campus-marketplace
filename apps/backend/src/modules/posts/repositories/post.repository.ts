@@ -27,6 +27,12 @@ export interface SellDetailRow {
   allow_phone_reveal: boolean;
 }
 
+export interface BuyRequestDetailRow {
+  post_id: string;
+  budget_min: string | number;
+  budget_max: string | number;
+}
+
 export interface PostImageRow {
   id: string;
   post_id: string;
@@ -42,6 +48,8 @@ export interface PostDetailRow extends PostRow {
   price: string | number | null;
   condition: string | null;
   allow_phone_reveal: boolean | null;
+  budget_min: string | number | null;
+  budget_max: string | number | null;
 }
 
 export interface PostSummaryRow {
@@ -52,6 +60,8 @@ export interface PostSummaryRow {
   province: string;
   status: PostStatus;
   price: string | number | null;
+  budget_min: string | number | null;
+  budget_max: string | number | null;
   thumbnail_storage_key: string | null;
   created_at: Date | string;
 }
@@ -109,6 +119,20 @@ export class PostRepository extends BaseRepository<PostRow> {
     return res.rows[0];
   }
 
+  async insertBuyRequestDetails(
+    params: { postId: string; budgetMin: number; budgetMax: number },
+    client: PoolClient,
+  ): Promise<BuyRequestDetailRow> {
+    const res = await this.executeQuery<BuyRequestDetailRow>(
+      `INSERT INTO "buy_request_details" ("post_id", "budget_min", "budget_max")
+       VALUES ($1, $2, $3)
+       RETURNING *;`,
+      [params.postId, params.budgetMin, params.budgetMax],
+      client,
+    );
+    return res.rows[0];
+  }
+
   async insertPostImages(
     postId: string,
     images: Array<{ storageKey: string; sortOrder: number }>,
@@ -140,10 +164,12 @@ export class PostRepository extends BaseRepository<PostRow> {
          u."verification_status" AS "owner_verification_status",
          u."reputation_score" AS "owner_reputation_score",
          u."province" AS "owner_province",
-         sd."price", sd."condition", sd."allow_phone_reveal"
+         sd."price", sd."condition", sd."allow_phone_reveal",
+         brd."budget_min", brd."budget_max"
        FROM "posts" p
        INNER JOIN "users" u ON u."id" = p."owner_id"
        LEFT JOIN "sell_details" sd ON sd."post_id" = p."id"
+       LEFT JOIN "buy_request_details" brd ON brd."post_id" = p."id"
        WHERE p."id" = $1
          AND p."deleted_at" IS NULL
          AND u."deleted_at" IS NULL
@@ -196,9 +222,11 @@ export class PostRepository extends BaseRepository<PostRow> {
       `SELECT
          p."id", p."post_type", p."title", p."category_id", p."province", p."status", p."created_at",
          sd."price",
+         brd."budget_min", brd."budget_max",
          img."storage_key" AS "thumbnail_storage_key"
        FROM "posts" p
        LEFT JOIN "sell_details" sd ON sd."post_id" = p."id"
+       LEFT JOIN "buy_request_details" brd ON brd."post_id" = p."id"
        LEFT JOIN LATERAL (
          SELECT pi."storage_key"
          FROM "post_images" pi

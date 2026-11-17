@@ -367,10 +367,10 @@ Kết quả thực thi được tách theo hành vi và lớp trong [báo cáo](
 2. POST register lần hai với ticket đã dùng.
 3. Kiểm tra không có user thứ hai/session mới.
 
-**Kết quả mong đợi:** Không có ticket mới từ OTP đã dùng; register không tạo user thứ hai hay phiên. Contract ticket một lần; R04 ghi nhận tiêu thụ độc lập cần review.
+**Kết quả mong đợi:** Không có ticket mới từ OTP đã dùng; register không tạo user thứ hai hay phiên. Contract ticket một lần; R04 đã được hiện thực bằng tiêu thụ nguyên tử (`consumeVerifiedTicket`) và kiểm chứng cả tuần tự lẫn đồng thời.
 
 - **Dọn dữ liệu:** Theo README; xóa riêng user/OTP fixture tạo bởi ca nếu được phép, không đụng dữ liệu khác.
-- **Sẵn sàng:** Sẵn sàng cho kiểm thử tuần tự; review R04 về tiêu thụ ticket.
+- **Sẵn sàng:** Đã chạy: tuần tự, race `verify-otp`/`register` và thu hồi ticket khi resend.
 - **Kết quả thực tế / trạng thái TC cha:** Pass; từng phần: EX-17A, EX-17B. **Bằng chứng:** [báo cáo thực thi](Test_Execution_Report.md).
 
 
@@ -391,8 +391,8 @@ Kết quả thực thi được tách theo hành vi và lớp trong [báo cáo](
 **Kết quả mong đợi:** Bước 2: sau resend thành công, OTP cũ chưa xác thực bị từ chối; bước 3 bị từ chối, không trả ticket. Cấu hình dự án mặc định cooldown 60 giây, tối đa 5 mã/giờ/email; điều chỉnh theo môi trường thực tế. Không lưu OTP trong bằng chứng.
 
 - **Dọn dữ liệu:** Theo README; xóa riêng user/OTP fixture tạo bởi ca nếu được phép, không đụng dữ liệu khác.
-- **Sẵn sàng:** Sẵn sàng chạy lại theo cấu hình resend và fixture.
-- **Kết quả thực tế / trạng thái TC cha:** Blocked; từng phần: EX-18A, EX-18B. **Bằng chứng:** [báo cáo thực thi](Test_Execution_Report.md).
+- **Sẵn sàng:** Đã chạy với cấu hình mặc định (cooldown 60 giây, 5 mã/giờ) và fixture thời gian.
+- **Kết quả thực tế / trạng thái TC cha:** Pass; từng phần: EX-18A, EX-18B. **Bằng chứng:** [báo cáo thực thi](Test_Execution_Report.md).
 
 
 ## TC-19 — Biên thời gian và số lần thử OTP
@@ -412,5 +412,5 @@ Kết quả thực thi được tách theo hành vi và lớp trong [báo cáo](
 **Kết quả mong đợi:** Đối chiếu code hiện tại: truy vấn chỉ chọn OTP khi `expires_at > now()`; tại hoặc sau `expires_at` không chọn OTP. Không suy ra kết quả của request bắt đầu trước hạn nhưng hoàn tất sau hạn. Mỗi lần nhập sai tăng attempts; lần sai chạm ngưỡng trả 429 và sau đó mã đúng cũng bị từ chối khi OTP còn hiệu lực. Với mặc định, ngưỡng là 5. Dùng đồng hồ/fixture test riêng, không đánh giá biên bằng chờ thời gian không kiểm soát.
 
 - **Dọn dữ liệu:** Theo README; xóa riêng user/OTP fixture tạo bởi ca nếu được phép, không đụng dữ liệu khác.
-- **Sẵn sàng:** Cần đồng hồ test/fixture để chạy các mốc biên.
-- **Kết quả thực tế / trạng thái TC cha:** Blocked; từng phần: EX-19A. **Bằng chứng:** [báo cáo thực thi](Test_Execution_Report.md).
+- **Sẵn sàng:** Đã chạy bằng fixture đặt `expires_at`/`attempts` đúng từng mốc biên.
+- **Kết quả thực tế / trạng thái TC cha:** Pass; từng phần: EX-19A. **Bằng chứng:** [báo cáo thực thi](Test_Execution_Report.md).
