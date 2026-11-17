@@ -4,6 +4,19 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Cập nhật tài liệu QA — CMP-40 (2026-11-17)
+
+- Theo tiến độ người giao: CMP-7/8/9/10/34/36 đã được dev triển khai; CMP-35 chưa triển khai, CMP-37 chưa hoàn tất. Các nhãn Done của CMP-37 trong phần lịch sử bên dưới không phải xác nhận tiến độ hiện tại.
+- Đã chỉnh `docs/qa/CMP-40/` thành đặc tả và hướng dẫn nghiệm thu, bổ sung `Implementation_Guide.md`, BDD, test cases và truy vết; giữ nguyên kết quả đã chạy trong báo cáo. Lần chỉnh này chỉ sửa tài liệu, không chạy lại E2E hay kết nối DB. Mock CMP-35 phản ánh bản hiện tại; repository CMP-37 7/7 chỉ chứng minh phạm vi repository/SQL.
+- **Sự cố DB vẫn cần xử lý:** suite trước tự nạp DB không phải localhost và thực hiện `DROP SCHEMA IF EXISTS cmp37_isolated_test CASCADE`; chưa xác minh schema cũ có dữ liệu hay không. Quản trị DB cần kiểm tra audit/backup, xem báo cáo CMP-40; không tự kết luận không có ảnh hưởng. Chỉ chạy test tạo/xóa schema sau khi xác nhận DB test riêng và phạm vi xóa, không tự nạp `.env` DB dùng chung.
+- CMP-40 chưa Done; chờ kiểm thử còn thiếu và review BE/FE/PM, không có phê duyệt hay PR mới.
+
+### Cập nhật QA — CMP-40 (2026-11-17)
+
+- Commit khảo sát `8f450ce589f1a4bbaf173d791fccfa14a01511a2`; tài liệu tại `docs/qa/CMP-40/`. Chưa Done: CMP-35 UI mock tái hiện lỗi gộp hai mã 429; nhiều ca DB/storage/SMTP/integration và review còn thiếu. Schema CMP-36 và health harness DB giả Pass trong phạm vi ghi nhận; repository OTP DB local tạm 7/7 Pass. `lint` Pass; test/typecheck/build chưa đạt do thiếu dependency Multer. Chi tiết và cách tái hiện tại báo cáo.
+- **Sự cố cần quản trị DB kiểm tra:** E2E toàn bộ tự nạp cấu hình DB không phải localhost và chạy suite có `DROP SCHEMA IF EXISTS cmp37_isolated_test CASCADE`, sau đó tạo/xóa schema test; chưa biết schema cùng tên có dữ liệu trước đó hay không. Xem `docs/qa/CMP-40/Test_Execution_Report.md`; xác minh audit/backup, không dùng cấu hình đó để chạy lại.
+- Chưa có review BE/FE/PM, chưa tạo PR. Những chênh lệch về URL ảnh, quyền theo JWT cũ và contract cần nhóm review.
+
 ## Trạng thái hệ thống hiện tại
 
 - **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-15 (Quản lý cuộc trò chuyện Chat `POST /api/v1/conversations`, `GET /api/v1/conversations`), tích hợp đầy đủ cùng CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
