@@ -1,10 +1,13 @@
 -- Seed data for categories table (Campus Marketplace v1.2)
-INSERT INTO "categories" ("name", "description")
+INSERT INTO "categories" ("id", "name", "slug", "is_active", "sort_order")
 VALUES
-  ('Giáo trình & Sách học tập', 'Sách giáo trình đại học, đề cương, sách tham khảo các ngành'),
-  ('Thiết bị điện tử & Phụ kiện', 'Laptop, màn hình, chuột, bàn phím, sạc, tai nghe'),
-  ('Đồ dùng phòng trọ', 'Quạt, ấm siêu tốc, bàn gấp, giá sách, tủ vải, móc treo'),
-  ('Phương tiện di chuyển', 'Xe đạp, xe đạp điện, mũ bảo hiểm, phụ kiện xe máy'),
-  ('Thời trang & Phụ kiện sinh viên', 'Áo đồng phục, balo, giày dép, túi xách đi học'),
-  ('Đồ dùng học tập & Văn phòng phẩm', 'Máy tính Casio, dụng cụ vẽ kỹ thuật, sổ tay, bút thước')
-ON CONFLICT ("name") DO NOTHING;
+  ('TEXTBOOK', 'Sách và giáo trình', 'textbooks', true, 1),
+  ('ELECTRONICS', 'Thiết bị điện tử & Phụ kiện', 'electronics', true, 2),
+  ('FURNITURE', 'Nội thất & Đồ dùng phòng trọ', 'furniture', true, 3),
+  ('APPLIANCES', 'Đồ gia dụng sinh viên', 'appliances', true, 4),
+  ('OTHER', 'Đồ dùng khác', 'other', true, 5)
+ON CONFLICT ("id") DO UPDATE
+SET "name" = EXCLUDED."name",
+    "slug" = EXCLUDED."slug",
+    "is_active" = EXCLUDED."is_active",
+    "sort_order" = EXCLUDED."sort_order";

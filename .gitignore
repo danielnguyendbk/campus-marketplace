@@ -57,3 +57,7 @@ temp/
 
 # docs
 docs/qa/evidence/
+
+# Local static uploads (dev/demo)
+uploads/
+apps/backend/uploads/
