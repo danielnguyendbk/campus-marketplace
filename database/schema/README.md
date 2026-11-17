@@ -16,7 +16,7 @@ Dự án Campus Marketplace bao gồm **18 bảng** được phân loại theo c
 - `post_images`: Ảnh minh họa bài đăng, đường dẫn lưu trữ `storage_key` và thứ tự hiển thị `sort_order`.
 
 ## 3. Phân hệ Trao đổi & Tin nhắn (Communication)
-- `conversations`: Cuộc trò chuyện gắn liền với một bài đăng (`post_id`) giữa người mua (`buyer_id`) và người bán (`seller_id`).
+- `conversations`: Cuộc trò chuyện gắn liền với một bài đăng (`post_id`) giữa hai thành viên (`member_low_id`, `member_high_id` sắp xếp theo thứ tự UUID để chống trùng lặp hội thoại), trạng thái (`OPEN`, `RESTRICTED`).
 - `messages`: Từng tin nhắn gửi trong cuộc trò chuyện (văn bản hoặc đính kèm).
 - `attachments`: Thông tin file/ảnh đính kèm trong tin nhắn, đường dẫn lưu trữ, trạng thái hết hạn.
 - `phone_reveal_events`: Lưu vết khi một người dùng xem số điện thoại của người bán/người mua nhằm phòng ngừa gian lận.
