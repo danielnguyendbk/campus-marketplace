@@ -40,14 +40,15 @@ describe('HealthController', () => {
     expect(result.version).toBe('1.2.0-bootstrap');
   });
 
-  it('should return degraded if database is disconnected', async () => {
+  it('should return degraded if database is disconnected with safe generic message', async () => {
     jest.spyOn(postgresService, 'checkHealth').mockResolvedValueOnce({
       status: 'disconnected',
-      message: 'Connection timed out',
+      message: 'Database connection unavailable',
     });
 
     const result = await healthController.getHealth();
     expect(result.status).toBe('degraded');
     expect(result.database.status).toBe('disconnected');
+    expect(result.database.message).toBe('Database connection unavailable');
   });
 });
