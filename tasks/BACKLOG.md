@@ -113,10 +113,10 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** `JwtAuthGuard` giải mã Bearer Token gắn `req.user`; `RolesGuard` thẩm định ADMIN/USER; `VerificationGuard` từ chối `PENDING` vào API yêu cầu `APPROVED` với HTTP 403; `SUSPENDED` bị chặn toàn diện.
   - **Tests:** Unit test từng guard với mock context; test 401 khi thiếu token, 403 khi sai role/status.
   - **Branch:** `feat/be-01-security-guards`
-- [ ] **BE-01-T04: User Domain — Profile & Preferences Management** (P1, 3 SP)
+- [x] **BE-01-T04: User Domain — Profile & Preferences Management** (P1, 3 SP)
   - **API:** `GET /me`, `PATCH /me`, `GET /me/preferences`, `PATCH /me/preferences`.
   - **Database:** `users`, `user_preferences`.
-  - **Files:** `src/modules/user/user.controller.ts`, `user.service.ts`, `repositories/user.repository.ts`.
+  - **Files:** `src/modules/user/user.controller.ts`, `user.service.ts`, `repositories/user-profile.repository.ts`.
   - **Acceptance Criteria:** `GET /me` tuyệt đối không trả `password_hash` và `card_image_ref` (BR-03); `PATCH /me` chỉ sửa `displayName`, `phoneNumber`, `province`; hỗ trợ `favoriteCategoryIds` và `interestKeywords`.
   - **Tests:** Contract test `MeResponse`, unit test update profile, negative test cố tình sửa `role`.
   - **Branch:** `feat/be-01-user-profile`

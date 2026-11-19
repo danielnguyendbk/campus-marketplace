@@ -338,6 +338,46 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Lịch sử bàn giao (Handoff Log)
 
+### Handoff #027: Triển khai Bộ API Quản lý Hồ sơ & Sở thích Người dùng (CMP-21 / BE-01-T04) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `feat/be-01-user-profile`
+- **Truy vết:** `CMP-21`, `BE-01-T04`, `FR-05`, `BR-03`, `DB05`, `Sprint 1 Backlog`
+- **Nội dung hoàn thành:**
+  1. **Triển khai 4 API endpoints chuẩn OpenAPI 3.x v1.2:**
+     - `GET /api/v1/me`: Trả về `MeResponse` chứa `MeProfile` (`id`, `schoolEmail`, `displayName`, `phoneNumber`, `role`, `verificationStatus`, `school`, `major`, `className`, `studentCode`, `cohort`, `province`, `reputationScore`, `createdAt`). Bảo mật tuyệt đối theo BR-03 (không trả `passwordHash`, `codeHash`, `cardImageRef`). Cho phép cả tài khoản `APPROVED`, `PENDING` và `REJECTED` tra cứu thông tin chính chủ qua `JwtAuthGuard`.
+     - `PATCH /api/v1/me`: Cập nhật thông tin liên hệ sinh viên (`displayName`, `phoneNumber`, `province`). Chặn chỉnh sửa các trường được bảo vệ hệ thống (`schoolEmail`, `role`, `verificationStatus`, `reputationScore`) bằng `createValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`. Yêu cầu `JwtAuthGuard` + `VerificationGuard` (chỉ `APPROVED` mới được cập nhật).
+     - `GET /api/v1/me/preferences`: Trả về `PreferenceResponse` chứa `Preference` (`favoriteCategoryIds`, `interestKeywords`, `updatedAt`). Trả mảng rỗng mặc định nếu tài khoản chưa có bản ghi cấu hình sở thích. Bảo vệ bởi `JwtAuthGuard` + `VerificationGuard`.
+     - `PATCH /api/v1/me/preferences`: Tiếp nhận và khử trùng lặp danh mục yêu thích, thẩm thực tính hợp lệ của từng category ID qua `CategoriesRepository.findActiveById(id)` (từ chối 400 `VALIDATION_FAILED` nếu danh mục không tồn tại hoặc `is_active = false`), chuẩn hóa và khử trùng lặp `interestKeywords`, thực hiện upsert an toàn vào bảng `user_preferences`.
+  2. **Data Layer (`UserProfileRepository`):**
+     - Kế thừa `BaseRepository` và kết nối PostgreSQL qua `PostgresService`.
+     - `findProfileById(userId)`: Truy vấn loại trừ tài khoản đã bị xóa mềm (`deleted_at IS NULL`).
+     - `updateProfile(userId, data)`: Cập nhật động các trường hợp lệ và `updated_at = clock_timestamp()`.
+     - `findPreferences(userId)`: Đọc thiết lập sở thích theo `user_id`.
+     - `upsertPreferences(userId, categoryIds, interestKeywords)`: Câu lệnh `INSERT ... ON CONFLICT ("user_id") DO UPDATE` với PostgreSQL array type.
+  3. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - **Unit Tests:** Đạt 100% PASS cho toàn bộ User Module (`user-profile.repository.spec.ts`, `user.service.spec.ts`, `user.controller.spec.ts` cùng với các unit tests hiện hữu). Tổng cộng 33 test suites (251 tests) backend và 2 test suites (58 tests) frontend PASS.
+     - **E2E Tests:** Tạo mới `test/user-profile.e2e-spec.ts` gồm 18 test cases kiểm thử chi tiết mọi kịch bản (APPROVED, PENDING, SUSPENDED, Unauthenticated, vi phạm whitelist, invalid category, empty displayName, envelope schema adherence). 10/10 test suites (152 tests) E2E backend PASS.
+     - **Code Quality & Build:** `pnpm lint` PASS (0 errors, 0 warnings), `pnpm typecheck` PASS (0 errors), `pnpm build` PASS (biên dịch hoàn tất backend và Next.js frontend).
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/user/user.types.ts` (mới)
+  - `apps/backend/src/modules/user/dto/update-me.dto.ts` (mới)
+  - `apps/backend/src/modules/user/dto/update-preference.dto.ts` (mới)
+  - `apps/backend/src/modules/user/repositories/user-profile.repository.ts` (mới)
+  - `apps/backend/src/modules/user/repositories/user-profile.repository.spec.ts` (mới)
+  - `apps/backend/src/modules/user/user.service.ts` (mới)
+  - `apps/backend/src/modules/user/user.service.spec.ts` (mới)
+  - `apps/backend/src/modules/user/user.controller.ts` (mới)
+  - `apps/backend/src/modules/user/user.controller.spec.ts` (mới)
+  - `apps/backend/src/modules/user/user.module.ts` (mới)
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/test/user-profile.e2e-spec.ts` (mới)
+  - `tasks/BACKLOG.md`
+  - `tasks/AGENT_HANDOFF.md`
+
+---
+
 ### Handoff #026: Triển khai Bộ API Chuyển đổi Vòng đời Bài đăng (CMP-11 / BE-02-T05) (19/11/2026)
 
 - **Ngày:** 2026-11-19
