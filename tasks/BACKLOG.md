@@ -106,7 +106,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** `bcrypt` với `saltRounds = 12`; mặc định `role = 'USER'`, `verification_status = 'PENDING'`, `reputation_score = 5.0`; trả về `AuthSessionResponse` gồm `accessToken` và `user`.
   - **Tests:** Unit test bcrypt compare, JWT sign/verify, E2E login thành công và sai mật khẩu.
   - **Branch:** `feat/be-auth-otp-session`
-- [ ] **BE-01-T03: Security & RBAC — Core Guards, Roles & Verification Enforcer** (P0, 5 SP)
+- [x] **BE-01-T03: Security & RBAC — Core Guards, Roles & Verification Enforcer** (P0, 5 SP)
   - **API:** Middleware & Guards xuyên suốt toàn hệ thống.
   - **Database:** `users` (`role`, `verification_status`).
   - **Files:** `src/common/guards/jwt-auth.guard.ts`, `roles.guard.ts`, `verification.guard.ts`, `decorators/current-user.decorator.ts`.
