@@ -338,6 +338,46 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Lịch sử bàn giao (Handoff Log)
 
+### Handoff #029: Triển khai Realtime Events — Message/Notice/Report Stream Broadcaster (CMP-25 / BE-01-T09) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `feat/be-01-realtime-events`
+- **Truy vết:** `CMP-25`, `BE-01-T09`, `FR-10`, `FR-17`, `ARCHITECTURE.md §7.2`, `Sprint 3 Backlog`
+- **Nội dung hoàn thành:**
+  1. **Định nghĩa Hợp đồng Sự kiện Thời gian thực (Realtime Events Contract):**
+     - Tạo `src/modules/realtime/interfaces/realtime-events.interface.ts` định nghĩa hằng số sự kiện và kiểu dữ liệu chuẩn:
+       - `message.created`: Payload chứa `{ conversationId: string, message: MessageDto }` phát tới room hội thoại `conversation_{id}`.
+       - `notification.created`: Payload chứa `{ id, userId, title, content, type, createdAt, isRead }` phát tới personal room `user_{userId}`.
+       - `report.updated`: Payload chứa `{ reportId, status, updatedAt, message, targetUserId }` phát tới các bên liên quan.
+  2. **Triển khai RealtimeService Tập trung:**
+     - Tạo `RealtimeService` quản lý toàn bộ việc phát sóng sự kiện qua `RealtimeGateway`:
+       - `emitToConversation(conversationId, event, data)`
+       - `emitToUser(userId, event, data)`
+       - `emitToRoom(room, event, data)`
+       - `emitMessageCreated(conversationId, message)`
+       - `emitNotificationCreated(userId, notification)`
+       - `emitReportUpdated(targetUserIds, report)` (hỗ trợ single userId hoặc danh sách userIds).
+  3. **Tích hợp Liền mạch với Chat Domain (`ChatService`):**
+     - Cập nhật `ChatModule` import `RealtimeModule`.
+     - Cập nhật `ChatService` tự động gọi `realtimeService.emitMessageCreated(conversationId, messageDto)` ngay khi tạo tin nhắn văn bản (`createMessage`) hoặc gửi tệp đính kèm (`sendAttachment`) thành công, giúp toàn bộ người tham gia trong hội thoại nhận tin nhắn tức thì qua WebSocket mà không cần polling.
+  4. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - **Unit Tests:** `realtime.service.spec.ts` đạt 100% PASS (6/6 tests kiểm tra delegation tới gateway, emitToRoom, message, notification, report broadcast). Toàn bộ 36 test suites backend (279 tests) và 2 suites frontend (58 tests) đều PASS.
+     - **E2E Tests:** Cập nhật `test/realtime-gateway.e2e-spec.ts` Part 3 kiểm thử broadcast đa client qua `RealtimeService`: 13/13 tests PASS. Toàn bộ 11 test suites E2E backend (165 tests) PASS.
+     - **Code Quality & Build:** `pnpm lint` PASS (0 errors, 0 warnings), `pnpm typecheck` PASS (0 errors), `pnpm build` PASS.
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/realtime/interfaces/realtime-events.interface.ts` (mới)
+  - `apps/backend/src/modules/realtime/realtime.service.ts` (mới)
+  - `apps/backend/src/modules/realtime/realtime.service.spec.ts` (mới)
+  - `apps/backend/src/modules/realtime/realtime.module.ts`
+  - `apps/backend/src/modules/chat/chat.module.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/test/realtime-gateway.e2e-spec.ts`
+  - `tasks/BACKLOG.md`
+  - `tasks/AGENT_HANDOFF.md`
+
+---
+
 ### Handoff #028: Triển khai Realtime Core — Socket.IO Gateway & Handshake Auth (CMP-15 / BE-01-T08) (19/11/2026)
 
 - **Ngày:** 2026-11-19

@@ -214,7 +214,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** Handshake chỉ đọc token từ `auth.token` hoặc `headers.authorization`; tuyệt đối cấm query token; ngắt kết nối nếu token sai hoặc `verification_status != 'APPROVED'`; tự động vào room `user_{id}`; `join_conversation` kiểm tra thành viên trước khi vào room `conversation_{id}`.
   - **Tests:** E2E WebSocket test với `socket.io-client`: verify handshake thành công, chặn token rác, chặn PENDING.
   - **Branch:** `feat/be-01-realtime-gateway`
-- [ ] **BE-01-T09: Realtime Events — Message/Notice/Report Stream Broadcaster** (P0, 5 SP)
+- [x] **BE-01-T09: Realtime Events — Message/Notice/Report Stream Broadcaster** (P0, 5 SP)
   - **API:** WebSocket Events: `message.created`, `notification.created`, `report.updated`.
   - **Database:** Không phụ thuộc trực tiếp.
   - **Files:** `src/modules/realtime/realtime.service.ts`, `interfaces/realtime-events.interface.ts`.

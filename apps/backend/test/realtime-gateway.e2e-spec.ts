@@ -11,8 +11,8 @@ import {
   VerificationStatus,
 } from '../src/modules/auth/auth.types';
 import { SocketIoAdapter } from '../src/modules/realtime/adapters/socket-io.adapter';
-import { RealtimeGateway } from '../src/modules/realtime/realtime.gateway';
 import { RealtimeModule } from '../src/modules/realtime/realtime.module';
+import { RealtimeService } from '../src/modules/realtime/realtime.service';
 
 interface FakeUserRecord {
   id: string;
@@ -59,7 +59,7 @@ class InMemoryPostgresForRealtime {
 
 describe('Realtime Socket.IO Gateway E2E (BE-01-T08 / CMP-15)', () => {
   let app: INestApplication;
-  let gateway: RealtimeGateway;
+  let realtimeService: RealtimeService;
   let jwtService: JwtService;
   let serverUrl: string;
   const fakeDb = new InMemoryPostgresForRealtime();
@@ -168,7 +168,7 @@ describe('Realtime Socket.IO Gateway E2E (BE-01-T08 / CMP-15)', () => {
     const port = typeof serverAddress === 'object' ? serverAddress?.port : 3000;
     serverUrl = `http://127.0.0.1:${port}`;
 
-    gateway = moduleFixture.get<RealtimeGateway>(RealtimeGateway);
+    realtimeService = moduleFixture.get<RealtimeService>(RealtimeService);
     jwtService = moduleFixture.get<JwtService>(ACCESS_TOKEN_JWT);
 
     approvedToken = jwtService.sign({
@@ -387,8 +387,8 @@ describe('Realtime Socket.IO Gateway E2E (BE-01-T08 / CMP-15)', () => {
     });
   });
 
-  describe('Part 3: Realtime Broadcasting & Targeting', () => {
-    it('should broadcast message to users inside the conversation room', (done) => {
+  describe('Part 3: Realtime Broadcasting & Targeting (CMP-25 / BE-01-T09)', () => {
+    it('should broadcast message to users inside the conversation room via RealtimeService', (done) => {
       const socketA = createClientSocket({ auth: { token: approvedToken } });
       const socketB = createClientSocket({ auth: { token: partnerToken } });
 
@@ -396,10 +396,15 @@ describe('Realtime Socket.IO Gateway E2E (BE-01-T08 / CMP-15)', () => {
       const onJoined = () => {
         readyCount++;
         if (readyCount === 2) {
-          // Both connected and in room -> emit to conversation
-          gateway.emitToConversation(conversation1.id, 'message.created', {
+          // Both connected and in room -> emit to conversation via RealtimeService
+          realtimeService.emitMessageCreated(conversation1.id, {
             id: 'msg-test-1',
+            conversationId: conversation1.id,
+            senderId: approvedUser.id,
+            type: 'TEXT',
             content: 'Chào bạn, sách còn không?',
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 86400000).toISOString(),
           });
         }
       };
@@ -414,30 +419,72 @@ describe('Realtime Socket.IO Gateway E2E (BE-01-T08 / CMP-15)', () => {
       });
       socketB.on('joined_conversation', onJoined);
 
-      socketB.on('message.created', (msg: { id: string; content: string }) => {
-        expect(msg.id).toBe('msg-test-1');
-        expect(msg.content).toBe('Chào bạn, sách còn không?');
-        done();
-      });
+      socketB.on(
+        'message.created',
+        (payload: { conversationId: string; message: { id: string; content: string } }) => {
+          expect(payload.conversationId).toBe(conversation1.id);
+          expect(payload.message.id).toBe('msg-test-1');
+          expect(payload.message.content).toBe('Chào bạn, sách còn không?');
+          done();
+        },
+      );
 
       socketA.connect();
       socketB.connect();
     });
 
-    it('should send targeted personal event to user room user_{id}', (done) => {
+    it('should send targeted personal event to user room user_{id} via RealtimeService', (done) => {
       const socketA = createClientSocket({ auth: { token: approvedToken } });
 
       socketA.on('connected', () => {
-        gateway.emitToUser(approvedUser.id, 'notification.created', {
+        realtimeService.emitNotificationCreated(approvedUser.id, {
+          id: 'notif-1',
+          userId: approvedUser.id,
           title: 'Thông báo xét duyệt',
-          message: 'Hồ sơ của bạn đã được duyệt thành công.',
+          content: 'Hồ sơ của bạn đã được duyệt thành công.',
+          type: 'VERIFICATION_APPROVED',
+          createdAt: new Date().toISOString(),
         });
       });
 
-      socketA.on('notification.created', (notif: { title: string }) => {
+      socketA.on('notification.created', (notif: { title: string; content: string }) => {
         expect(notif.title).toBe('Thông báo xét duyệt');
+        expect(notif.content).toBe('Hồ sơ của bạn đã được duyệt thành công.');
         done();
       });
+
+      socketA.connect();
+    });
+
+    it('should broadcast report.updated event to multiple target users via RealtimeService', (done) => {
+      const socketA = createClientSocket({ auth: { token: approvedToken } });
+      const socketB = createClientSocket({ auth: { token: partnerToken } });
+
+      let receivedCount = 0;
+      const onReportUpdated = (rep: { reportId: string; status: string }) => {
+        expect(rep.reportId).toBe('rep-123');
+        expect(rep.status).toBe('UNDER_REVIEW');
+        receivedCount++;
+        if (receivedCount === 2) {
+          done();
+        }
+      };
+
+      socketA.on('connected', () => {
+        socketB.connect();
+      });
+
+      socketB.on('connected', () => {
+        realtimeService.emitReportUpdated([approvedUser.id, partnerUser.id], {
+          reportId: 'rep-123',
+          status: 'UNDER_REVIEW',
+          updatedAt: new Date().toISOString(),
+          message: 'Người bán đã gửi phản hồi giải trình.',
+        });
+      });
+
+      socketA.on('report.updated', onReportUpdated);
+      socketB.on('report.updated', onReportUpdated);
 
       socketA.connect();
     });

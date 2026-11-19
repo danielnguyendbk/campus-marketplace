@@ -4,11 +4,13 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   PayloadTooLargeException,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
 import { AuthenticatedUser } from '../../common/auth/authenticated-user.interface';
 import { PaginatedResult } from '../../common/interfaces/api-response.interface';
+import { RealtimeService } from '../realtime/realtime.service';
 import {
   AttachmentDto,
   ConversationDto,
@@ -32,6 +34,7 @@ export class ChatService {
     private readonly conversationRepository: ConversationRepository,
     private readonly messageRepository: MessageRepository,
     private readonly chatAttachmentStorageService: ChatAttachmentStorageService,
+    @Optional() private readonly realtimeService?: RealtimeService,
   ) { }
 
   async createConversation(
@@ -225,7 +228,7 @@ export class ChatService {
       trimmedContent,
     );
 
-    return {
+    const messageDto: MessageDto = {
       id: msg.id,
       conversationId: msg.conversation_id,
       senderId: msg.sender_id,
@@ -234,6 +237,12 @@ export class ChatService {
       createdAt: new Date(msg.created_at).toISOString(),
       expiresAt: new Date(msg.expires_at).toISOString(),
     };
+
+    if (this.realtimeService) {
+      this.realtimeService.emitMessageCreated(conversationId, messageDto);
+    }
+
+    return messageDto;
   }
 
   async listMessages(
@@ -411,7 +420,7 @@ export class ChatService {
       attachment.id,
     );
 
-    return {
+    const messageDto: MessageDto = {
       id: message.id,
       conversationId: message.conversation_id,
       senderId: message.sender_id,
@@ -429,6 +438,12 @@ export class ChatService {
       createdAt: new Date(message.created_at).toISOString(),
       expiresAt: new Date(message.expires_at).toISOString(),
     };
+
+    if (this.realtimeService) {
+      this.realtimeService.emitMessageCreated(conversationId, messageDto);
+    }
+
+    return messageDto;
   }
 
   async getAttachmentDownload(
