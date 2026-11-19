@@ -294,4 +294,37 @@ export class PostRepository extends BaseRepository<PostRow> {
     );
     return res.rows[0];
   }
+
+  async updatePostStatus(
+    postId: string,
+    status: PostStatus,
+    options?: {
+      closeReason?: string | null;
+      endedAt?: Date | null;
+    },
+    client?: PoolClient,
+  ): Promise<PostRow | null> {
+    const params: unknown[] = [status, postId];
+    let setSql = `p."status" = $1, p."updated_at" = clock_timestamp()`;
+
+    if (options?.endedAt !== undefined) {
+      params.push(options.endedAt);
+      setSql += `, p."ended_at" = $${params.length}`;
+    }
+
+    if (options?.closeReason !== undefined) {
+      params.push(options.closeReason);
+      setSql += `, p."close_reason" = $${params.length}`;
+    }
+
+    const res = await this.executeQuery<PostRow>(
+      `UPDATE "posts" p
+       SET ${setSql}
+       WHERE p."id" = $2 AND p."deleted_at" IS NULL
+       RETURNING *;`,
+      params,
+      client,
+    );
+    return res.rows[0] ?? null;
+  }
 }

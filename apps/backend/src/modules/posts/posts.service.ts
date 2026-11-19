@@ -499,7 +499,7 @@ export class PostsService {
     };
   }
 
-  private mapPostDetailRow(
+  mapPostDetailRow(
     post: PostDetailRow,
     images: PostImageRow[],
   ): PostDetailDto {

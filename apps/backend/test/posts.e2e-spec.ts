@@ -240,6 +240,21 @@ class InMemoryPostgresForPosts {
       return { rows: [{ total: ownerPosts.length }] };
     }
 
+    if (normalized.startsWith('UPDATE "posts"')) {
+      const postId = String(params[1]);
+      const post = this.posts.find((p) => p.id === postId);
+      if (!post) return { rows: [] };
+      post.status = params[0];
+      post.updated_at = new Date();
+      if (normalized.includes('ended_at')) {
+        post.ended_at = new Date();
+      }
+      if (normalized.includes('close_reason')) {
+        post.close_reason = params[params.length - 1];
+      }
+      return { rows: [post] };
+    }
+
     return { rows: [] };
   }
 }
@@ -291,10 +306,21 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
     province: null,
   };
 
+  const adminUser: FakeUserRecord = {
+    id: randomUUID(),
+    school_email: 'admin@student.ptithcm.edu.vn',
+    display_name: 'Quản trị viên',
+    role: 'ADMIN',
+    verification_status: 'APPROVED',
+    reputation_score: 5.0,
+    province: null,
+  };
+
   let approvedToken: string;
   let buyerToken: string;
   let pendingToken: string;
   let suspendedToken: string;
+  let adminToken: string;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
@@ -302,6 +328,7 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
     fakeDb.seedUser(buyerApprovedUser);
     fakeDb.seedUser(pendingUser);
     fakeDb.seedUser(suspendedUser);
+    fakeDb.seedUser(adminUser);
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [DatabaseModule, StorageModule, CategoriesModule, PostsModule],
@@ -344,6 +371,13 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
       email: suspendedUser.school_email,
       role: suspendedUser.role,
       verificationStatus: suspendedUser.verification_status,
+      typ: 'access',
+    });
+    adminToken = await jwtService.signAsync({
+      sub: adminUser.id,
+      email: adminUser.school_email,
+      role: adminUser.role,
+      verificationStatus: adminUser.verification_status,
       typ: 'access',
     });
   });
@@ -964,6 +998,252 @@ describe('CMP-9 SELL & CMP-10 BUY_REQUEST Post Creation (e2e)', () => {
       // Data keys: phoneNumber, revealedAt; additionalProperties: false
       const dataKeys = Object.keys(res.body.data);
       expect(dataKeys.sort()).toEqual(['phoneNumber', 'revealedAt'].sort());
+    });
+  });
+
+  describe('CMP-10 & CMP-11: Post Lifecycle State Transitions (e2e)', () => {
+    let testSellPostId: string;
+    let testBuyPostId: string;
+
+    beforeAll(async () => {
+      // Tạo một bài SELL để kiểm thử lifecycle
+      const sellRes = await request(app.getHttpServer())
+        .post('/api/v1/posts')
+        .set('Authorization', `Bearer ${approvedToken}`)
+        .field('postType', 'SELL')
+        .field('title', 'Bàn học sinh viên gấp gọn gỗ cao su')
+        .field('description', 'Bàn gấp gọn còn mới 95% chuyển trọ cần thanh lý')
+        .field('categoryId', 'FURNITURE')
+        .field('province', 'TP. Hồ Chí Minh')
+        .field('price', '250000')
+        .field('condition', 'LIKE_NEW')
+        .attach('images', Buffer.from('FAKE_IMAGE_BYTES_1'), 'ban_hoc.jpg')
+        .expect(201);
+      testSellPostId = sellRes.body.data.id;
+
+      // Tạo một bài BUY_REQUEST để kiểm thử lifecycle
+      const buyRes = await request(app.getHttpServer())
+        .post('/api/v1/posts')
+        .set('Authorization', `Bearer ${approvedToken}`)
+        .field('postType', 'BUY_REQUEST')
+        .field('title', 'Tìm mua máy tính Casio fx-580VN X')
+        .field('description', 'Cần mua máy tính casio fx-580 cũ cho kỳ thi')
+        .field('categoryId', 'ELECTRONICS')
+        .field('province', 'TP. Hồ Chí Minh')
+        .field('budgetMin', '200000')
+        .field('budgetMax', '400000')
+        .expect(201);
+      testBuyPostId = buyRes.body.data.id;
+    });
+
+    describe('POST /api/v1/posts/:id/hide', () => {
+      it('AC1: Owner can hide ACTIVE post (ACTIVE -> HIDDEN)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(200);
+
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.id).toBe(testSellPostId);
+        expect(res.body.data.status).toBe('HIDDEN');
+      });
+
+      it('AC2: Outsider receives 403 FORBIDDEN when attempting to hide another user post', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .set('Authorization', `Bearer ${buyerToken}`)
+          .expect(403);
+
+        expect(res.body.error.code).toBe('FORBIDDEN');
+      });
+
+      it('AC3: Calling hide on an already HIDDEN post returns 409 POST_ALREADY_HIDDEN', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_ALREADY_HIDDEN');
+      });
+
+      it('AC4: Unauthenticated user receives 401 UNAUTHORIZED', async () => {
+        await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .expect(401);
+      });
+
+      it('AC5: PENDING user receives 403 ACCOUNT_NOT_VERIFIED', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .set('Authorization', `Bearer ${pendingToken}`)
+          .expect(403);
+
+        expect(res.body.error.code).toBe('ACCOUNT_NOT_VERIFIED');
+      });
+    });
+
+    describe('POST /api/v1/posts/:id/activate', () => {
+      it('AC6: Owner can activate HIDDEN post (HIDDEN -> ACTIVE)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/activate`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(200);
+
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBe('ACTIVE');
+      });
+
+      it('AC7: Outsider receives 403 FORBIDDEN when attempting to activate another user post', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/activate`)
+          .set('Authorization', `Bearer ${buyerToken}`)
+          .expect(403);
+
+        expect(res.body.error.code).toBe('FORBIDDEN');
+      });
+
+      it('AC8: Calling activate on an already ACTIVE post returns 409 POST_ALREADY_ACTIVE', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/activate`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_ALREADY_ACTIVE');
+      });
+
+      it('AC9: ADMIN can activate a post', async () => {
+        // Owner ẩn trước
+        await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(200);
+
+        // Admin mở lại
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/activate`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .expect(200);
+
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBe('ACTIVE');
+      });
+    });
+
+    describe('POST /api/v1/posts/:id/sold', () => {
+      it('AC10: Reject marking BUY_REQUEST as SOLD (409 INVALID_POST_TYPE)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testBuyPostId}/sold`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('INVALID_POST_TYPE');
+      });
+
+      it('AC11: Owner marks SELL post as SOLD successfully (ACTIVE -> SOLD)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/sold`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(200);
+
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBe('SOLD');
+        expect(res.body.data.endedAt).toBeDefined();
+      });
+
+      it('AC12: Calling sold on an already SOLD post returns 409 POST_ALREADY_SOLD', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/sold`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_ALREADY_SOLD');
+      });
+
+      it('AC13: Terminal state: SOLD post cannot be reactivated (409 POST_TERMINATED)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/activate`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_TERMINATED');
+      });
+
+      it('AC14: Terminal state: SOLD post cannot be hidden (409 POST_TERMINATED)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testSellPostId}/hide`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_TERMINATED');
+      });
+    });
+
+    describe('POST /api/v1/posts/:id/close', () => {
+      it('AC15: Owner closes BUY_REQUEST post successfully with reason', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testBuyPostId}/close`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .send({ reason: 'Đã mua được máy tính từ bạn cùng phòng' })
+          .expect(200);
+
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBe('CLOSED');
+        expect(res.body.data.closeReason).toBe('Đã mua được máy tính từ bạn cùng phòng');
+        expect(res.body.data.endedAt).toBeDefined();
+      });
+
+      it('AC16: Reject empty reason with 400 VALIDATION_FAILED', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testBuyPostId}/close`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .send({ reason: '   ' })
+          .expect(400);
+
+        expect(res.body.error.code).toBe('VALIDATION_FAILED');
+      });
+
+      it('AC17: Calling close on an already CLOSED post returns 409 POST_ALREADY_CLOSED', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testBuyPostId}/close`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .send({ reason: 'Đóng lần 2' })
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_ALREADY_CLOSED');
+      });
+
+      it('AC18: Terminal state: CLOSED post cannot be reactivated (409 POST_TERMINATED)', async () => {
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${testBuyPostId}/activate`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(409);
+
+        expect(res.body.error.code).toBe('POST_TERMINATED');
+      });
+
+      it('AC19: Strict envelope check for PostResponse on lifecycle transitions', async () => {
+        const newPost = await request(app.getHttpServer())
+          .post('/api/v1/posts')
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .field('postType', 'SELL')
+          .field('title', 'Sách giải tích 2')
+          .field('description', 'Sách mới')
+          .field('categoryId', 'TEXTBOOK')
+          .field('province', 'TP. Hồ Chí Minh')
+          .field('price', '50000')
+          .field('condition', 'LIKE_NEW')
+          .attach('images', Buffer.from('FAKE_BYTES'), 'gt2.jpg')
+          .expect(201);
+
+        const res = await request(app.getHttpServer())
+          .post(`/api/v1/posts/${newPost.body.data.id}/hide`)
+          .set('Authorization', `Bearer ${approvedToken}`)
+          .expect(200);
+
+        expect(Object.keys(res.body).sort()).toEqual(['data', 'success', 'timestamp'].sort());
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.status).toBe('HIDDEN');
+      });
     });
   });
 });

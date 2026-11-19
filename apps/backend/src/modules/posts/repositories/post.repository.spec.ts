@@ -168,4 +168,29 @@ describe('PostRepository', () => {
     expect(queryMock).toHaveBeenCalledTimes(1);
     expect(queryMock.mock.calls[0][0]).toContain('INSERT INTO "phone_reveal_events"');
   });
+
+  it('updates post status and returns updated row', async () => {
+    queryMock.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'post-1',
+          status: 'CLOSED',
+          close_reason: 'Da ban',
+          ended_at: new Date('2026-11-19T00:00:00Z'),
+          updated_at: new Date('2026-11-19T00:00:00Z'),
+        },
+      ],
+    });
+
+    const res = await repo.updatePostStatus('post-1', 'CLOSED', {
+      closeReason: 'Da ban',
+      endedAt: new Date('2026-11-19T00:00:00Z'),
+    });
+
+    expect(res).not.toBeNull();
+    expect(res?.status).toBe('CLOSED');
+    expect(queryMock).toHaveBeenCalledTimes(1);
+    expect(queryMock.mock.calls[0][0]).toContain('UPDATE "posts" p');
+    expect(queryMock.mock.calls[0][0]).toContain('p."status" = $1');
+  });
 });

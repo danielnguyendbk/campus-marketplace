@@ -184,7 +184,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** Chỉ tài khoản `APPROVED` mới được đăng bài; bài `SELL` bắt buộc có `price > 0`, `condition` và ít nhất 1 ảnh; bài `BUY_REQUEST` có `budget_min <= budget_max`; `GET /posts/{id}` chỉ cho `APPROVED` xem chi tiết (BR-01).
   - **Tests:** Unit test validation SELL/BUY, transaction rollback test, E2E test chặn PENDING xem chi tiết.
   - **Branch:** `feat/be-02-post-crud`
-- [ ] **BE-02-T05: Marketplace Core — Post Lifecycle State Transitions** (P1, 3 SP)
+- [x] **BE-02-T05: Marketplace Core — Post Lifecycle State Transitions** (P1, 3 SP)
   - **API:** `POST /posts/{id}/hide`, `POST /posts/{id}/activate`, `POST /posts/{id}/sold`, `POST /posts/{id}/close`.
   - **Database:** `posts`.
   - **Files:** `src/modules/posts/post-lifecycle.service.ts`.

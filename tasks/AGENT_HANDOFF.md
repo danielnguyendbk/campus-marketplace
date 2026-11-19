@@ -19,23 +19,21 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-16 (Tin nhắn & Tệp đính kèm `GET/POST /conversations/{id}/messages`, `POST /conversations/{id}/attachments`, `GET .../download`), CMP-15, CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
-- **Cập nhật lần cuối:** 2026-11-19 10:35
-- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-11/CMP-10 (Post Lifecycle State Transitions: `POST /posts/{id}/hide`, `activate`, `sold`, `close` - BE-02-T05), CMP-16, CMP-15, CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
+- **Cập nhật lần cuối:** 2026-11-19 11:35
+- **Người bàn giao:** Backend Developer (BE-02) / Backend Lead (Quốc Thái Nguyễn)
 - **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team
-- **Branch hiện tại:** `feat/be-01-chat-messages`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). BẢO LƯU NGUYÊN TRẠNG PRODUCTION. Bảng `messages` và `attachments` sẵn sàng với các chỉ mục và ràng buộc khóa ngoại `ON DELETE CASCADE`. Đã soạn thảo migration `0002_enable_rls_and_least_privilege_policies.sql` chờ duyệt.
+- **Branch hiện tại:** `feat/be-02-post-lifecycle`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). BẢO LƯU NGUYÊN TRẠNG PRODUCTION. Bảng `posts` hỗ trợ đầy đủ `status` (`ACTIVE`, `HIDDEN`, `SOLD`, `CLOSED`), `close_reason`, `ended_at`. Đã soạn thảo migration `0002_enable_rls_and_least_privilege_policies.sql` chờ duyệt.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 220/220 tests (Frontend Vitest 58/58 + Backend Jest 162/162).
-  - `pnpm test:e2e`: PASS 90/90 tests across 8 test suites (bao gồm `posts.e2e-spec.ts` 17/17 tests với 9 AC của CMP-17, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests, `cmp37-otp-race-isolated-db.e2e-spec.ts`).
-  - `pnpm test`: PASS 264/264 tests (Frontend Vitest 58/58 + Backend Jest 206/206).
-  - `pnpm test:e2e`: PASS 115/115 tests across 9 test suites (bao gồm `chat.e2e-spec.ts` 25/25 tests: Part 1 CMP-15 6 tests, Part 2 CMP-16 19 tests AC1–AC18; `posts.e2e-spec.ts` 17/17 tests; `contract-schemas.e2e-spec.ts` 32/32 tests; `admin-verification.e2e-spec.ts` 9/9 tests).
+  - `pnpm test`: PASS 289/289 tests (Frontend Vitest 58/58 + Backend Jest 231/231).
+  - `pnpm test:e2e`: PASS 134/134 tests across 9 test suites (bao gồm `posts.e2e-spec.ts` 36/36 tests với 19 AC mới của Post Lifecycle AC1–AC19, `chat.e2e-spec.ts` 25/25 tests, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
-  - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Code & 39 tests hoàn tất, sẵn sàng merge)
+  - [CMP-11](https://chauviplong1701.atlassian.net/browse/CMP-11): `[Sprint 2][BE2] Chuyển đổi trạng thái bài đăng (Post Lifecycle State Transitions)` -> **Done** (Code & test hoàn tất, sẵn sàng merge)
+  - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Đã merge vào develop)
   - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Đã merge vào develop qua PR #5)
   - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
   - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done**
@@ -339,6 +337,44 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #026: Triển khai Bộ API Chuyển đổi Vòng đời Bài đăng (CMP-11 / BE-02-T05) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Developer (BE-02) / Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-post-lifecycle`
+- **Truy vết:** `CMP-11`, `CMP-10`, `BE-02-T05`, `FR-06`, `FR-07`, `BR-01`, `State Machines §2`
+- **Nội dung hoàn thành:**
+  1. **Triển khai 4 API endpoints chuẩn OpenAPI spec v1.2:**
+     - `POST /api/v1/posts/{id}/hide`: Ẩn bài đăng (`ACTIVE` -> `HIDDEN`), lập tức loại khỏi feed công khai và tìm kiếm.
+     - `POST /api/v1/posts/{id}/activate`: Kích hoạt lại bài đăng (`HIDDEN` -> `ACTIVE`).
+     - `POST /api/v1/posts/{id}/sold`: Đánh dấu đã bán (`ACTIVE`/`HIDDEN` -> `SOLD`), thiết lập `ended_at = clock_timestamp()`. Chỉ áp dụng cho tin `SELL`, chặn `BUY_REQUEST` với `409 INVALID_POST_TYPE`.
+     - `POST /api/v1/posts/{id}/close`: Đóng bài đăng (`ACTIVE`/`HIDDEN` -> `CLOSED`), nhận `ClosePostDto` (`reason: string`, tối đa 100 ký tự), thiết lập `close_reason` và `ended_at = clock_timestamp()`.
+  2. **Thực thi nghiêm ngặt State Machine & Phân quyền:**
+     - Chỉ chủ bài đăng (Owner) hoặc Admin mới có quyền thao tác (`403 FORBIDDEN` với user khác).
+     - Bắt buộc tài khoản đã xác minh (`401 Unauthenticated`, `403 ACCOUNT_NOT_VERIFIED`, `403 ACCOUNT_SUSPENDED`).
+     - Ràng buộc trạng thái kết thúc (Terminal State Invariant): Tin đã `SOLD` hoặc `CLOSED` tuyệt đối không thể kích hoạt lại (`409 POST_TERMINATED`).
+  3. **Data Layer (`PostRepository`):**
+     - Bổ sung `updatePostStatus(postId, status, options)` cập nhật `status`, `close_reason`, `ended_at`, `updated_at`.
+  4. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - Unit tests: 28 unit tests đạt 100% PASS (`post-lifecycle.service.spec.ts` 20 tests, `posts.controller.spec.ts` 8 tests, `post.repository.spec.ts` 6 tests).
+     - E2E tests: `posts.e2e-spec.ts` đạt 36/36 tests PASS (bổ sung 19 tests E2E AC1–AC19 kiểm thử toàn bộ luồng chuyển đổi trạng thái, quyền sở hữu, ngoại lệ biên và envelope chuẩn `PostResponse`).
+     - Toàn monorepo: `pnpm lint` PASS (0 errors), `pnpm typecheck` PASS (0 errors), `pnpm test` PASS 289/289 tests, `pnpm test:e2e` PASS 134/134 tests across 9 suites, `pnpm build` PASS.
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/posts/dto/close-post.dto.ts` (mới)
+  - `apps/backend/src/modules/posts/post-lifecycle.service.ts` (mới)
+  - `apps/backend/src/modules/posts/post-lifecycle.service.spec.ts` (mới)
+  - `apps/backend/src/modules/posts/repositories/post.repository.ts`
+  - `apps/backend/src/modules/posts/repositories/post.repository.spec.ts`
+  - `apps/backend/src/modules/posts/posts.service.ts`
+  - `apps/backend/src/modules/posts/posts.controller.ts`
+  - `apps/backend/src/modules/posts/posts.controller.spec.ts`
+  - `apps/backend/src/modules/posts/posts.module.ts`
+  - `apps/backend/test/posts.e2e-spec.ts`
+  - `tasks/BACKLOG.md`
+  - `tasks/AGENT_HANDOFF.md`
+
+---
 
 ### Handoff #025: Triển khai Bộ API Tin nhắn & Tệp đính kèm Hội thoại Chat (CMP-16 / BE-01-T07) (19/11/2026)
 
