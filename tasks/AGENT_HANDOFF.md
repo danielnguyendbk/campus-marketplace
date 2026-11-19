@@ -19,20 +19,21 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-15 (Quản lý cuộc trò chuyện Chat `POST /api/v1/conversations`, `GET /api/v1/conversations`), tích hợp đầy đủ cùng CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
-- **Cập nhật lần cuối:** 2026-11-17 16:45
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-16 (Tin nhắn & Tệp đính kèm `GET/POST /conversations/{id}/messages`, `POST /conversations/{id}/attachments`, `GET .../download`), CMP-15, CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
+- **Cập nhật lần cuối:** 2026-11-19 10:35
 - **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team
-- **Branch hiện tại:** `feat/be-01-chat-conversations`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng. Bảng `conversations` (`post_id`, `member_low_id`, `member_high_id`, `status`, `last_message_at`) hoạt động chính xác với ràng buộc duy nhất `uq_conversation_post_members`.
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team
+- **Branch hiện tại:** `feat/be-01-chat-messages`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). BẢO LƯU NGUYÊN TRẠNG PRODUCTION. Bảng `messages` và `attachments` sẵn sàng với các chỉ mục và ràng buộc khóa ngoại `ON DELETE CASCADE`. Đã soạn thảo migration `0002_enable_rls_and_least_privilege_policies.sql` chờ duyệt.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 233/233 tests (Frontend Vitest 58/58 + Backend Jest 175/175).
-  - `pnpm test:e2e`: PASS 104/104 tests across 9 test suites (bao gồm `chat.e2e-spec.ts` 14/14 tests với các AC của CMP-15, `posts.e2e-spec.ts` 17/17 tests, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests).
+  - `pnpm test`: PASS 264/264 tests (Frontend Vitest 58/58 + Backend Jest 206/206).
+  - `pnpm test:e2e`: PASS 115/115 tests across 9 test suites (bao gồm `chat.e2e-spec.ts` 25/25 tests: Part 1 CMP-15 6 tests, Part 2 CMP-16 19 tests AC1–AC18; `posts.e2e-spec.ts` 17/17 tests; `contract-schemas.e2e-spec.ts` 32/32 tests; `admin-verification.e2e-spec.ts` 9/9 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
+  - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Code & 39 tests hoàn tất, sẵn sàng merge)
+  - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Đã merge vào develop qua PR #5)
   - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
   - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done**
   - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
@@ -47,6 +48,101 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
   - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
   - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
+
+### Cập nhật Backend — CMP-16: Chat Domain — Messages & Secure Attachments Handling (`GET/POST /conversations/{id}/messages`, `POST /conversations/{id}/attachments`, `GET .../download`) (2026-11-19)
+
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn).
+- **Branch:** `feat/be-01-chat-messages` (chỉ phạm vi Backend + tests; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTOs:**
+     - `apps/backend/src/modules/chat/chat.types.ts`: Bổ sung `MessageType` (`'TEXT' | 'ATTACHMENT'`), `AttachmentStatus` (`'ACTIVE' | 'EXPIRED' | 'DELETED'`), `AttachmentDto`, `MessageDto`, `ConversationParticipantContext`. Khớp 100% OpenAPI spec schemas (`Message`, `Attachment`, `MessagePage`, `MessageResponse`).
+     - `CreateMessageDto`: Validate `content` là chuỗi không rỗng (`minLength: 1`, `maxLength: 10000`) qua `class-validator` `@IsString`, `@IsNotEmpty`, `@Length(1, 10000)`.
+     - `ListMessagesDto`: Phân trang với `page` ($\ge 1$, default 1) và `limit` ($1 \le \text{limit} \le 100$, default 20) qua `@Type(() => Number)`.
+  2. **Data Layer (`MessageRepository`):**
+     - `findConversationContext(conversationId)`: Lấy bối cảnh cuộc trò chuyện kết hợp `posts` và `users` (trạng thái bài đăng, chủ sở hữu, trạng thái duyệt tài khoản của cả 2 bên) phục vụ kiểm duyệt phân quyền gửi/nhận tin.
+     - `insertTextMessage(conversationId, senderId, content)`: Ghi nhận tin nhắn văn bản trong transaction: tạo bản ghi `messages` với hạn lưu trữ 3 tháng (`clock_timestamp() + INTERVAL '3 months'`), đồng thời cập nhật `conversations.last_message_at = clock_timestamp()`.
+     - `insertAttachmentMessage(conversationId, senderId, storageKey, mimeType, sizeBytes)`: Ghi nhận tin nhắn tệp đính kèm trong single transaction: tạo bản ghi `messages` type `ATTACHMENT` (`content = null`, hạn 1 tháng) và bản ghi `attachments` (`expires_at = clock_timestamp() + INTERVAL '1 month'`, `status = 'ACTIVE'`), cập nhật `conversations.last_message_at`.
+     - `findMessagesByConversationId(conversationId, limit, offset)`: Lấy danh sách tin nhắn kèm tệp đính kèm theo thứ tự thời gian tăng dần (`ORDER BY m.created_at ASC`) phục vụ hiển thị hội thoại.
+     - `countMessagesByConversationId(conversationId)`: Đếm tổng số tin nhắn cho metadata phân trang `PageMeta`.
+     - `findAttachmentById(conversationId, attachmentId)`: Truy vấn tệp đính kèm theo ID và kiểm tra liên kết chặt chẽ với cuộc hội thoại.
+  3. **Storage Service Layer (`ChatAttachmentStorageService`):**
+     - Validate MIME types an toàn (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`, `application/msword`, `.docx`, `.xls`, `.xlsx`, `text/plain`).
+     - Giới hạn kích thước tối đa 10 MB (`CHAT_ATTACHMENT_MAX_SIZE = 10485760`).
+     - Cơ chế lưu trữ an toàn private storage với `storageKey` dạng `attachments/{conversationId}/{uuid}_{sanitizedFileName}`, tuyệt đối không lộ storageKey ra client.
+     - Sinh đường dẫn download URL bảo mật có hạn `generateDownloadUrl`.
+  4. **Service Layer (`ChatService`):**
+     - `sendMessage(currentUser, conversationId, dto)`:
+       - Kiểm tra cuộc hội thoại tồn tại (`404 CONVERSATION_NOT_FOUND`).
+       - Chặn người ngoài cuộc hội thoại (`403 FORBIDDEN`).
+       - Chặn khi cuộc trò chuyện bị đóng/lưu trữ (`409 CONVERSATION_CLOSED`).
+       - Chặn khi bài đăng không còn hoạt động (`409 POST_NOT_ACTIVE`).
+       - Chặn khi người nhận bị khóa tài khoản (`409 RECIPIENT_SUSPENDED`).
+       - Trim và chặn nội dung chỉ toàn khoảng trắng (`400 VALIDATION_FAILED`).
+     - `listMessages(currentUser, conversationId, query)`:
+       - Kiểm tra quyền thành viên (`403 FORBIDDEN` với outsider).
+       - Thực thi quy tắc bảo vệ quyền riêng tư và lưu trữ BR-11: Tự động mask `content = null` cho các tin nhắn đã hết hạn (sau 3 tháng) dù bản ghi vẫn tồn tại phục vụ audit; tự động chuyển trạng thái attachment sang `'EXPIRED'` và set `downloadUrl = null` khi attachment quá hạn 1 tháng.
+       - Trả về cấu trúc phân trang chuẩn `MessagePage` với root-level `meta`.
+     - `sendAttachment(currentUser, conversationId, file)`:
+       - Kiểm tra file upload bắt buộc (`400 VALIDATION_FAILED`).
+       - Chặn định dạng file ngoài allowlist (`415 UNSUPPORTED_MEDIA_TYPE`).
+       - Chặn file vượt quá 10 MB (`413 FILE_TOO_LARGE`).
+       - Kiểm tra quyền thành viên, trạng thái hội thoại, trạng thái bài đăng và trạng thái người nhận.
+       - Trả về `MessageDto` với `type = 'ATTACHMENT'`, `content = null` và thông tin `attachment`.
+     - `getAttachmentDownload(currentUser, conversationId, attachmentId)`:
+       - Kiểm tra quyền thành viên (`403 FORBIDDEN`).
+       - Kiểm tra tệp tồn tại (`404 ATTACHMENT_NOT_FOUND`).
+       - Chặn tải xuống nếu tệp đã hết hạn lưu trữ 1 tháng (`409 ATTACHMENT_EXPIRED` theo BR-11).
+       - Trả về metadata và `downloadUrl` cho tệp còn hiệu lực.
+  5. **Controller Layer (`ChatController`):**
+     - Endpoints mới:
+       - `GET /api/v1/conversations/:conversationId/messages`: `@HttpCode(HttpStatus.OK)` (200 OK).
+       - `POST /api/v1/conversations/:conversationId/messages`: `@HttpCode(HttpStatus.CREATED)` (201 Created).
+       - `POST /api/v1/conversations/:conversationId/attachments`: `@HttpCode(HttpStatus.CREATED)` (201 Created) sử dụng `FileInterceptor` với limit 10 MB.
+       - `GET /api/v1/conversations/:conversationId/attachments/:attachmentId/download`: `@HttpCode(HttpStatus.OK)` (200 OK).
+     - Tất cả endpoint đều được bảo vệ bởi `JwtAuthGuard` + `VerificationGuard` (chặn `401 Unauthenticated`, `403 ACCOUNT_NOT_VERIFIED`, `403 ACCOUNT_SUSPENDED`).
+     - Validate `conversationId` và `attachmentId` là UUID v4 hợp lệ bằng `ParseUUIDPipe` với exceptionFactory chuẩn lỗi `400 VALIDATION_FAILED`.
+  6. **Unit Tests & E2E Tests (DoD 100% Pass):**
+     - Unit tests: 39 tests đạt 100% PASS (`message.repository.spec.ts` 8 tests, `chat.service.spec.ts` 25 tests, `chat.controller.spec.ts` 6 tests).
+     - E2E tests: `chat.e2e-spec.ts` gồm 25 tests kiểm thử trọn vẹn Part 1 (CMP-15) và Part 2 (CMP-16) qua 18 tiêu chí chấp nhận AC1–AC18:
+       + AC1: Gửi tin nhắn TEXT thành công với envelope `MessageResponse`.
+       + AC2: Người bán phản hồi trong cùng hội thoại.
+       + AC3: Chặn người ngoài gửi tin nhắn (403 FORBIDDEN).
+       + AC4: Chặn người chưa đăng nhập gửi tin nhắn (401).
+       + AC5: Chặn sinh viên PENDING (403 ACCOUNT_NOT_VERIFIED) và SUSPENDED (403 ACCOUNT_SUSPENDED).
+       + AC6: Từ chối nội dung trống hoặc chỉ chứa khoảng trắng (400 VALIDATION_FAILED).
+       + AC7: Trả về 404 khi hội thoại không tồn tại (CONVERSATION_NOT_FOUND).
+       + AC8: Lấy danh sách tin nhắn phân trang với envelope `MessagePage`.
+       + AC9: Chặn người ngoài xem danh sách tin nhắn (403 FORBIDDEN).
+       + AC10: Mask nội dung tin nhắn quá hạn 3 tháng về `null` theo BR-11.
+       + AC11: Tải lên tài liệu PDF hợp lệ thành công.
+       + AC12: Tải lên ảnh JPEG/PNG hợp lệ thành công.
+       + AC13: Chặn định dạng tệp không được hỗ trợ (415 UNSUPPORTED_MEDIA_TYPE).
+       + AC14: Chặn tệp vượt quá 10 MB (413 FILE_TOO_LARGE).
+       + AC15: Chặn người ngoài gửi tệp vào cuộc hội thoại (403 FORBIDDEN).
+       + AC16: Thành viên truy cập URL tải tệp còn hiệu lực (200 OK).
+       + AC17: Chặn người ngoài tải tệp (403 FORBIDDEN).
+       + AC18: Từ chối tải tệp đã hết hạn lưu trữ 1 tháng (409 ATTACHMENT_EXPIRED theo BR-11).
+- **Kiểm chứng toàn diện (DoD):**
+  - `pnpm lint`: PASS (0 warnings, 0 errors).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS 264/264 tests (Backend Jest 206/206 + Frontend Vitest 58/58).
+  - `pnpm test:e2e`: PASS 115/115 tests across 9 test suites.
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages).
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/chat/chat.types.ts`
+  - `apps/backend/src/modules/chat/dto/create-message.dto.ts` (mới)
+  - `apps/backend/src/modules/chat/dto/list-messages.dto.ts` (mới)
+  - `apps/backend/src/modules/chat/repositories/message.repository.ts` (mới)
+  - `apps/backend/src/modules/chat/repositories/message.repository.spec.ts` (mới)
+  - `apps/backend/src/modules/chat/services/chat-attachment-storage.service.ts` (mới)
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.controller.spec.ts`
+  - `apps/backend/src/modules/chat/chat.module.ts`
+  - `apps/backend/test/chat.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+  - `tasks/BACKLOG.md`
 
 ### Cập nhật Backend — CMP-15: Chat Domain — Conversations Management & Access Boundaries (`POST /api/v1/conversations`, `GET /api/v1/conversations`) (2026-11-17)
 
@@ -240,6 +336,27 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #024: Kiểm toán Bảo mật CSDL Supabase Production (READ-ONLY) & Soạn thảo Migration Hardening RLS (18/11/2026)
+
+- **Ngày:** 2026-11-18
+- **Người thực hiện:** Security / Backend Audit Agent
+- **Branch:** `feat/be-01-chat-conversations`
+- **Truy vết:** `Security Directives`, `BR-03`, `BR-11`, `PostgreSQL DAC vs RLS`, `Supabase Advisor`
+- **Chế độ thực thi:** READ-ONLY tuyệt đối (chỉ đọc system catalogs `pg_class`, `pg_roles`, `pg_default_acl`, `pg_policies`, `information_schema`; không đọc hàng dữ liệu cá nhân, không sửa đổi CSDL production, không bật/tắt RLS trên production).
+- **Phát hiện chính:**
+  1. **19/19 bảng public có `relrowsecurity = false`** (RLS đang bị tắt 100%).
+  2. **Role `anon` và `authenticated` có đầy đủ quyền `SELECT, INSERT, UPDATE, DELETE, TRUNCATE` trên 19/19 bảng** do default privileges của Supabase.
+  3. Mặc dù NestJS backend bảo vệ API gateway qua `JwtAuthGuard`, `VerificationGuard`, `RolesGuard`, kẻ tấn công nắm được Project URL và public anon key có thể gọi trực tiếp PostgREST API (`/rest/v1`) để đọc/ghi dữ liệu nhạy cảm nếu không có RLS.
+  4. Backend NestJS kết nối bằng role `postgres` (`rolbypassrls: true`), do đó việc bật RLS và thu hồi quyền `anon`/`authenticated` **hoàn toàn không làm ảnh hưởng hay gãy các truy vấn của NestJS**.
+- **Sản phẩm bàn giao:**
+  1. Báo cáo kiểm toán bảo mật chi tiết: `supabase_security_audit_report.md` (Artifact ID).
+  2. File migration đề xuất (chờ duyệt): `database/migrations/0002_enable_rls_and_least_privilege_policies.sql`.
+  3. File rollback migration tương ứng: `database/migrations/0002_enable_rls_and_least_privilege_policies.down.sql`.
+  4. Kịch bản kiểm thử Staging đa vai trò (Anonymous, Authenticated, Owner, Unrelated, Backend).
+- **Yêu cầu tiếp theo:** Chờ Backend Lead và Tech Lead phê duyệt trước khi thực thi trên môi trường staging/production.
+
+---
 
 ### Handoff #023: Triển khai Bộ API Admin Xét duyệt Xác minh Sinh viên (CMP-8 / BE-02-T02) (17/11/2026)
 

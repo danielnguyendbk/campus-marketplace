@@ -112,3 +112,4 @@ describe('ConversationRepository', () => {
     expect(res.rows[0].low_display_name).toBe('User A');
   });
 });
+

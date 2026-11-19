@@ -167,7 +167,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** Chặn người mua tự tạo hội thoại với chính mình (`buyer_id != seller_id`); idempotent nếu đã có hội thoại `OPEN` cùng `post_id`; `GET /conversations` trả `ConversationPage` có `meta` và `canSend = true`.
   - **Tests:** Unit test tạo conversation, kiểm tra chặn buyer = seller, E2E list conversations.
   - **Branch:** `feat/be-01-chat-conversations`
-- [ ] **BE-01-T07: Chat Domain — Messages & Secure Attachments Handling** (P0, 5 SP)
+- [x] **BE-01-T07: Chat Domain — Messages & Secure Attachments Handling** (P0, 5 SP)
   - **API:** `GET /conversations/{id}/messages`, `POST /conversations/{id}/messages`, `POST .../attachments`, `GET .../download`.
   - **Database:** `messages`, `attachments`, `conversations`.
   - **Files:** `src/modules/chat/messages.service.ts`, `repositories/message.repository.ts`, `services/attachment.service.ts`.

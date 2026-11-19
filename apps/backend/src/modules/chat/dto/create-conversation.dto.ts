@@ -5,3 +5,4 @@ export class CreateConversationDto {
   @IsUUID('4', { message: 'postId phải là UUID hợp lệ.' })
   postId!: string;
 }
+

@@ -15,3 +15,4 @@ export class ListConversationsDto {
   @Max(100, { message: 'limit tối đa là 100.' })
   limit?: number = 20;
 }
+
