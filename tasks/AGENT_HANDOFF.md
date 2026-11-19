@@ -28,10 +28,13 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
+  - `pnpm test`: PASS 220/220 tests (Frontend Vitest 58/58 + Backend Jest 162/162).
+  - `pnpm test:e2e`: PASS 90/90 tests across 8 test suites (bao gồm `posts.e2e-spec.ts` 17/17 tests với 9 AC của CMP-17, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests, `cmp37-otp-race-isolated-db.e2e-spec.ts`).
   - `pnpm test`: PASS 264/264 tests (Frontend Vitest 58/58 + Backend Jest 206/206).
   - `pnpm test:e2e`: PASS 115/115 tests across 9 test suites (bao gồm `chat.e2e-spec.ts` 25/25 tests: Part 1 CMP-15 6 tests, Part 2 CMP-16 19 tests AC1–AC18; `posts.e2e-spec.ts` 17/17 tests; `contract-schemas.e2e-spec.ts` 32/32 tests; `admin-verification.e2e-spec.ts` 9/9 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
+  - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Code & test hoàn tất, chuẩn bị merge)
   - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Code & 39 tests hoàn tất, sẵn sàng merge)
   - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Đã merge vào develop qua PR #5)
   - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
@@ -336,6 +339,21 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #025: Triển khai Bộ API Tin nhắn & Tệp đính kèm Hội thoại Chat (CMP-16 / BE-01-T07) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-01-chat-messages`
+- **Truy vết:** `CMP-16`, `BE-01-T07`, `FR-11`, `FR-12`, `BR-10`, `BR-11`, `DB06`
+- **Nội dung hoàn thành:**
+  1. Triển khai 4 API endpoints: `GET /conversations/{id}/messages`, `POST /conversations/{id}/messages`, `POST /conversations/{id}/attachments`, `GET /conversations/{id}/attachments/{id}/download`.
+  2. Tuân thủ 100% OpenAPI spec v1.2 (`MessageResponse`, `MessagePage`, `Attachment`).
+  3. Cơ chế bảo vệ quyền riêng tư & thời hạn lưu trữ BR-11: TTL tin nhắn văn bản 3 tháng (mask content thành `null` khi quá hạn), TTL tệp đính kèm 1 tháng (`status = EXPIRED`, `downloadUrl = null`, từ chối download trả 409 `ATTACHMENT_EXPIRED`).
+  4. Lưu trữ file an toàn trong Private Storage, kiểm duyệt MIME allowlist và giới hạn 10 MB.
+  5. 100% tests PASS: 39 unit tests (`chat.service.spec.ts`, `chat.controller.spec.ts`, `message.repository.spec.ts`), 25 E2E tests (`chat.e2e-spec.ts`). Toàn hệ thống: 264/264 unit tests, 115/115 e2e tests across 9 suites, lint 0 error, typecheck 0 error, build PASS.
+
+---
 
 ### Handoff #024: Kiểm toán Bảo mật CSDL Supabase Production (READ-ONLY) & Soạn thảo Migration Hardening RLS (18/11/2026)
 
