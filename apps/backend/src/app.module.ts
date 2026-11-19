@@ -8,6 +8,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { HealthModule } from './modules/health/health.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { UserModule } from './modules/user/user.module';
 import { VerificationModule } from './modules/verification/verification.module';
 
@@ -31,6 +32,7 @@ import { VerificationModule } from './modules/verification/verification.module';
     VerificationModule,
     ChatModule,
     UserModule,
+    RealtimeModule,
   ],
 })
 export class AppModule {}

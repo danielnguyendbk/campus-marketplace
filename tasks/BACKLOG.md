@@ -207,7 +207,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
 
 #### BE-01 (Backend Tech Lead)
 
-- [ ] **BE-01-T08: Realtime Core — Socket.IO Gateway & Handshake Auth** (P0, 5 SP)
+- [x] **BE-01-T08: Realtime Core — Socket.IO Gateway & Handshake Auth** (P0, 5 SP)
   - **API:** WebSocket Gateway `/ws` (`connect`, `disconnect`, `join_conversation`, `leave_conversation`).
   - **Database:** `users`, `conversations`.
   - **Files:** `src/modules/realtime/realtime.gateway.ts`, `guards/ws-auth.guard.ts`, `adapters/socket-io.adapter.ts`.

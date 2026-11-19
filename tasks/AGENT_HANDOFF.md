@@ -338,6 +338,48 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Lịch sử bàn giao (Handoff Log)
 
+### Handoff #028: Triển khai Realtime Core — Socket.IO Gateway & Handshake Auth (CMP-15 / BE-01-T08) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `feat/be-01-realtime-gateway`
+- **Truy vết:** `CMP-15`, `BE-01-T08`, `FR-10`, `ARCHITECTURE.md §7.2`, `Sprint 3 Backlog`
+- **Nội dung hoàn thành:**
+  1. **Triển khai Socket.IO Realtime Gateway (`/ws`):**
+     - Thiết lập `RealtimeGateway` lắng nghe trên endpoint `/ws`, cấu hình CORS linh hoạt với credentials.
+     - Triển khai `SocketIoAdapter` kế thừa `IoAdapter` của NestJS để bind cổng và adapter cho ứng dụng.
+     - Tự động gán người dùng vào personal room `user_{id}` ngay khi bắt tay (handshake) thành công để sẵn sàng nhận thông báo đẩy.
+  2. **Thực thi Bảo mật Handshake & Phân quyền Nghiêm ngặt:**
+     - **Chính sách An toàn (Security Directive):** Nghiêm cấm nhận token qua Query Parameter (chặn rò rỉ JWT trong server access logs). Socket cố tình gửi `query.token` bị từ chối ngay với mã `DISALLOWED_QUERY_AUTH` và ngắt kết nối.
+     - Trích xuất Bearer token an toàn từ `handshake.auth.token` hoặc `handshake.headers.authorization`.
+     - Xác thực JWT bằng `ACCESS_TOKEN_JWT` và đối chiếu dữ liệu trực tiếp từ bảng `users` trong PostgreSQL.
+     - Chặn tài khoản chưa duyệt (`PENDING` bị từ chối với `ACCOUNT_NOT_VERIFIED`), tài khoản bị khóa (`SUSPENDED` bị từ chối với `ACCOUNT_SUSPENDED`), hoặc token sai/hết hạn (`UNAUTHORIZED`).
+  3. **Quản lý Room Hội thoại Chat (`join_conversation`, `leave_conversation`):**
+     - `join_conversation`: Kiểm tra quyền thành viên hội thoại (`member_low_id` hoặc `member_high_id`, hoặc vai trò `ADMIN`) trong bảng `conversations`. Nếu hợp lệ, đưa socket vào room `conversation_{id}` và phát sự kiện `joined_conversation`. Từ chối `FORBIDDEN` nếu không phải thành viên.
+     - `leave_conversation`: Đưa socket rời khỏi room `conversation_{id}` và phát sự kiện `left_conversation`.
+     - Cung cấp sẵn các helper phát sóng `emitToUser(userId, event, data)` và `emitToConversation(conversationId, event, data)`.
+  4. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - **Unit Tests:** Đạt 100% PASS cho `RealtimeGateway` (16 test cases) và `WsAuthGuard` (5 test cases). Tổng unit tests backend đạt 35 suites / 272 tests; frontend đạt 2 suites / 58 tests.
+     - **E2E Tests:** Tạo mới `test/realtime-gateway.e2e-spec.ts` gồm 12 integration test scenarios kết nối client Socket.IO thực tế, kiểm tra toàn bộ luồng handshake, chặn query token, chặn PENDING/SUSPENDED, join/leave room, broadcast tin nhắn và thông báo riêng. Toàn bộ 11 bộ E2E tests backend (164 tests) đều PASS.
+     - **Code Quality & Build:** `pnpm lint` PASS (0 errors, 0 warnings), `pnpm typecheck` PASS (0 errors), `pnpm build` PASS (biên dịch thành công cả backend NestJS và frontend Next.js 14+).
+- **Files thay đổi & mới:**
+  - `apps/backend/package.json` (thêm `@nestjs/websockets`, `@nestjs/platform-socket.io`, `socket.io`, `socket.io-client`)
+  - `pnpm-lock.yaml`
+  - `apps/backend/src/modules/realtime/realtime.types.ts` (mới)
+  - `apps/backend/src/modules/realtime/adapters/socket-io.adapter.ts` (mới)
+  - `apps/backend/src/modules/realtime/guards/ws-auth.guard.ts` (mới)
+  - `apps/backend/src/modules/realtime/guards/ws-auth.guard.spec.ts` (mới)
+  - `apps/backend/src/modules/realtime/realtime.gateway.ts` (mới)
+  - `apps/backend/src/modules/realtime/realtime.gateway.spec.ts` (mới)
+  - `apps/backend/src/modules/realtime/realtime.module.ts` (mới)
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/src/main.ts`
+  - `apps/backend/test/realtime-gateway.e2e-spec.ts` (mới)
+  - `tasks/BACKLOG.md`
+  - `tasks/AGENT_HANDOFF.md`
+
+---
+
 ### Handoff #027: Triển khai Bộ API Quản lý Hồ sơ & Sở thích Người dùng (CMP-21 / BE-01-T04) (19/11/2026)
 
 - **Ngày:** 2026-11-19

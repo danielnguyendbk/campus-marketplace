@@ -7,6 +7,7 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 import { getAppConfig } from './config/env.config';
+import { SocketIoAdapter } from './modules/realtime/adapters/socket-io.adapter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -33,6 +34,7 @@ async function bootstrap() {
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
+  app.useWebSocketAdapter(new SocketIoAdapter(app, config.corsOrigin));
 
   // Enable Graceful Shutdown hooks
   app.enableShutdownHooks();
