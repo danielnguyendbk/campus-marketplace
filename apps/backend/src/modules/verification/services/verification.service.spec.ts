@@ -85,6 +85,8 @@ describe('VerificationService', () => {
     storageService = {
       uploadPrivate: jest.fn().mockResolvedValue({ ref: 'evidence/user-uuid-1/card.jpg' }),
       getPresignedDownloadUrl: jest.fn().mockResolvedValue('https://storage.example.com/download/card.jpg'),
+      verifyDownloadSignature: jest.fn(),
+      getPrivateFile: jest.fn(),
       deleteFile: jest.fn(),
     } as unknown as jest.Mocked<StorageService>;
 
@@ -349,6 +351,72 @@ describe('VerificationService', () => {
       await expect(
         service.reviewVerification('non-existent', { decision: 'APPROVED' }, mockAdmin),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('downloadEvidence', () => {
+    const ref = 'evidence/user-uuid-1/card.jpg';
+    const expires = Date.now() + 600000;
+    const token = 'valid-token';
+
+    it('should throw BadRequestException if missing parameters', async () => {
+      await expect(service.downloadEvidence('', expires, token, mockAdmin)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.downloadEvidence(ref, 0, token, mockAdmin)).rejects.toThrow(
+        BadRequestException,
+      );
+      await expect(service.downloadEvidence(ref, expires, '', mockAdmin)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('should throw ForbiddenException if token is expired', async () => {
+      storageService.verifyDownloadSignature.mockReturnValueOnce({
+        valid: false,
+        reason: 'EXPIRED',
+      });
+
+      await expect(service.downloadEvidence(ref, expires, token, mockAdmin)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should throw ForbiddenException if signature is invalid', async () => {
+      storageService.verifyDownloadSignature.mockReturnValueOnce({
+        valid: false,
+        reason: 'INVALID_SIGNATURE',
+      });
+
+      await expect(service.downloadEvidence(ref, expires, token, mockAdmin)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should retrieve private file and record audit log on success', async () => {
+      storageService.verifyDownloadSignature.mockReturnValueOnce({ valid: true });
+      const mockFileResult = {
+        buffer: Buffer.from('card-content'),
+        mimetype: 'image/jpeg',
+        filename: 'card.jpg',
+      };
+      storageService.getPrivateFile.mockResolvedValueOnce(mockFileResult);
+
+      const result = await service.downloadEvidence(ref, expires, token, mockAdmin);
+
+      expect(result).toEqual(mockFileResult);
+      expect(storageService.verifyDownloadSignature).toHaveBeenCalledWith(ref, expires, token);
+      expect(storageService.getPrivateFile).toHaveBeenCalledWith(ref);
+      expect(evidenceRepo.recordAuditLog).toHaveBeenCalledWith(
+        mockAdmin.id,
+        'VIEW_EVIDENCE',
+        'student_evidences',
+        ref,
+        expect.objectContaining({
+          action: 'DOWNLOAD_EVIDENCE',
+          ref,
+        }),
+      );
     });
   });
 });

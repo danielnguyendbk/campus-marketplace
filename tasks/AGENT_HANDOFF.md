@@ -338,6 +338,32 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Lịch sử bàn giao (Handoff Log)
 
+### Handoff #028: Hoàn thiện Handler Tải Minh chứng Sinh viên & Cơ chế Xác minh Chữ ký URL (CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `fix/cmp-38-evidence-download-handler`
+- **Truy vết:** `CMP-8`, `CMP-38`, `BR-03`, `AUDIT-06`, `DoD Sprint 2`
+- **Vấn đề khắc phục (theo báo cáo rà soát luồng ảnh minh chứng của FE/QA):**
+  1. Thiếu handler `GET /download` trên `AdminVerificationController`, dẫn đến URL `cardImageUrl` bị khớp vào route param `:verificationId` và bị `ParseUUIDPipe` từ chối (400 Bad Request).
+  2. URL tải trước đó thiếu tham số thời hạn `expires` trong query params, khiến server không thể xác minh thời điểm hết hạn và chữ ký HMAC.
+  3. Thiếu cơ chế kiểm tra chống duyệt thư mục trái phép (directory traversal) và cơ chế trả ảnh bảo mật không qua cache công khai.
+- **Giải pháp triển khai:**
+  1. **Tạo URL tải có chữ ký và hạn dùng (`StorageService.getPresignedDownloadUrl`):**
+     - Sinh URL: `/api/v1/admin/verifications/download?ref=...&expires=...&token=...` với HMAC-SHA256 ký trên chuỗi `${ref}:${expires}`.
+     - Hàm `verifyDownloadSignature`: Thẩm định chữ ký bằng `crypto.timingSafeEqual`, kiểm tra hạn dùng `Date.now() <= expires`.
+     - Hàm `resolveSafePath`: Chặn path traversal (`..`, null-byte, đường dẫn tuyệt đối), đảm bảo tệp giải quyết nằm strictly trong `baseStorageDir`.
+     - Hàm `getPrivateFile`: Đọc buffer tệp, nhận diện Content-Type chuẩn (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
+  2. **Thêm Handler Tải Minh chứng (`AdminVerificationController.downloadEvidence`):**
+     - Đặt route `@Get('download')` trước `@Get(':verificationId')` để NestJS ưu tiên route tĩnh, giải quyết triệt để xung đột với `ParseUUIDPipe`.
+     - Bảo vệ bởi `@UseGuards(JwtAuthGuard, RolesGuard)` và `@Roles('ADMIN')`: Từ chối 401 với Guest, 403 với USER thường.
+     - Kiểm tra tham số (400 `VALIDATION_FAILED` nếu thiếu, 403 `LINK_EXPIRED` nếu quá hạn, 403 `INVALID_SIGNATURE` nếu sai chữ ký, 404 `FILE_NOT_FOUND` nếu tệp không tồn tại).
+     - Thiết lập headers bảo mật: `Cache-Control: private, no-cache, no-store, must-revalidate`, `Pragma: no-cache`, `Expires: 0`.
+     - Ghi nhận Audit Log `VIEW_EVIDENCE` với payload `DOWNLOAD_EVIDENCE` và thời điểm tải.
+  3. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - Unit tests: `storage.service.spec.ts` (upload, presigned url, signature verification, safe path traversal, non-existent file), `verification.service.spec.ts` (downloadEvidence validation, expired, invalid signature, success), `admin-verification.controller.spec.ts` (downloadEvidence response headers & buffer).
+     - E2E tests: Thêm 7 tests mới trong `admin-verification.e2e-spec.ts` (401 unauth, 403 user, 400 missing params, 403 expired, 403 invalid signature, 404 not found, 200 raw binary image stream & audit log). Tổng cộng 159/159 E2E tests PASS.
+
 ### Handoff #027: Triển khai Bộ API Quản lý Hồ sơ & Sở thích Người dùng (CMP-21 / BE-01-T04) (19/11/2026)
 
 - **Ngày:** 2026-11-19

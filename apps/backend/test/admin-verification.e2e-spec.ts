@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
@@ -244,6 +244,24 @@ describe('Admin Verification Flow (e2e) — CMP-8 / OpenAPI v1.2 Contract', () =
       .useValue({
         uploadPrivate: jest.fn().mockResolvedValue({ ref: 'evidence/test-user/card.png' }),
         getPresignedDownloadUrl: jest.fn().mockResolvedValue('https://storage.example.com/download/card.png'),
+        verifyDownloadSignature: jest.fn().mockImplementation((_ref, _expires, token) => {
+          if (token === 'expired-token') return { valid: false, reason: 'EXPIRED' };
+          if (token === 'invalid-token') return { valid: false, reason: 'INVALID_SIGNATURE' };
+          return { valid: true };
+        }),
+        getPrivateFile: jest.fn().mockImplementation(async (ref: string) => {
+          if (ref.includes('non-existent')) {
+            throw new NotFoundException({
+              code: 'FILE_NOT_FOUND',
+              message: 'Tệp minh chứng không tồn tại hoặc đã bị xóa.',
+            });
+          }
+          return {
+            buffer: Buffer.from('fake-card-image-bytes'),
+            mimetype: 'image/png',
+            filename: 'card.png',
+          };
+        }),
         deleteFile: jest.fn().mockResolvedValue(undefined),
       })
       .compile();
@@ -446,6 +464,98 @@ describe('Admin Verification Flow (e2e) — CMP-8 / OpenAPI v1.2 Contract', () =
       // Verify notification
       expect(adminEvidenceRepo.notifications).toHaveLength(1);
       expect(adminEvidenceRepo.notifications[0].content).toContain(rejectReason);
+    });
+  });
+
+  describe('GET /api/v1/admin/verifications/download', () => {
+    const validRef = 'evidence/test-user/card.png';
+    const futureExpires = String(Date.now() + 600000);
+    const validToken = 'valid-token';
+
+    it('returns 401 UNAUTHORIZED when no token is provided', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=${validToken}`);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 FORBIDDEN when accessed by non-ADMIN user', async () => {
+      const userToken = createToken('USER');
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=${validToken}`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 VALIDATION_FAILED when query parameters are missing', async () => {
+      const adminToken = createToken('ADMIN');
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/verifications/download')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    });
+
+    it('returns 403 LINK_EXPIRED when download link has expired', async () => {
+      const adminToken = createToken('ADMIN');
+      const pastExpires = String(Date.now() - 10000);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${pastExpires}&token=expired-token`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('LINK_EXPIRED');
+    });
+
+    it('returns 403 INVALID_SIGNATURE when token is invalid or tampered', async () => {
+      const adminToken = createToken('ADMIN');
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=invalid-token`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('INVALID_SIGNATURE');
+    });
+
+    it('returns 404 FILE_NOT_FOUND when file does not exist', async () => {
+      const adminToken = createToken('ADMIN');
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=evidence/test-user/non-existent.png&expires=${futureExpires}&token=${validToken}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('FILE_NOT_FOUND');
+    });
+
+    it('returns 200 with raw file binary and private no-cache headers when valid ADMIN calls', async () => {
+      const adminId = 'admin-download-auditor';
+      const adminToken = createToken('ADMIN', adminId);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=${validToken}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('image/png');
+      expect(res.headers['cache-control']).toBe('private, no-cache, no-store, must-revalidate');
+      expect(res.headers['pragma']).toBe('no-cache');
+      expect(res.body).toEqual(Buffer.from('fake-card-image-bytes'));
+
+      // Check audit log recorded for DOWNLOAD_EVIDENCE
+      const audit = adminEvidenceRepo.auditLogs.find(
+        (a) =>
+          a.action === 'VIEW_EVIDENCE' &&
+          (a.payload as Record<string, unknown>)?.action === 'DOWNLOAD_EVIDENCE',
+      );
+      expect(audit).toBeDefined();
+      expect(audit?.actor_id).toBe(adminId);
     });
   });
 });
