@@ -19,24 +19,24 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-11/CMP-10 (Post Lifecycle State Transitions: `POST /posts/{id}/hide`, `activate`, `sold`, `close` - BE-02-T05), CMP-16, CMP-15, CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
-- **Cập nhật lần cuối:** 2026-11-19 11:35
-- **Người bàn giao:** Backend Developer (BE-02) / Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team
-- **Branch hiện tại:** `feat/be-02-post-lifecycle`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). BẢO LƯU NGUYÊN TRẠNG PRODUCTION. Bảng `posts` hỗ trợ đầy đủ `status` (`ACTIVE`, `HIDDEN`, `SOLD`, `CLOSED`), `close_reason`, `ended_at`. Đã soạn thảo migration `0002_enable_rls_and_least_privilege_policies.sql` chờ duyệt.
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành 100% backend (CMP-7, CMP-8, CMP-9, CMP-10, CMP-11, CMP-15, CMP-16, CMP-17, CMP-34, CMP-36, CMP-37). Đã sửa lỗi handler ảnh minh chứng (CMP-38/CMP-8) và cung cấp tài khoản Admin seed mặc định cho môi trường Dev/Test.
+- **Cập nhật lần cuối:** 2026-11-21 12:55
+- **Người bàn giao:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team, QA Team
+- **Branch hiện tại:** `develop`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). Đã seed tài khoản Admin (`admin@ptithcm.edu.vn` / `Admin@123456`) vào bảng `users`.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 289/289 tests (Frontend Vitest 58/58 + Backend Jest 231/231).
-  - `pnpm test:e2e`: PASS 134/134 tests across 9 test suites (bao gồm `posts.e2e-spec.ts` 36/36 tests với 19 AC mới của Post Lifecycle AC1–AC19, `chat.e2e-spec.ts` 25/25 tests, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests).
+  - `pnpm test`: PASS 317/317 tests (Frontend Vitest 58/58 + Backend Jest 259/259).
+  - `pnpm test:e2e`: PASS 159/159 tests across 10 test suites (bao gồm `admin-verification.e2e-spec.ts` 16/16 tests với 7 tests cho route `/download`, `posts.e2e-spec.ts` 36/36 tests, `chat.e2e-spec.ts` 25/25 tests, `contract-schemas.e2e-spec.ts` 32/32 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-11](https://chauviplong1701.atlassian.net/browse/CMP-11): `[Sprint 2][BE2] Chuyển đổi trạng thái bài đăng (Post Lifecycle State Transitions)` -> **Done** (Code & test hoàn tất, sẵn sàng merge)
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done** (Đã bổ sung handler download và seed admin)
+  - [CMP-11](https://chauviplong1701.atlassian.net/browse/CMP-11): `[Sprint 2][BE2] Chuyển đổi trạng thái bài đăng (Post Lifecycle State Transitions)` -> **Done** (Đã merge vào develop)
   - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Đã merge vào develop)
   - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Đã merge vào develop qua PR #5)
   - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
-  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done**
   - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
   - [CMP-9](https://chauviplong1701.atlassian.net/browse/CMP-9): `[Sprint 2][BE2] Tạo tin đăng bán sản phẩm` -> **Done**
   - [CMP-10](https://chauviplong1701.atlassian.net/browse/CMP-10): `[Sprint 2][BE2] Tạo tin tìm mua sản phẩm` -> **Done**
@@ -337,6 +337,41 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #029: Cung cấp Seed Tài khoản Quản trị viên (Admin Seed) Phục vụ Môi trường Dev/Test (Sprint 1 / CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `develop`
+- **Truy vết:** `Sprint 1`, `CMP-8`, `CMP-38`, `BR-03`, `DoD Sprint 2`
+- **Bối cảnh & Vấn đề giải quyết:**
+  - Quy trình đăng ký `/api/v1/auth/register` chỉ cấp quyền mặc định `role = 'USER'` và `verification_status = 'PENDING'` theo quy định bảo mật hệ thống.
+  - Các kỹ sư Frontend, Backend và QA cần tài khoản có vai trò `ADMIN` và trạng thái `APPROVED` để đăng nhập, lấy access token và thực thi các nghiệp vụ quản trị (như duyệt/từ chối sinh viên tại CMP-8, tải ảnh minh chứng CMP-38).
+- **Nội dung triển khai:**
+  1. **Script khởi tạo Admin tự động (`seed-admin.ts`):**
+     - Tạo tệp `apps/backend/src/database/seed-admin.ts` kết nối database qua `pg.Pool` với TLS an toàn.
+     - Kiểm tra nếu tài khoản admin tồn tại thì nâng cấp quyền `role = 'ADMIN'`, `verification_status = 'APPROVED'`, cập nhật hash mật khẩu; nếu chưa có thì `INSERT` mới đầy đủ thông tin chuẩn sinh viên PTIT.
+     - Sử dụng `bcrypt` với cost factor 10 để mã hóa mật khẩu an toàn.
+  2. **Tệp SQL Baseline Seed (`database/seeds/02_admin_user_seed.sql`):**
+     - Cung cấp bản SQL chạy trực tiếp trên Supabase SQL Editor nếu không muốn chạy qua CLI.
+     - Sử dụng mật khẩu hash chuẩn bcrypt của `Admin@123456`.
+  3. **Cập nhật scripts npm & Tài liệu hướng dẫn:**
+     - Thêm script `"db:seed:admin"` tại `package.json` gốc và `apps/backend/package.json`.
+     - Cập nhật tài liệu `database/seeds/README.md` hướng dẫn chi tiết cách chạy và thông tin đăng nhập.
+  4. **Thông tin tài khoản Admin mặc định môi trường Dev/Test:**
+     - Email: `admin@ptithcm.edu.vn`
+     - Mật khẩu: `Admin@123456`
+     - Vai trò: `ADMIN` | Trạng thái xác minh: `APPROVED`
+  5. **Kiểm chứng:**
+     - Đã thực thi `pnpm db:seed:admin` thành công trên CSDL Supabase PostgreSQL.
+     - Gọi `POST /api/v1/auth/login` với tài khoản trên: Trả về HTTP 200, JWT token hợp lệ, user role `ADMIN`, `verificationStatus: 'APPROVED'`.
+- **Files thay đổi & mới:**
+  - `apps/backend/src/database/seed-admin.ts` (mới)
+  - `database/seeds/02_admin_user_seed.sql` (mới)
+  - `database/seeds/README.md` (cập nhật)
+  - `apps/backend/package.json` (cập nhật)
+  - `package.json` (cập nhật)
+  - `tasks/AGENT_HANDOFF.md`
 
 ### Handoff #028: Hoàn thiện Handler Tải Minh chứng Sinh viên & Cơ chế Xác minh Chữ ký URL (CMP-8 / CMP-38) (21/11/2026)
 
