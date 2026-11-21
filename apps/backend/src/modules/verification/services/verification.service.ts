@@ -223,12 +223,16 @@ export class VerificationService {
 
     const file = await this.storageService.getPrivateFile(ref);
 
+    // Resolve target evidence ID for audit log
+    const evidence = await this.evidenceRepository.findByCardImageRef(ref);
+    const targetId = evidence ? evidence.id : ref;
+
     // Record audit log for evidence download
     await this.evidenceRepository.recordAuditLog(
       admin.id,
       'VIEW_EVIDENCE',
       'student_evidences',
-      ref,
+      targetId,
       {
         action: 'DOWNLOAD_EVIDENCE',
         ref,

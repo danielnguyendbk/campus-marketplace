@@ -78,6 +78,7 @@ describe('VerificationService', () => {
       countVerifications: jest.fn(),
       getVerificationDetailById: jest.fn(),
       updateReviewStatus: jest.fn(),
+      findByCardImageRef: jest.fn().mockResolvedValue(null),
       recordAuditLog: jest.fn(),
       createNotification: jest.fn(),
     } as unknown as jest.Mocked<EvidenceRepository>;

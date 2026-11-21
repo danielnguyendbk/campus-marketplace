@@ -35,17 +35,22 @@ class InMemoryAdminEvidenceRepository {
     }
   > = {};
   public auditLogs: Array<{
+    actor_type?: string;
     actor_id: string;
     action: string;
     target_type: string;
     target_id: string;
+    details?: Record<string, unknown>;
     payload?: Record<string, unknown>;
   }> = [];
   public notifications: Array<{
+    recipient_id?: string;
     user_id: string;
     title: string;
     content: string;
     type: string;
+    reference_id?: string;
+    reference_type?: string;
     ref_id?: string;
   }> = [];
 
@@ -160,35 +165,58 @@ class InMemoryAdminEvidenceRepository {
     }
   }
 
+  async findByCardImageRef(cardImageRef: string): Promise<StudentEvidenceRow | null> {
+    const evidence = this.evidences.find((e) => e.card_image_ref === cardImageRef);
+    if (!evidence) return null;
+    return {
+      id: evidence.id,
+      user_id: evidence.user_id,
+      card_image_ref: evidence.card_image_ref,
+      submitted_at: evidence.submitted_at,
+      reviewed_by: evidence.reviewed_by ?? null,
+      reviewed_at: evidence.reviewed_at ?? null,
+      reason: evidence.reason ?? null,
+    };
+  }
+
   async recordAuditLog(
-    actorId: string,
+    actorId: string | null,
     action: string,
     targetType: string,
     targetId: string,
-    payload?: Record<string, unknown>,
+    details?: Record<string, unknown>,
+    _client?: unknown,
+    actorType: 'USER' | 'SYSTEM' = 'USER',
   ): Promise<void> {
     this.auditLogs.push({
-      actor_id: actorId,
+      actor_type: actorType,
+      actor_id: actorId ?? '',
       action,
       target_type: targetType,
       target_id: targetId,
-      payload,
+      details,
+      payload: details,
     });
   }
 
   async createNotification(
-    userId: string,
+    recipientId: string,
     title: string,
     content: string,
     type: string,
-    refId?: string,
+    referenceId?: string,
+    _client?: unknown,
+    referenceType?: string,
   ): Promise<void> {
     this.notifications.push({
-      user_id: userId,
+      recipient_id: recipientId,
+      user_id: recipientId,
       title,
       content,
       type,
-      ref_id: refId,
+      reference_id: referenceId,
+      ref_id: referenceId,
+      reference_type: referenceType ?? 'student_evidences',
     });
   }
 }
@@ -428,10 +456,14 @@ describe('Admin Verification Flow (e2e) — CMP-8 / OpenAPI v1.2 Contract', () =
       expect(audit).toBeDefined();
       expect(audit?.actor_id).toBe(adminId);
       expect(audit?.target_id).toBe(userId);
+      expect(audit?.actor_type).toBe('USER');
+      expect(audit?.details).toBeDefined();
 
       // Verify in-app notification
       expect(adminEvidenceRepo.notifications).toHaveLength(1);
       expect(adminEvidenceRepo.notifications[0].user_id).toBe(userId);
+      expect(adminEvidenceRepo.notifications[0].recipient_id).toBe(userId);
+      expect(adminEvidenceRepo.notifications[0].reference_id).toBe(evidenceId);
       expect(adminEvidenceRepo.notifications[0].type).toBe('VERIFICATION_RESULT');
     });
 

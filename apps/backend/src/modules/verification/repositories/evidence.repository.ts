@@ -194,37 +194,88 @@ export class EvidenceRepository extends BaseRepository<StudentEvidenceRow> {
     await this.executeQuery(updateUserSql, [params.decision, params.userId], client);
   }
 
+  async findByCardImageRef(
+    cardImageRef: string,
+    client?: PoolClient,
+  ): Promise<StudentEvidenceRow | null> {
+    const sql = `
+      SELECT "id", "user_id", "card_image_ref", "submitted_at", "reviewed_by", "reviewed_at", "reason"
+      FROM "student_evidences"
+      WHERE "card_image_ref" = $1
+      LIMIT 1;
+    `;
+    const res = await this.executeQuery<StudentEvidenceRow>(sql, [cardImageRef], client);
+    return res.rows[0] ?? null;
+  }
+
   async recordAuditLog(
-    actorId: string,
+    actorId: string | null,
     action: string,
     targetType: string,
     targetId: string,
-    payload?: Record<string, unknown>,
+    details?: Record<string, unknown>,
     client?: PoolClient,
+    actorType: 'USER' | 'SYSTEM' = 'USER',
   ): Promise<void> {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let safeTargetId = targetId;
+    const safeDetails: Record<string, unknown> = details ? { ...details } : {};
+
+    if (!uuidRegex.test(targetId)) {
+      safeDetails.rawTargetId = targetId;
+      const extractedUuid = targetId.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+      safeTargetId = extractedUuid
+        ? extractedUuid[0]
+        : (actorId && uuidRegex.test(actorId) ? actorId : '00000000-0000-0000-0000-000000000000');
+    }
+
     const sql = `
-      INSERT INTO "audit_logs" ("actor_id", "action", "target_type", "target_id", "payload", "created_at")
-      VALUES ($1, $2, $3, $4, $5::jsonb, now());
+      INSERT INTO "audit_logs" ("actor_type", "actor_id", "action", "target_type", "target_id", "details", "created_at")
+      VALUES ($1, $2, $3, $4, $5, $6::jsonb, now());
     `;
     await this.executeQuery(
       sql,
-      [actorId, action, targetType, targetId, payload ? JSON.stringify(payload) : null],
+      [
+        actorType,
+        actorId ?? null,
+        action,
+        targetType,
+        safeTargetId,
+        Object.keys(safeDetails).length > 0 ? JSON.stringify(safeDetails) : null,
+      ],
       client,
     );
   }
 
   async createNotification(
-    userId: string,
+    recipientId: string,
     title: string,
     content: string,
     type: string,
-    refId?: string,
+    referenceId?: string,
     client?: PoolClient,
+    referenceType?: string,
   ): Promise<void> {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeReferenceId = referenceId && uuidRegex.test(referenceId) ? referenceId : null;
+
     const sql = `
-      INSERT INTO "notifications" ("user_id", "title", "content", "type", "ref_id", "created_at")
-      VALUES ($1, $2, $3, $4, $5, now());
+      INSERT INTO "notifications" (
+        "recipient_id",
+        "title",
+        "content",
+        "type",
+        "reference_id",
+        "reference_type",
+        "is_read",
+        "created_at"
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, false, now());
     `;
-    await this.executeQuery(sql, [userId, title, content, type, refId ?? null], client);
+    await this.executeQuery(
+      sql,
+      [recipientId, title, content, type, safeReferenceId, referenceType ?? 'student_evidences'],
+      client,
+    );
   }
 }
