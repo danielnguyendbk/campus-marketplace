@@ -4,6 +4,16 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### CMP-39 — Tạo tin bán và tìm mua (2026-11-21)
+
+- **Nhánh:** `feat/fe-cmp-39-post-creation`. Bản nháp ở `d720eb9`, đã gộp `develop` tại `ec8e737` bằng `d4158e1`. Phần tích hợp FE hiện ở working tree.
+- **Tạo tin:** Tài khoản `APPROVED` có mục “Đăng tin”. Màn `/posts/new` dùng danh mục đang hoạt động từ `GET /categories` và gửi multipart qua `POST /posts` với phiên JWT hiện tại. SELL cần giá, tình trạng và 1–5 ảnh. BUY_REQUEST cần khoảng ngân sách hợp lệ và cho phép không ảnh. Form giữ dữ liệu khi API trả lỗi và chặn gửi lặp trong lúc xử lý.
+- **Xem lại:** Sau khi tạo thành công, “Xem tin vừa đăng” mở `/posts/[id]`, đọc lại bằng `GET /posts/{id}` và hiển thị thông tin theo loại tin. UI dùng bố cục thông tin và ảnh ở hai cột trên desktop, một cột trên điện thoại.
+- **Kiểm chứng:** 68/68 test frontend đạt với API giả lập. ESLint, Prettier và `git diff --check` đạt. TypeScript mã nguồn đạt sau khi loại các type sinh cũ của CMP-38 trong `.next` khỏi lần kiểm tra trong bộ nhớ. Đã kiểm tra bố cục bản xem trước ở desktop, viewport 375 px và màn ngang, cùng focus tới nhóm lỗi.
+- **Nghiệm thu:** Dùng tài khoản test `APPROVED` và ảnh giả để tạo SELL có ảnh, BUY_REQUEST không ảnh rồi mở lại từng tin. Đối chiếu HTTP 201/200, trạng thái `ACTIVE`, đúng loại tin và giá hoặc ngân sách. Thử guest/PENDING bị chặn. Xác nhận với BE trường hợp guard cho ADMIN chưa `APPROVED` đi qua ở server. Smoke test trên môi trường chung, production build, PR và CI còn chờ.
+
+---
+
 ### Cập nhật tài liệu QA — CMP-40 (2026-11-17)
 
 - Theo tiến độ người giao: CMP-7/8/9/10/34/36 đã được dev triển khai; CMP-35 chưa triển khai, CMP-37 chưa hoàn tất. Các nhãn Done của CMP-37 trong phần lịch sử bên dưới không phải xác nhận tiến độ hiện tại.

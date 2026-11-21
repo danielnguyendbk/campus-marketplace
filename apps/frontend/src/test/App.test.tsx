@@ -9,6 +9,8 @@ import { LoginForm } from '../features/auth/components/login-form';
 import { createAuthApi, type AuthApi } from '../features/auth/api';
 import { MarketplaceHome } from '../features/marketplace/components/marketplace-home';
 import { VerificationPage } from '../features/marketplace/components/verification-page';
+import { CreatePostPage } from '../features/posts/components/create-post-page';
+import { PostDetailPage } from '../features/posts/components/post-detail-page';
 import {
   createAuthMockAdapter,
   MOCK_EMAIL,
@@ -25,6 +27,212 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   navigation.replace.mockReset();
+});
+
+describe('CMP-39 post creation and detail', () => {
+  const id = 'a23ef463-1a6b-4b2d-a330-0e47edff0217';
+  const title = 'Giáo trình kiểm thử';
+  const date = '2026-11-21T09:00:00Z';
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = vi.fn(() => 'blob:post-fixture');
+        static revokeObjectURL = vi.fn();
+      },
+    );
+  });
+
+  async function postSession({
+    status = 'APPROVED',
+    failCategoriesOnce = false,
+    rejectTitle = false,
+  }: {
+    status?: 'APPROVED' | 'PENDING';
+    failCategoriesOnce?: boolean;
+    rejectTitle?: boolean;
+  } = {}) {
+    let created: object | undefined;
+    let categoryCalls = 0;
+    const success = (data: unknown, status = 200, meta?: object) =>
+      Response.json({ success: true, data, timestamp: date, meta }, { status });
+    const transport = vi.fn(async (address: string, options?: RequestInit) => {
+      const path = new URL(address).pathname;
+      if (path.endsWith('/auth/login')) {
+        return success({
+          accessToken: 'post-test-token',
+          tokenType: 'Bearer',
+          expiresIn: 600,
+          user: { id, displayName: 'Sinh viên test', role: 'USER', verificationStatus: status },
+        });
+      }
+      if (path.endsWith('/categories')) {
+        categoryCalls += 1;
+        if (failCategoriesOnce && categoryCalls === 1) {
+          return Response.json(
+            { error: { code: 'SERVER_ERROR', message: 'Lỗi test' } },
+            { status: 500 },
+          );
+        }
+        return success([{ id: 'BOOKS', name: 'Giáo trình' }], 200, {
+          page: 1,
+          limit: 100,
+          total: 1,
+          totalPages: 1,
+        });
+      }
+      if (path.endsWith('/posts') && options?.method === 'POST') {
+        if (rejectTitle) {
+          return Response.json(
+            {
+              error: {
+                code: 'VALIDATION_FAILED',
+                message: 'Sai dữ liệu',
+                details: [{ field: 'title', message: 'Hãy đổi tiêu đề.' }],
+              },
+            },
+            { status: 400 },
+          );
+        }
+        const body = options.body as FormData;
+        const postType = body.get('postType');
+        created = {
+          id,
+          postType,
+          title: body.get('title'),
+          categoryId: body.get('categoryId'),
+          description: body.get('description'),
+          province: body.get('province'),
+          status: 'ACTIVE',
+          createdAt: date,
+          images: [],
+          ...(postType === 'SELL'
+            ? {
+                sellDetail: {
+                  price: Number(body.get('price')),
+                  condition: body.get('condition'),
+                  allowPhoneReveal: false,
+                },
+              }
+            : {
+                buyRequestDetail: {
+                  budgetMin: Number(body.get('budgetMin')),
+                  budgetMax: Number(body.get('budgetMax')),
+                },
+              }),
+        };
+        return success(created, 201);
+      }
+      if (path.endsWith(`/posts/${id}`) && created) return success(created);
+      return Response.json(
+        { error: { code: 'POST_NOT_FOUND', message: 'Không tìm thấy' } },
+        { status: 404 },
+      );
+    });
+    const client = createAuthApi('live', transport);
+    await client.login({ email: 'post-test@example.edu.vn', password: 'fixture-only' });
+    return { client, transport };
+  }
+
+  async function fillCommonFields() {
+    await screen.findByRole('option', { name: 'Giáo trình' });
+    fireEvent.change(screen.getByLabelText('Tiêu đề'), { target: { value: title } });
+    fireEvent.change(screen.getByLabelText('Danh mục'), { target: { value: 'BOOKS' } });
+    fireEvent.change(screen.getByLabelText('Tỉnh / Thành phố'), {
+      target: { value: 'TP. Hồ Chí Minh' },
+    });
+    fireEvent.change(screen.getByLabelText('Mô tả'), {
+      target: { value: 'Dữ liệu đăng tin test.' },
+    });
+  }
+
+  it('keeps the post form and detail requests inaccessible to a pending student', async () => {
+    const { client, transport } = await postSession({ status: 'PENDING' });
+    const view = render(<CreatePostPage client={client} />);
+    expect(screen.getByText('Cần xác thực sinh viên')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Đăng tin' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Đăng tin bán' })).not.toBeInTheDocument();
+    view.rerender(<PostDetailPage id={id} client={client} />);
+    expect(screen.getByText(/Chỉ sinh viên đã được xác thực/)).toBeInTheDocument();
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows retry when loading real categories fails', async () => {
+    const { client } = await postSession({ failCategoriesOnce: true });
+    render(<CreatePostPage client={client} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không thể tải danh mục');
+    expect(screen.getByRole('button', { name: 'Đăng tin bán' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Tải lại danh mục' }));
+    expect(await screen.findByRole('option', { name: 'Giáo trình' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Đăng tin bán' })).toBeEnabled();
+  });
+
+  it('requires an image for a SELL post, then shows a link to the created post', async () => {
+    const { client, transport } = await postSession();
+    render(<CreatePostPage client={client} />);
+    await fillCommonFields();
+    fireEvent.change(screen.getByLabelText('Giá bán (₫)'), { target: { value: '120000' } });
+    fireEvent.change(screen.getByLabelText('Tình trạng sản phẩm'), {
+      target: { value: 'Còn tốt' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng tin bán' }));
+    expect(screen.getByRole('alert')).toHaveFocus();
+    expect(screen.getByRole('alert')).toHaveTextContent('Thêm ít nhất một ảnh');
+    expect(
+      transport.mock.calls.filter(([url]) => new URL(url).pathname.endsWith('/posts')),
+    ).toHaveLength(0);
+
+    const photo = new File(['fixture'], 'book.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Chọn ảnh'), { target: { files: [photo] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng tin bán' }));
+    expect(await screen.findByRole('heading', { name: 'Đã đăng tin' })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Xem tin vừa đăng' })).toHaveAttribute(
+      'href',
+      `/posts/${id}`,
+    );
+    expect(screen.queryByRole('button', { name: 'Đăng tin bán' })).not.toBeInTheDocument();
+  });
+
+  it('validates BUY_REQUEST budgets and loads the resulting post without requiring an image', async () => {
+    const { client, transport } = await postSession();
+    const view = render(<CreatePostPage client={client} />);
+    await fillCommonFields();
+    fireEvent.click(screen.getByRole('radio', { name: /Tìm mua/ }));
+    expect(screen.queryByLabelText('Giá bán (₫)')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Ngân sách từ (₫)'), { target: { value: '100000' } });
+    fireEvent.change(screen.getByLabelText('Ngân sách đến (₫)'), { target: { value: '90000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng tin tìm mua' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Mức ngân sách đến phải bằng hoặc cao hơn');
+
+    fireEvent.change(screen.getByLabelText('Ngân sách đến (₫)'), { target: { value: '150000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng tin tìm mua' }));
+    await screen.findByRole('heading', { name: 'Đã đăng tin' });
+    view.rerender(<PostDetailPage id={id} client={client} />);
+    expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getByText('Tin tìm mua')).toBeInTheDocument();
+    expect(screen.getByText('Khoảng ngân sách')).toBeInTheDocument();
+    expect(
+      transport.mock.calls.filter(([url, init]) => url.endsWith(id) && init?.method === 'GET'),
+    ).toHaveLength(1);
+  });
+
+  it('preserves the draft and links API validation errors to the affected field', async () => {
+    const { client } = await postSession({ rejectTitle: true });
+    render(<CreatePostPage client={client} />);
+    await fillCommonFields();
+    fireEvent.click(screen.getByRole('radio', { name: /Tìm mua/ }));
+    fireEvent.change(screen.getByLabelText('Ngân sách từ (₫)'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Ngân sách đến (₫)'), { target: { value: '150000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Đăng tin tìm mua' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Hãy đổi tiêu đề.');
+    expect(screen.getByLabelText('Tiêu đề')).toHaveValue(title);
+    expect(screen.getByLabelText('Tiêu đề')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('link', { name: 'Hãy đổi tiêu đề.' })).toHaveAttribute(
+      'href',
+      '#title',
+    );
+  });
 });
 
 describe('Frontend App Bootstrap & Envelope Integration Tests', () => {

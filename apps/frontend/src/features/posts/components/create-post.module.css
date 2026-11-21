@@ -29,17 +29,6 @@
   letter-spacing: -0.035em;
 }
 
-.previewNotice {
-  margin: 0 0 24px;
-  padding: 12px 16px;
-  border: 1px solid var(--post-border);
-  border-radius: 12px;
-  background: #fff;
-  color: var(--post-muted);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
 .form {
   display: grid;
   gap: 24px;
@@ -325,13 +314,103 @@
   gap: 12px;
 }
 
-.validNotice {
-  margin: 0;
+.successNotice {
+  margin: 0 0 12px;
   padding: 8px 12px;
   border-radius: 8px;
   background: #e4f5e9;
   color: #166534;
   font-size: 0.875rem;
+}
+
+.categoryNotice {
+  color: var(--post-muted);
+  font-size: 0.875rem;
+}
+
+.categoryNotice p {
+  margin: 0 0 6px;
+}
+
+.successActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.successActions a {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.postStatus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0 0 8px;
+  color: var(--post-muted);
+}
+
+.postStatus strong {
+  color: var(--navy);
+}
+
+.postFacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 12px 20px;
+  margin: 0 0 16px;
+}
+
+.postFacts dt {
+  margin-bottom: 4px;
+  color: var(--post-muted);
+  font-size: 0.875rem;
+}
+
+.postFacts dd,
+.postDescription,
+.page h1 {
+  overflow-wrap: anywhere;
+}
+
+.postFacts dd {
+  margin: 0;
+  font-weight: 650;
+}
+
+.postDescription {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+}
+
+.postGallery {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.postGallery img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.secondaryAction {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--post-control-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  cursor: pointer;
 }
 
 .submit {
@@ -346,8 +425,13 @@
   cursor: pointer;
 }
 
-.submit:hover {
+.submit:hover:not(:disabled) {
   background: #e7a900;
+}
+
+.page :is(button, input, select, textarea):disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 @media (max-width: 760px) {
