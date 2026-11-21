@@ -4,14 +4,14 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
-### CMP-38 — Giao diện xác minh và xét duyệt (2026-11-20)
+### CMP-38 — Giao diện xác minh và xét duyệt (2026-11-21)
 
-- **Nhánh:** `feat/fe-cmp-38-verification-ui`, base `cf2a520`. Các thay đổi hiện ở working tree.
+- **Nhánh:** `feat/fe-cmp-38-verification-ui` đã gộp `develop` tại `ec8e737` bằng commit `ff74fa4`. FE ban đầu đã lưu ở `f509c9d`. Phần nối ảnh hiện ở working tree. Bản nháp CMP-39 đã lưu riêng tại `d720eb9`.
 - **Sinh viên:** `/verification` chấp nhận `submittedAt: null` là chưa nộp, giới hạn ảnh JPG/JPEG/PNG tối đa 10 MiB và có test nộp lại sau khi bị từ chối.
 - **Admin:** `apps/frontend/src/app/admin/verifications/page.tsx` mở qua mục “Xét duyệt hồ sơ” dành cho ADMIN trong `MarketplaceShell`. Component và CSS tại `apps/frontend/src/features/marketplace/components/admin-verification*` dùng hai cột ở màn rộng và chuyển danh sách/chi tiết ở màn hẹp. Có lọc trạng thái, phân trang, lỗi/thử lại, xác nhận duyệt, lý do từ chối tối đa 500 ký tự và cập nhật hàng đợi sau khi lưu. Khi kết quả PATCH chưa xác định, yêu cầu đọc lại hồ sơ trước khi gửi tiếp.
-- **Tích hợp:** `features/marketplace/api.ts` và `features/auth/api.ts` dùng cùng phiên đăng nhập cho GET danh sách/chi tiết và PATCH theo contract của repo. Response Admin được đọc với `no-store`; URL minh chứng không được giữ trong dữ liệu UI. Ảnh chờ BE xác nhận và hoàn thiện route tải file. Backend, DB, cấu hình và API contract không thuộc lượt thay đổi này.
-- **Kiểm chứng:** 69/69 test frontend đạt (9 ca Admin bổ sung trong `apps/frontend/src/test/App.test.tsx`); ESLint, TypeScript, Prettier và `git diff --check` đạt. Bundle xem thử dữ liệu giả tạo được trong bộ nhớ, nhưng trình duyệt Codex không truy cập được cổng cục bộ nên chưa có xác nhận trực quan ở 375 px. Chưa chạy production build hoặc nghiệm thu trên BE/DB thật.
-- **Bước nghiệm thu:** Dùng tài khoản Admin và hồ sơ giả trên môi trường test để kiểm tra danh sách, quyết định và trạng thái phía sinh viên. Sau khi BE có endpoint ảnh, tích hợp từ chi tiết hồ sơ rồi kiểm quyền, thời hạn URL và bảo vệ minh chứng. Ghi bằng chứng đã che thông tin nhạy cảm, hoàn tất PR/review và CI trước khi đánh dấu Done.
+- **Tích hợp ảnh:** BE đã thêm route tải ảnh có chữ ký ở `3574173` và sửa SQL audit/thông báo ở `ec8e737`. FE dùng `cardImageUrl` từ chi tiết Admin theo phê duyệt của người dùng trong khi route tải chờ đồng bộ OpenAPI/Apidog. ApiClient chỉ gửi JWT tới đúng route trên origin của backend, dùng `no-store`, chặn chuyển hướng và kiểm tra loại ảnh. UI hiển thị qua blob URL trong bộ nhớ, giải phóng URL khi rời chi tiết và xin link mới khi bấm “Tải lại ảnh”. Danh sách và khu vực sinh viên không giữ URL ảnh.
+- **Kiểm chứng:** 76/76 test frontend đạt với API giả lập. Các ca kiểm tra ảnh gồm tải có JWT, từ chối URL ngoài phạm vi, chặn guest/USER, xin lại link khi hết hạn và giải phóng ảnh khi đóng chi tiết. TypeScript FE/BE, ESLint frontend, Prettier các file FE đã sửa và `git diff --check` đạt. Chưa chạy production build hoặc nghiệm thu thay đổi mới trên BE/DB thật.
+- **Bước nghiệm thu:** Khởi động lại BE từ `apps/backend` để dùng vùng lưu ảnh local hiện có, xác nhận health `data.database.status = connected` trên đúng DB test, rồi dùng ảnh và tài khoản test. Admin mở chi tiết và xác nhận thấy ảnh, sau đó chạy vòng nộp → từ chối → nộp lại → duyệt. Đối chiếu trạng thái sinh viên và kết quả ghi audit/thông báo. Ghi bằng chứng đã che dữ liệu nhạy cảm và hoàn tất PR/review/CI trước khi đánh dấu Done.
 
 ### Cập nhật tài liệu QA — CMP-40 (2026-11-17)
 

@@ -519,7 +519,24 @@ describe('CMP-38 Admin verification', () => {
   const id = '752b305d-bdc8-4e14-93ee-5103dcd810f1';
   const date = '2026-11-20T01:00:00.000Z';
   const imageEndpoint = '/api/v1/admin/verifications/download';
-  const fakeImageUrl = imageEndpoint + '?ref=fake-reference&token=fake-fixture';
+  const fakeImageUrl =
+    imageEndpoint + '?ref=fake-reference&expires=1795230000000&token=fake-fixture';
+  const renewedImageUrl = fakeImageUrl.replace('fake-fixture', 'renewed-fixture');
+  const createObjectUrl = vi.fn(() => 'blob:fixture-preview');
+  const revokeObjectUrl = vi.fn();
+
+  beforeEach(() => {
+    createObjectUrl.mockClear();
+    revokeObjectUrl.mockClear();
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = createObjectUrl;
+        static revokeObjectURL = revokeObjectUrl;
+      },
+    );
+  });
+
   const sample = {
     id,
     status: 'PENDING',
@@ -540,6 +557,7 @@ describe('CMP-38 Admin verification', () => {
     paginated = false,
     reviewFailure,
     detailFailure,
+    expiredImage = false,
   }: {
     role?: 'ADMIN' | 'USER';
     listFailure?: 401 | 403;
@@ -547,17 +565,18 @@ describe('CMP-38 Admin verification', () => {
     paginated?: boolean;
     reviewFailure?: 500;
     detailFailure?: 404;
+    expiredImage?: boolean;
   } = {}) {
     let record = { ...sample };
     let listCalls = 0;
+    let detailReads = 0;
     function success(data: unknown, meta?: object) {
       return new Response(JSON.stringify({ success: true, data, timestamp: date, meta }));
     }
-    function failure(status: number) {
-      return new Response(
-        JSON.stringify({ error: { code: 'FAILED', message: 'Yêu cầu thất bại' } }),
-        { status },
-      );
+    function failure(status: number, code = 'FAILED') {
+      return new Response(JSON.stringify({ error: { code, message: 'Yêu cầu thất bại' } }), {
+        status,
+      });
     }
     const transport = vi.fn(async (address: string, init?: RequestInit) => {
       const url = new URL(address);
@@ -583,8 +602,18 @@ describe('CMP-38 Admin verification', () => {
         const totalPages = paginated ? 2 : rows.length;
         return success(rows, { page, limit: 20, total: paginated ? 21 : rows.length, totalPages });
       }
+      if (url.pathname === imageEndpoint) {
+        if (expiredImage && url.searchParams.get('token') === 'fake-fixture')
+          return failure(403, 'LINK_EXPIRED');
+        return new Response('fake-image', { headers: { 'Content-Type': 'image/png' } });
+      }
       if (url.pathname.endsWith('/admin/verifications/' + id)) {
-        if (init?.method === 'GET' && detailFailure) return failure(detailFailure);
+        if (init?.method === 'GET') {
+          if (detailFailure) return failure(detailFailure);
+          detailReads += 1;
+          if (expiredImage && detailReads > 1)
+            return success({ ...record, cardImageUrl: renewedImageUrl });
+        }
         if (init?.method === 'PATCH') {
           if (reviewFailure) return failure(reviewFailure);
           const submitted = JSON.parse(String(init.body));
@@ -634,18 +663,14 @@ describe('CMP-38 Admin verification', () => {
     );
   });
 
-  it('requires approval confirmation, refreshes the queue, and keeps evidence URLs private', async () => {
-    const { transport, view } = await setup();
+  it('requires approval confirmation and refreshes the queue', async () => {
+    const { transport } = await setup();
     expect(screen.getByRole('link', { name: 'Xét duyệt hồ sơ' })).toHaveAttribute(
       'href',
       '/admin/verifications',
     );
     await openDetail();
     expect(screen.getByText('DEMO001')).toBeInTheDocument();
-    expect(screen.getByText('Hiện chưa thể xem ảnh minh chứng trên hệ thống.')).toBeInTheDocument();
-    expect(view.container.innerHTML).not.toContain(fakeImageUrl);
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    expect(transport.mock.calls.some(([url]) => url.includes(imageEndpoint))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Duyệt hồ sơ' }));
     expect(transport.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: 'Xác nhận duyệt' }));
@@ -656,6 +681,46 @@ describe('CMP-38 Admin verification', () => {
     expect(mutation?.[1]?.body).toBe(JSON.stringify({ decision: 'APPROVED' }));
     fireEvent.click(screen.getByRole('button', { name: 'Về danh sách' }));
     expect(screen.getByRole('heading', { name: 'Danh sách hồ sơ' })).toHaveFocus();
+  });
+
+  it('renders authenticated evidence only in detail and releases the image on return to the queue', async () => {
+    const { transport, view } = await setup();
+    await screen.findByRole('button', { name: 'Xem hồ sơ của Sinh viên kiểm thử' });
+    expect(transport.mock.calls.some(([url]) => url.includes(imageEndpoint))).toBe(false);
+    expect(view.container.innerHTML).not.toContain(fakeImageUrl);
+
+    await openDetail();
+    const image = await screen.findByRole('img', { name: 'Ảnh minh chứng sinh viên' });
+    expect(image).toHaveAttribute('src', 'blob:fixture-preview');
+    expect(view.container.innerHTML).not.toContain(fakeImageUrl);
+    const evidenceRequest = transport.mock.calls.find(([url]) => url.includes(imageEndpoint));
+    expect(evidenceRequest?.[1]).toMatchObject({
+      headers: { Authorization: 'Bearer fixture-token' },
+      cache: 'no-store',
+      redirect: 'error',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Về danh sách' }));
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(evidenceRequest?.[1]?.signal?.aborted).toBe(true);
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:fixture-preview');
+  });
+
+  it('requests a fresh signed link when retrying an expired image and preserves Admin access', async () => {
+    const { transport } = await setup({ expiredImage: true });
+    await openDetail();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Liên kết ảnh đã hết hạn');
+    expect(screen.getByRole('button', { name: 'Duyệt hồ sơ' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tải lại ảnh' }));
+    expect(
+      await screen.findByRole('img', { name: 'Ảnh minh chứng sinh viên' }),
+    ).toBeInTheDocument();
+    const downloads = transport.mock.calls.filter(([url]) => url.includes(imageEndpoint));
+    expect(downloads.map(([url]) => new URL(url).searchParams.get('token'))).toEqual([
+      'fake-fixture',
+      'renewed-fixture',
+    ]);
   });
 
   it('rejects blank or oversized reasons and sends the trimmed reason on confirmation', async () => {

@@ -513,6 +513,43 @@ describe('CMP-29 authentication contract and explicit mock', () => {
   );
 });
 
+describe('Private image requests', () => {
+  const imagePath = '/admin/verifications/download';
+  const imageUrl = `/api/v1${imagePath}?ref=fixture&expires=1795230000000&token=fixture`;
+  const imageTypes = ['image/png'];
+
+  it.each([
+    `https://outside.example${imageUrl}`,
+    `//outside.example${imageUrl}`,
+    '/api/v1/admin/verifications/another-resource',
+  ])('does not send credentials to a URL outside the approved endpoint (%s)', async (url) => {
+    const transport = vi.fn();
+    const client = new ApiClient('http://localhost:4000/api/v1', transport);
+    client.setToken('fixture-token');
+
+    await expect(client.requestPrivateImage(url, imagePath, imageTypes)).rejects.toMatchObject({
+      code: 'INVALID_RESOURCE_URL',
+    });
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('rejects a successful response that is not an allowed image', async () => {
+    const transport = vi
+      .fn()
+      .mockResolvedValue(
+        new Response('<html></html>', { headers: { 'Content-Type': 'text/html' } }),
+      );
+    const client = new ApiClient('http://localhost:4000/api/v1', transport);
+    client.setToken('fixture-token');
+
+    await expect(client.requestPrivateImage(imageUrl, imagePath, imageTypes)).rejects.toMatchObject(
+      {
+        code: 'INVALID_IMAGE',
+      },
+    );
+  });
+});
+
 describe('Shared session, restricted feed and private evidence contract', () => {
   beforeEach(() => {
     vi.stubGlobal('crypto', webcrypto);
@@ -531,6 +568,14 @@ describe('Shared session, restricted feed and private evidence contract', () => 
     cohort: '2022',
     province: 'Hồ Chí Minh',
   };
+  it('blocks private image requests without an Admin session before calling the server', async () => {
+    const imageUrl = '/api/v1/admin/verifications/download?ref=fixture&token=fixture';
+    const { client, transport } = await signedIn();
+    await expect(client.getAdminEvidenceImage(imageUrl)).rejects.toMatchObject({ status: 403 });
+    client.clearSession();
+    await expect(client.getAdminEvidenceImage(imageUrl)).rejects.toMatchObject({ status: 401 });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
   it('passes the authenticated token to feed and returns only permitted summary fields', async () => {
     const { client, transport } = await signedIn();
     const page = await client.getFeed();

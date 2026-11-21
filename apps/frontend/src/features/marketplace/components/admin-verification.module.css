@@ -232,6 +232,20 @@
   font-size: 0.9375rem;
 }
 
+.evidenceImage {
+  display: block;
+  max-width: 100%;
+  max-height: 420px;
+  height: auto;
+  margin-top: 8px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.evidence button {
+  margin-top: 8px;
+}
+
 .decision {
   border-top: 1px solid #e6eaf1;
   padding-top: 16px;

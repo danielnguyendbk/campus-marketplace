@@ -9,6 +9,7 @@ import { marketplaceError } from '../api';
 import {
   VERIFICATION_REASON_MAX_LENGTH,
   type AdminVerification,
+  type AdminVerificationDetail,
   type VerificationFilter,
   type VerificationReview,
 } from '../types';
@@ -52,6 +53,100 @@ function errorMessage(error: unknown) {
   return marketplaceError(error);
 }
 
+const missingImageMessage = 'Chưa có ảnh minh chứng cho hồ sơ này.';
+
+function evidenceErrorMessage(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.code === 'LINK_EXPIRED') return 'Liên kết ảnh đã hết hạn. Hãy tải lại ảnh.';
+    if (error.code === 'FILE_NOT_FOUND') return 'Không tìm thấy tệp ảnh minh chứng.';
+  }
+  return 'Không thể hiển thị ảnh minh chứng. Vui lòng thử lại.';
+}
+
+function EvidencePreview({
+  record,
+  client,
+  onAccessError,
+}: {
+  record: AdminVerificationDetail;
+  client: AuthApi;
+  onAccessError: (error: unknown) => boolean;
+}) {
+  const { id, cardImageUrl } = record;
+  const [attempt, setAttempt] = useState(0);
+  const [image, setImage] = useState<Load<string>>(
+    cardImageUrl ? { kind: 'loading' } : { kind: 'error', message: missingImageMessage },
+  );
+
+  useEffect(() => {
+    if (!cardImageUrl && attempt === 0) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    let objectUrl: string | undefined;
+
+    async function load() {
+      const signedUrl =
+        attempt === 0 ? cardImageUrl : (await client.getAdminVerification(id, signal)).cardImageUrl;
+      if (signal.aborted) return;
+      if (!signedUrl) {
+        setImage({ kind: 'error', message: missingImageMessage });
+        return;
+      }
+      const blob = await client.getAdminEvidenceImage(signedUrl, signal);
+      if (signal.aborted) return;
+      objectUrl = URL.createObjectURL(blob);
+      setImage({ kind: 'ready', data: objectUrl });
+    }
+
+    void load().catch((error: unknown) => {
+      if (signal.aborted) return;
+      if (
+        error instanceof ApiError &&
+        (error.status === 401 || error.code === 'FORBIDDEN') &&
+        onAccessError(error)
+      ) {
+        return;
+      }
+      setImage({ kind: 'error', message: evidenceErrorMessage(error) });
+    });
+
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [attempt, cardImageUrl, client, id, onAccessError]);
+
+  return (
+    <div className={styles.evidence}>
+      <h3>Ảnh minh chứng</h3>
+      {image.kind === 'loading' && <p role="status">Đang tải ảnh minh chứng…</p>}
+      {image.kind === 'ready' && (
+        <img
+          className={styles.evidenceImage}
+          src={image.data}
+          alt="Ảnh minh chứng sinh viên"
+          onError={() => setImage({ kind: 'error', message: evidenceErrorMessage(null) })}
+        />
+      )}
+      {image.kind === 'error' && (
+        <>
+          <p role="alert">{image.message}</p>
+          <button
+            className={styles.secondaryButton}
+            type="button"
+            onClick={() => {
+              setImage({ kind: 'loading' });
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Tải lại ảnh
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ReviewDetail({
   id,
   client,
@@ -67,7 +162,7 @@ function ReviewDetail({
   onAccessError: (error: unknown) => boolean;
   onBusyChange: (busy: boolean) => void;
 }) {
-  const [detail, setDetail] = useState<Load<AdminVerification>>({ kind: 'loading' });
+  const [detail, setDetail] = useState<Load<AdminVerificationDetail>>({ kind: 'loading' });
   const [revision, setRevision] = useState(0);
   const [decision, setDecision] = useState<VerificationReview['decision'] | null>(null);
   const [reason, setReason] = useState('');
@@ -142,7 +237,11 @@ function ReviewDetail({
     try {
       const data = await client.reviewAdminVerification(id, review, controller.signal);
       if (controller.signal.aborted) return;
-      setDetail({ kind: 'ready', data });
+      setDetail((current) =>
+        current.kind === 'ready'
+          ? { kind: 'ready', data: { ...data, cardImageUrl: current.data.cardImageUrl } }
+          : current,
+      );
       setDecision(null);
       setReason('');
       setReasonError('');
@@ -239,10 +338,7 @@ function ReviewDetail({
               </div>
             )}
           </dl>
-          <div className={styles.evidence}>
-            <h3>Ảnh minh chứng</h3>
-            <p>Hiện chưa thể xem ảnh minh chứng trên hệ thống.</p>
-          </div>
+          <EvidencePreview record={record} client={client} onAccessError={onAccessError} />
           {record.status === 'PENDING' && (
             <section className={styles.decision} aria-label="Quyết định xét duyệt">
               {decision ? (

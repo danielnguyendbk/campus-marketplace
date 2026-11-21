@@ -65,6 +65,15 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
     listAdminVerifications: marketplace.listAdminVerifications,
     getAdminVerification: marketplace.getAdminVerification,
     reviewAdminVerification: marketplace.reviewAdminVerification,
+    async getAdminEvidenceImage(url: string, signal?: AbortSignal) {
+      if (!currentSession) {
+        throw new ApiError('Authentication required', 401, 'UNAUTHORIZED');
+      }
+      if (currentSession.user.role !== 'ADMIN') {
+        throw new ApiError('Admin role required', 403, 'FORBIDDEN');
+      }
+      return marketplace.getAdminEvidenceImage(url, signal);
+    },
     async getVerification(signal?: AbortSignal) {
       const activeToken = currentSession?.accessToken;
       const state = await marketplace.getVerification(signal);

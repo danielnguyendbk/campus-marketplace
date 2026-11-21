@@ -2,6 +2,7 @@ import { ApiClient, ApiError } from '../../services/api';
 import type { VerificationStatus } from '../auth/types';
 import type {
   AdminVerification,
+  AdminVerificationDetail,
   EvidenceFields,
   FeedItem,
   VerificationFilter,
@@ -49,7 +50,7 @@ function adminVerification(value: unknown, expectedId?: string): AdminVerificati
   ) {
     throw new ApiError('Invalid verification response', 200, 'INVALID_RESPONSE_DATA');
   }
-  // The review UI only retains the fields it displays. Image access is handled separately.
+  // Keep evidence URLs out of list and review responses.
   return {
     id,
     status,
@@ -64,6 +65,7 @@ function adminVerification(value: unknown, expectedId?: string): AdminVerificati
 }
 
 const adminVerificationsPath = '/admin/verifications';
+const evidenceImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 
 function adminVerificationPath(id: string) {
   return `${adminVerificationsPath}/${encodeURIComponent(id)}`;
@@ -143,14 +145,25 @@ export function createMarketplaceApi(client: ApiClient) {
       });
       return { data: result.data.map((record) => adminVerification(record)), meta: result.meta };
     },
-    async getAdminVerification(id: string, signal?: AbortSignal) {
-      return adminVerification(
-        await client.request<unknown>(adminVerificationPath(id), {
-          method: 'GET',
-          cache: 'no-store',
-          signal,
-        }),
-        id,
+    async getAdminVerification(id: string, signal?: AbortSignal): Promise<AdminVerificationDetail> {
+      const response = await client.request<unknown>(adminVerificationPath(id), {
+        method: 'GET',
+        cache: 'no-store',
+        signal,
+      });
+      const detail = adminVerification(response, id);
+      const { cardImageUrl } = response as Record<string, unknown>;
+      return {
+        ...detail,
+        cardImageUrl: typeof cardImageUrl === 'string' && cardImageUrl.trim() ? cardImageUrl : null,
+      };
+    },
+    getAdminEvidenceImage(resourceUrl: string, signal?: AbortSignal) {
+      return client.requestPrivateImage(
+        resourceUrl,
+        `${adminVerificationsPath}/download`,
+        evidenceImageTypes,
+        signal,
       );
     },
     async reviewAdminVerification(id: string, review: VerificationReview, signal?: AbortSignal) {

@@ -35,6 +35,10 @@ export interface AdminVerification {
   reviewedAt: string | null;
 }
 
+export interface AdminVerificationDetail extends AdminVerification {
+  cardImageUrl: string | null;
+}
+
 export type VerificationFilter = VerificationStatus | 'ALL';
 
 export type VerificationReview =
