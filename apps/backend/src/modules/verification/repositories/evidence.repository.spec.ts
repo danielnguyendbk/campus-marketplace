@@ -179,44 +179,83 @@ describe('EvidenceRepository', () => {
     });
   });
 
+  describe('findByCardImageRef', () => {
+    it('should query evidence by card image ref', async () => {
+      const mockEvidence = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        user_id: '550e8400-e29b-41d4-a716-446655440001',
+        card_image_ref: 'student-cards/test.jpg',
+        submitted_at: new Date(),
+        reviewed_by: null,
+        reviewed_at: null,
+        reason: null,
+      };
+      const querySpy = jest
+        .spyOn(postgresService, 'query')
+        .mockResolvedValueOnce(createMockQueryResult([mockEvidence]));
+
+      const result = await repository.findByCardImageRef('student-cards/test.jpg');
+
+      expect(result).toEqual(mockEvidence);
+      expect(querySpy).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE "card_image_ref" = $1'),
+        ['student-cards/test.jpg'],
+      );
+    });
+  });
+
   describe('recordAuditLog', () => {
-    it('should insert audit log entry', async () => {
+    it('should insert audit log entry with actor_type and details', async () => {
       const querySpy = jest
         .spyOn(postgresService, 'query')
         .mockResolvedValueOnce(createMockQueryResult([]));
 
       await repository.recordAuditLog(
-        'admin-uuid-1',
+        '550e8400-e29b-41d4-a716-446655440001',
         'VIEW_EVIDENCE',
         'student_evidences',
-        'evi-uuid-1',
+        '550e8400-e29b-41d4-a716-446655440002',
         { viewedAt: '2026-11-17T09:00:00.000Z' },
       );
 
       expect(querySpy).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO "audit_logs"'),
-        expect.any(Array),
+        expect.stringContaining('INSERT INTO "audit_logs" ("actor_type", "actor_id", "action", "target_type", "target_id", "details"'),
+        [
+          'USER',
+          '550e8400-e29b-41d4-a716-446655440001',
+          'VIEW_EVIDENCE',
+          'student_evidences',
+          '550e8400-e29b-41d4-a716-446655440002',
+          JSON.stringify({ viewedAt: '2026-11-17T09:00:00.000Z' }),
+        ],
       );
     });
   });
 
   describe('createNotification', () => {
-    it('should insert notification entry', async () => {
+    it('should insert notification entry with recipient_id and reference_id', async () => {
       const querySpy = jest
         .spyOn(postgresService, 'query')
         .mockResolvedValueOnce(createMockQueryResult([]));
 
       await repository.createNotification(
-        'user-uuid-1',
+        '550e8400-e29b-41d4-a716-446655440001',
         'Verification Success',
         'Your evidence was approved',
         'VERIFICATION_RESULT',
-        'evi-uuid-1',
+        '550e8400-e29b-41d4-a716-446655440002',
       );
 
       expect(querySpy).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO "notifications"'),
-        expect.any(Array),
+        expect.stringContaining('INSERT INTO "notifications" (\n        "recipient_id"'),
+        [
+          '550e8400-e29b-41d4-a716-446655440001',
+          'Verification Success',
+          'Your evidence was approved',
+          'VERIFICATION_RESULT',
+          '550e8400-e29b-41d4-a716-446655440002',
+          'student_evidences',
+        ],
       );
     });
   });

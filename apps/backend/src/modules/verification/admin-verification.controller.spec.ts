@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Response } from 'express';
 import { AuthenticatedUser } from '../../common/auth/authenticated-user.interface';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/auth/roles.guard';
@@ -36,6 +37,7 @@ describe('AdminVerificationController', () => {
       listVerifications: jest.fn(),
       getVerificationDetail: jest.fn(),
       reviewVerification: jest.fn(),
+      downloadEvidence: jest.fn(),
     } as unknown as jest.Mocked<VerificationService>;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -117,6 +119,35 @@ describe('AdminVerificationController', () => {
         { decision: 'APPROVED' },
         mockAdmin,
       );
+    });
+  });
+
+  describe('downloadEvidence', () => {
+    it('should serve file buffer with appropriate headers', async () => {
+      const mockFile = {
+        buffer: Buffer.from('image-bytes'),
+        mimetype: 'image/png',
+        filename: 'card.png',
+      };
+      verificationService.downloadEvidence.mockResolvedValueOnce(mockFile);
+
+      const res = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      } as unknown as Response;
+
+      await controller.downloadEvidence('evidence/test/card.png', '1700000000', 'valid-token', mockAdmin, res);
+
+      expect(verificationService.downloadEvidence).toHaveBeenCalledWith(
+        'evidence/test/card.png',
+        1700000000,
+        'valid-token',
+        mockAdmin,
+      );
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'inline; filename="card.png"');
+      expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+      expect(res.send).toHaveBeenCalledWith(mockFile.buffer);
     });
   });
 });

@@ -16,6 +16,7 @@
     "db:test": "pnpm --filter @campus/backend db:test",
     "db:migrate": "pnpm --filter @campus/backend db:migrate",
     "db:verify": "pnpm --filter @campus/backend db:verify",
+    "db:seed:admin": "pnpm --filter @campus/backend db:seed:admin",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\""
   },
   "devDependencies": {
