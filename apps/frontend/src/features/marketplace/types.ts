@@ -23,4 +23,24 @@ export interface EvidenceFields {
   province: string;
 }
 
+export interface AdminVerification {
+  id: string;
+  status: VerificationStatus;
+  schoolEmail: string;
+  displayName: string;
+  school: string | null;
+  studentCode: string | null;
+  submittedAt: string;
+  reason: string | null;
+  reviewedAt: string | null;
+}
+
+export type VerificationFilter = VerificationStatus | 'ALL';
+
+export type VerificationReview =
+  { decision: 'APPROVED' } | { decision: 'REJECTED'; reason: string };
+
+export const VERIFICATION_REASON_MAX_LENGTH = 500;
+
 export const EVIDENCE_MAX_BYTES = 10 * 1024 * 1024;
+export const EVIDENCE_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];

@@ -4,6 +4,15 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### CMP-38 — Giao diện xác minh và xét duyệt (2026-11-20)
+
+- **Nhánh:** `feat/fe-cmp-38-verification-ui`, base `cf2a520`. Các thay đổi hiện ở working tree.
+- **Sinh viên:** `/verification` chấp nhận `submittedAt: null` là chưa nộp, giới hạn ảnh JPG/JPEG/PNG tối đa 10 MiB và có test nộp lại sau khi bị từ chối.
+- **Admin:** `apps/frontend/src/app/admin/verifications/page.tsx` mở qua mục “Xét duyệt hồ sơ” dành cho ADMIN trong `MarketplaceShell`. Component và CSS tại `apps/frontend/src/features/marketplace/components/admin-verification*` dùng hai cột ở màn rộng và chuyển danh sách/chi tiết ở màn hẹp. Có lọc trạng thái, phân trang, lỗi/thử lại, xác nhận duyệt, lý do từ chối tối đa 500 ký tự và cập nhật hàng đợi sau khi lưu. Khi kết quả PATCH chưa xác định, yêu cầu đọc lại hồ sơ trước khi gửi tiếp.
+- **Tích hợp:** `features/marketplace/api.ts` và `features/auth/api.ts` dùng cùng phiên đăng nhập cho GET danh sách/chi tiết và PATCH theo contract của repo. Response Admin được đọc với `no-store`; URL minh chứng không được giữ trong dữ liệu UI. Ảnh chờ BE xác nhận và hoàn thiện route tải file. Backend, DB, cấu hình và API contract không thuộc lượt thay đổi này.
+- **Kiểm chứng:** 69/69 test frontend đạt (9 ca Admin bổ sung trong `apps/frontend/src/test/App.test.tsx`); ESLint, TypeScript, Prettier và `git diff --check` đạt. Bundle xem thử dữ liệu giả tạo được trong bộ nhớ, nhưng trình duyệt Codex không truy cập được cổng cục bộ nên chưa có xác nhận trực quan ở 375 px. Chưa chạy production build hoặc nghiệm thu trên BE/DB thật.
+- **Bước nghiệm thu:** Dùng tài khoản Admin và hồ sơ giả trên môi trường test để kiểm tra danh sách, quyết định và trạng thái phía sinh viên. Sau khi BE có endpoint ảnh, tích hợp từ chi tiết hồ sơ rồi kiểm quyền, thời hạn URL và bảo vệ minh chứng. Ghi bằng chứng đã che thông tin nhạy cảm, hoàn tất PR/review và CI trước khi đánh dấu Done.
+
 ### Cập nhật tài liệu QA — CMP-40 (2026-11-17)
 
 - Theo tiến độ người giao: CMP-7/8/9/10/34/36 đã được dev triển khai; CMP-35 chưa triển khai, CMP-37 chưa hoàn tất. Các nhãn Done của CMP-37 trong phần lịch sử bên dưới không phải xác nhận tiến độ hiện tại.

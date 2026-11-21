@@ -1,22 +1,94 @@
 import { ApiClient, ApiError } from '../../services/api';
 import type { VerificationStatus } from '../auth/types';
-import { type EvidenceFields, type FeedItem, type VerificationState } from './types';
+import type {
+  AdminVerification,
+  EvidenceFields,
+  FeedItem,
+  VerificationFilter,
+  VerificationReview,
+  VerificationState,
+} from './types';
+
+function isVerificationStatus(status: unknown): status is VerificationStatus {
+  return (
+    status === 'PENDING' || status === 'APPROVED' || status === 'REJECTED' || status === 'SUSPENDED'
+  );
+}
+
+function isDate(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
+function adminVerification(value: unknown, expectedId?: string): AdminVerification {
+  if (!value || typeof value !== 'object') {
+    throw new ApiError('Invalid verification response', 200, 'INVALID_RESPONSE_DATA');
+  }
+  const {
+    id,
+    status,
+    schoolEmail,
+    displayName,
+    school,
+    studentCode,
+    submittedAt,
+    reason,
+    reviewedAt,
+  } = value as Record<string, unknown>;
+  if (
+    typeof id !== 'string' ||
+    !id ||
+    (expectedId !== undefined && expectedId !== id) ||
+    !isVerificationStatus(status) ||
+    typeof schoolEmail !== 'string' ||
+    typeof displayName !== 'string' ||
+    (school != null && typeof school !== 'string') ||
+    (studentCode != null && typeof studentCode !== 'string') ||
+    !isDate(submittedAt) ||
+    (reason != null && typeof reason !== 'string') ||
+    (reviewedAt != null && !isDate(reviewedAt))
+  ) {
+    throw new ApiError('Invalid verification response', 200, 'INVALID_RESPONSE_DATA');
+  }
+  // The review UI only retains the fields it displays. Image access is handled separately.
+  return {
+    id,
+    status,
+    schoolEmail,
+    displayName,
+    school: school ?? null,
+    studentCode: studentCode ?? null,
+    submittedAt,
+    reason: reason ?? null,
+    reviewedAt: reviewedAt ?? null,
+  };
+}
+
+const adminVerificationsPath = '/admin/verifications';
+
+function adminVerificationPath(id: string) {
+  return `${adminVerificationsPath}/${encodeURIComponent(id)}`;
+}
 
 export function createMarketplaceApi(client: ApiClient) {
   function verification(value: unknown): VerificationState {
     if (!value || typeof value !== 'object')
       throw new ApiError('Invalid verification response', 200, 'INVALID_RESPONSE_DATA');
-    const state = value as VerificationState;
+    const state = value as Omit<VerificationState, 'submittedAt'> & {
+      submittedAt?: string | null;
+    };
     if (
-      !['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'].includes(state.status) ||
+      !isVerificationStatus(state.status) ||
       (state.reason != null && typeof state.reason !== 'string') ||
-      (state.submittedAt !== undefined &&
-        (typeof state.submittedAt !== 'string' || !Number.isFinite(Date.parse(state.submittedAt))))
+      (state.submittedAt != null && !isDate(state.submittedAt))
     ) {
       throw new ApiError('Invalid verification response', 200, 'INVALID_RESPONSE_DATA');
     }
     // Only retain public verification fields, never evidence URLs or uploaded images.
-    return { status: state.status, reason: state.reason, submittedAt: state.submittedAt };
+    return {
+      status: state.status,
+      reason: state.reason,
+      submittedAt: state.submittedAt ?? undefined,
+    };
   }
   return {
     async getFeed(signal?: AbortSignal) {
@@ -60,6 +132,41 @@ export function createMarketplaceApi(client: ApiClient) {
       return verification(
         await client.request<unknown>('/me/evidence', { method: 'POST', body, signal }),
       );
+    },
+    async listAdminVerifications(filter: VerificationFilter, page: number, signal?: AbortSignal) {
+      const query = new URLSearchParams({ page: String(page), limit: '20' });
+      if (filter !== 'ALL') query.set('status', filter);
+      const result = await client.requestPaginated<unknown>(`${adminVerificationsPath}?${query}`, {
+        method: 'GET',
+        cache: 'no-store',
+        signal,
+      });
+      return { data: result.data.map((record) => adminVerification(record)), meta: result.meta };
+    },
+    async getAdminVerification(id: string, signal?: AbortSignal) {
+      return adminVerification(
+        await client.request<unknown>(adminVerificationPath(id), {
+          method: 'GET',
+          cache: 'no-store',
+          signal,
+        }),
+        id,
+      );
+    },
+    async reviewAdminVerification(id: string, review: VerificationReview, signal?: AbortSignal) {
+      const result = adminVerification(
+        await client.request<unknown>(adminVerificationPath(id), {
+          method: 'PATCH',
+          body: JSON.stringify(review),
+          cache: 'no-store',
+          signal,
+        }),
+        id,
+      );
+      if (result.status !== review.decision) {
+        throw new ApiError('Unexpected verification result', 200, 'INVALID_RESPONSE_DATA');
+      }
+      return result;
     },
   };
 }

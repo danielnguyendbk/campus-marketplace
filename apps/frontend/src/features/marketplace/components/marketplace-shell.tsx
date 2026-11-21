@@ -40,6 +40,9 @@ export function MarketplaceShell({
           <nav aria-label="Điều hướng chính">
             <Link href="/">Trang chủ</Link>
             <Link href="/verification">Hồ sơ xác thực</Link>
+            {session.user.role === 'ADMIN' && (
+              <Link href="/admin/verifications">Xét duyệt hồ sơ</Link>
+            )}
           </nav>
           <div className={styles.account}>
             <span>{session.user.displayName}</span>

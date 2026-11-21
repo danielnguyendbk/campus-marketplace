@@ -9,6 +9,7 @@ import { LoginForm } from '../features/auth/components/login-form';
 import { createAuthApi, type AuthApi } from '../features/auth/api';
 import { MarketplaceHome } from '../features/marketplace/components/marketplace-home';
 import { VerificationPage } from '../features/marketplace/components/verification-page';
+import { AdminVerificationPage } from '../features/marketplace/components/admin-verification-page';
 import {
   createAuthMockAdapter,
   MOCK_EMAIL,
@@ -458,10 +459,10 @@ describe('Post-authentication home and student verification', () => {
     fireEvent.change(screen.getByLabelText('Trường *'), { target: { value: 'PTIT' } });
     fireEvent.change(screen.getByLabelText('Mã sinh viên *'), { target: { value: 'DEMO001' } });
     fireEvent.change(screen.getByLabelText('Ảnh thẻ sinh viên *'), {
-      target: { files: [new File(['text'], 'note.txt', { type: 'text/plain' })] },
+      target: { files: [new File(['example'], 'card.webp', { type: 'image/webp' })] },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Nộp hồ sơ xác thực' }));
-    expect(screen.getByText('Vui lòng chọn một tệp ảnh.')).toBeInTheDocument();
+    expect(screen.getByText('Vui lòng chọn ảnh JPG, JPEG hoặc PNG.')).toBeInTheDocument();
     const oversized = new File(['fake-image'], 'demo.png', { type: 'image/png' });
     Object.defineProperty(oversized, 'size', { value: 10 * 1024 * 1024 + 1 });
     fireEvent.change(screen.getByLabelText('Ảnh thẻ sinh viên *'), {
@@ -470,6 +471,28 @@ describe('Post-authentication home and student verification', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nộp hồ sơ xác thực' }));
     expect(screen.getByText('Ảnh vượt giới hạn 10 MB.')).toBeInTheDocument();
     expect(submit).not.toHaveBeenCalled();
+  });
+  it('shows the rejection reason and returns to PENDING after submitting new evidence', async () => {
+    const client = await signedIn({ seedVerificationStatus: 'REJECTED' });
+    const reason = 'Ảnh thẻ chưa rõ thông tin.';
+    vi.spyOn(client, 'getVerification').mockResolvedValueOnce({
+      status: 'REJECTED',
+      reason,
+      submittedAt: '2026-11-19T01:00:00.000Z',
+    });
+    render(<VerificationPage client={client} />);
+    await screen.findByRole('heading', { name: 'Cập nhật và nộp lại hồ sơ' });
+    expect(screen.getByText(`Lý do: ${reason}`)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Trường *'), { target: { value: 'PTIT' } });
+    fireEvent.change(screen.getByLabelText('Mã sinh viên *'), { target: { value: 'DEMO001' } });
+    const image = new File(['fake-image'], 'new-card.jpg', { type: 'image/jpeg' });
+    fireEvent.change(screen.getByLabelText('Ảnh thẻ sinh viên *'), {
+      target: { files: [image] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Nộp hồ sơ xác thực' }));
+    expect(await screen.findByText('Chờ xác thực')).toBeInTheDocument();
+    expect(screen.queryByText(`Lý do: ${reason}`)).not.toBeInTheDocument();
+    expect(client.getSession()?.user.verificationStatus).toBe('PENDING');
   });
   it('does not expose evidence or upload controls after APPROVED', async () => {
     render(<VerificationPage client={await signedIn({ seedVerificationStatus: 'APPROVED' })} />);
@@ -489,5 +512,230 @@ describe('Post-authentication home and student verification', () => {
     fireEvent.change(screen.getByLabelText('Mật khẩu'), { target: { value: MOCK_PASSWORD } });
     fireEvent.click(screen.getByRole('button', { name: 'Đăng nhập' }));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/verification'));
+  });
+});
+
+describe('CMP-38 Admin verification', () => {
+  const id = '752b305d-bdc8-4e14-93ee-5103dcd810f1';
+  const date = '2026-11-20T01:00:00.000Z';
+  const imageEndpoint = '/api/v1/admin/verifications/download';
+  const fakeImageUrl = imageEndpoint + '?ref=fake-reference&token=fake-fixture';
+  const sample = {
+    id,
+    status: 'PENDING',
+    displayName: 'Sinh viên kiểm thử',
+    schoolEmail: 'fixture@ptit.edu.vn',
+    school: 'PTIT',
+    studentCode: 'DEMO001',
+    cardImageUrl: fakeImageUrl,
+    submittedAt: date,
+    reviewedAt: null as string | null,
+    reason: null as string | null,
+  };
+
+  async function setup({
+    role = 'ADMIN',
+    listFailure,
+    initialStatus = 200,
+    paginated = false,
+    reviewFailure,
+    detailFailure,
+  }: {
+    role?: 'ADMIN' | 'USER';
+    listFailure?: 401 | 403;
+    initialStatus?: 200 | 500;
+    paginated?: boolean;
+    reviewFailure?: 500;
+    detailFailure?: 404;
+  } = {}) {
+    let record = { ...sample };
+    let listCalls = 0;
+    function success(data: unknown, meta?: object) {
+      return new Response(JSON.stringify({ success: true, data, timestamp: date, meta }));
+    }
+    function failure(status: number) {
+      return new Response(
+        JSON.stringify({ error: { code: 'FAILED', message: 'Yêu cầu thất bại' } }),
+        { status },
+      );
+    }
+    const transport = vi.fn(async (address: string, init?: RequestInit) => {
+      const url = new URL(address);
+      if (url.pathname.endsWith('/auth/login'))
+        return success({
+          accessToken: 'fixture-token',
+          tokenType: 'Bearer',
+          expiresIn: 600,
+          user: {
+            id: '67611d65-a830-43a2-8f3f-a81796f19288',
+            displayName: 'Người kiểm thử',
+            role,
+            verificationStatus: 'APPROVED',
+          },
+        });
+      if (url.pathname.endsWith('/admin/verifications')) {
+        listCalls += 1;
+        const status = listFailure ?? (listCalls === 1 ? initialStatus : 200);
+        if (status !== 200) return failure(status);
+        const page = Number(url.searchParams.get('page'));
+        const filter = url.searchParams.get('status');
+        const rows = !filter || filter === record.status ? [record] : [];
+        const totalPages = paginated ? 2 : rows.length;
+        return success(rows, { page, limit: 20, total: paginated ? 21 : rows.length, totalPages });
+      }
+      if (url.pathname.endsWith('/admin/verifications/' + id)) {
+        if (init?.method === 'GET' && detailFailure) return failure(detailFailure);
+        if (init?.method === 'PATCH') {
+          if (reviewFailure) return failure(reviewFailure);
+          const submitted = JSON.parse(String(init.body));
+          record = {
+            ...record,
+            status: submitted.decision,
+            reviewedAt: date,
+            reason: submitted.reason ?? null,
+          };
+        }
+        return success(record);
+      }
+      throw new Error('Unexpected verification request');
+    });
+    const client = createAuthApi('live', transport);
+    await client.login({ email: 'fixture@ptit.edu.vn', password: 'fixture-only' });
+    const view = render(<AdminVerificationPage client={client} />);
+    return { client, transport, view };
+  }
+
+  async function openDetail() {
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Xem hồ sơ của Sinh viên kiểm thử' }),
+    );
+    await screen.findByRole('heading', { name: 'Sinh viên kiểm thử' });
+  }
+
+  it('lists only pending records by default, retries a failed load, and supports pagination and filters', async () => {
+    const { transport } = await setup({ initialStatus: 500, paginated: true });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Hệ thống đang gặp sự cố');
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    expect(await screen.findByText('21 hồ sơ · Trang 1/2')).toBeInTheDocument();
+    const [url, init] = transport.mock.calls[1];
+    expect(Object.fromEntries(new URL(url).searchParams)).toEqual({
+      page: '1',
+      limit: '20',
+      status: 'PENDING',
+    });
+    expect(init?.headers).toMatchObject({ Authorization: 'Bearer fixture-token' });
+    expect(init?.cache).toBe('no-store');
+    fireEvent.click(screen.getByRole('button', { name: 'Trang sau' }));
+    expect(await screen.findByText('21 hồ sơ · Trang 2/2')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Trạng thái'), { target: { value: 'APPROVED' } });
+    expect(await screen.findByText('Không có hồ sơ phù hợp.')).toBeInTheDocument();
+    expect(new URL(transport.mock.lastCall![0]).searchParams.toString()).toBe(
+      'page=1&limit=20&status=APPROVED',
+    );
+  });
+
+  it('requires approval confirmation, refreshes the queue, and keeps evidence URLs private', async () => {
+    const { transport, view } = await setup();
+    expect(screen.getByRole('link', { name: 'Xét duyệt hồ sơ' })).toHaveAttribute(
+      'href',
+      '/admin/verifications',
+    );
+    await openDetail();
+    expect(screen.getByText('DEMO001')).toBeInTheDocument();
+    expect(screen.getByText('Hiện chưa thể xem ảnh minh chứng trên hệ thống.')).toBeInTheDocument();
+    expect(view.container.innerHTML).not.toContain(fakeImageUrl);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(transport.mock.calls.some(([url]) => url.includes(imageEndpoint))).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Duyệt hồ sơ' }));
+    expect(transport.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận duyệt' }));
+    expect(await screen.findByText('Đã duyệt hồ sơ.')).toBeInTheDocument();
+    expect(await screen.findByText('Không có hồ sơ chờ xét duyệt.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Duyệt hồ sơ' })).not.toBeInTheDocument();
+    const mutation = transport.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(mutation?.[1]?.body).toBe(JSON.stringify({ decision: 'APPROVED' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Về danh sách' }));
+    expect(screen.getByRole('heading', { name: 'Danh sách hồ sơ' })).toHaveFocus();
+  });
+
+  it('rejects blank or oversized reasons and sends the trimmed reason on confirmation', async () => {
+    const { transport } = await setup();
+    await openDetail();
+    fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }));
+    const reason = screen.getByLabelText('Lý do từ chối (bắt buộc)');
+    fireEvent.change(reason, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Nhập lý do từ chối');
+    expect(reason).toHaveFocus();
+    fireEvent.change(reason, { target: { value: 'a'.repeat(501) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('tối đa 500 ký tự');
+    expect(transport.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+    fireEvent.change(reason, { target: { value: '  Ảnh thẻ chưa rõ.  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận từ chối' }));
+    expect(await screen.findByText('Đã từ chối hồ sơ.')).toBeInTheDocument();
+    expect(screen.getByText('Ảnh thẻ chưa rõ.')).toBeInTheDocument();
+    const mutation = transport.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(mutation?.[1]?.body).toBe(
+      JSON.stringify({ decision: 'REJECTED', reason: 'Ảnh thẻ chưa rõ.' }),
+    );
+  });
+
+  it('requires a fresh detail read after an uncertain review response', async () => {
+    const { transport } = await setup({ reviewFailure: 500 });
+    await openDetail();
+    fireEvent.click(screen.getByRole('button', { name: 'Duyệt hồ sơ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận duyệt' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Chưa xác nhận được kết quả');
+    expect(screen.queryByRole('button', { name: 'Xác nhận duyệt' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tải lại hồ sơ' }));
+    await screen.findByRole('button', { name: 'Duyệt hồ sơ' });
+    expect(transport.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(1);
+    expect(
+      transport.mock.calls.filter(([url, init]) => url.endsWith(id) && init?.method === 'GET'),
+    ).toHaveLength(2);
+  });
+
+  it('keeps the Admin entry and requests inaccessible to USER accounts', async () => {
+    const { transport } = await setup({ role: 'USER' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Bạn không có quyền xét duyệt hồ sơ.');
+    expect(screen.queryByRole('link', { name: 'Xét duyệt hồ sơ' })).not.toBeInTheDocument();
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers retry and a way back if the selected record is no longer available', async () => {
+    const { transport } = await setup({ detailFailure: 404 });
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Xem hồ sơ của Sinh viên kiểm thử' }),
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không tìm thấy hồ sơ này.');
+    expect(screen.queryByRole('button', { name: 'Duyệt hồ sơ' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    await screen.findByRole('alert');
+    expect(transport.mock.calls.filter(([url]) => url.endsWith(id))).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Về danh sách' }));
+    expect(screen.getByRole('heading', { name: 'Danh sách hồ sơ' })).toHaveFocus();
+  });
+
+  it('redirects guests without requesting verification records', async () => {
+    const transport = vi.fn();
+    render(<AdminVerificationPage client={createAuthApi('live', transport)} />);
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/login'));
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it('clears the session on HTTP 401 and redirects to login', async () => {
+    const { client } = await setup({ listFailure: 401 });
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith('/login'));
+    expect(client.getSession()).toBeNull();
+  });
+
+  it('shows access denied when the backend rejects an Admin session with HTTP 403', async () => {
+    const { client } = await setup({ listFailure: 403 });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Bạn không có quyền xét duyệt hồ sơ.',
+    );
+    expect(screen.queryByRole('heading', { name: 'Danh sách hồ sơ' })).not.toBeInTheDocument();
+    expect(client.getSession()).not.toBeNull();
   });
 });

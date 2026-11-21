@@ -6,7 +6,12 @@ import { ApiError } from '../../../services/api';
 import { authApi, type AuthApi } from '../../auth/api';
 import { useSession } from '../../auth/use-session';
 import { marketplaceError } from '../api';
-import { EVIDENCE_MAX_BYTES, type EvidenceFields, type VerificationState } from '../types';
+import {
+  EVIDENCE_IMAGE_TYPES,
+  EVIDENCE_MAX_BYTES,
+  type EvidenceFields,
+  type VerificationState,
+} from '../types';
 import { MarketplaceShell } from './marketplace-shell';
 import styles from '../marketplace.module.css';
 
@@ -92,7 +97,8 @@ export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
         next[field] = `Tối đa ${limits[field]} ký tự.`;
     }
     if (!image || image.size === 0) next.cardImage = 'Vui lòng chọn ảnh thẻ sinh viên.';
-    else if (!image.type.startsWith('image/')) next.cardImage = 'Vui lòng chọn một tệp ảnh.';
+    else if (!EVIDENCE_IMAGE_TYPES.includes(image.type.toLowerCase()))
+      next.cardImage = 'Vui lòng chọn ảnh JPG, JPEG hoặc PNG.';
     else if (image.size > EVIDENCE_MAX_BYTES) next.cardImage = 'Ảnh vượt giới hạn 10 MB.';
     setErrors(next);
     setError('');
@@ -261,7 +267,7 @@ export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
                       id="evidence-cardImage"
                       name="cardImage"
                       type="file"
-                      accept="image/*"
+                      accept={EVIDENCE_IMAGE_TYPES.join(',')}
                       required
                       disabled={submitting}
                       aria-invalid={Boolean(errors.cardImage)}
@@ -272,8 +278,8 @@ export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
                       }}
                     />
                     <p id="image-help">
-                      Tối đa 10 MB. Ảnh chỉ phục vụ Admin xét duyệt, không hiển thị lại sau khi nộp.
-                      Trong bản mô phỏng, chỉ chọn ảnh giả.
+                      JPG, JPEG hoặc PNG, tối đa 10 MB. Ảnh chỉ phục vụ Admin xét duyệt, không hiển
+                      thị lại sau khi nộp. Trong bản mô phỏng, chỉ chọn ảnh giả.
                     </p>
                     <p id="image-error" className={styles.fieldError}>
                       {errors.cardImage}

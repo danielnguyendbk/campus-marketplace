@@ -62,6 +62,9 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
       };
     },
     getFeed: marketplace.getFeed,
+    listAdminVerifications: marketplace.listAdminVerifications,
+    getAdminVerification: marketplace.getAdminVerification,
+    reviewAdminVerification: marketplace.reviewAdminVerification,
     async getVerification(signal?: AbortSignal) {
       const activeToken = currentSession?.accessToken;
       const state = await marketplace.getVerification(signal);

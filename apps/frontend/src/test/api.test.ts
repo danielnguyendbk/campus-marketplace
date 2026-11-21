@@ -598,6 +598,23 @@ describe('Shared session, restricted feed and private evidence contract', () => 
     expect(client.getSession()?.user.verificationStatus).toBe('PENDING');
     await expect(client.getFeed()).resolves.toMatchObject({ meta: { total: 6 } });
   });
+  it('accepts a null submission date for a student who has not submitted evidence', async () => {
+    const transport = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { status: 'PENDING', reason: null, submittedAt: null },
+          timestamp: '2026-11-20T01:00:00.000Z',
+        }),
+      ),
+    );
+    const client = createAuthApi('live', transport);
+    await expect(client.getVerification()).resolves.toEqual({
+      status: 'PENDING',
+      reason: null,
+      submittedAt: undefined,
+    });
+  });
   it('rejects malformed verification and feed data instead of showing an authenticated success', async () => {
     const transport = vi.fn().mockResolvedValue(
       new Response(
