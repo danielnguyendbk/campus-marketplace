@@ -11,6 +11,7 @@
     "db:test": "ts-node src/database/test-connection.ts",
     "db:migrate": "ts-node src/database/run-migrations.ts",
     "db:verify": "ts-node src/database/verify-constraints.ts",
+    "db:seed:admin": "ts-node src/database/seed-admin.ts",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings 0",
