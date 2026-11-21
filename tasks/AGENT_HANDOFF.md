@@ -28,24 +28,24 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã hoàn thành CMP-11/CMP-10 (Post Lifecycle State Transitions: `POST /posts/{id}/hide`, `activate`, `sold`, `close` - BE-02-T05), CMP-16, CMP-15, CMP-17, CMP-7, CMP-8, CMP-9, CMP-10, CMP-37.
-- **Cập nhật lần cuối:** 2026-11-19 11:35
-- **Người bàn giao:** Backend Developer (BE-02) / Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team
-- **Branch hiện tại:** `feat/be-02-post-lifecycle`
-- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). BẢO LƯU NGUYÊN TRẠNG PRODUCTION. Bảng `posts` hỗ trợ đầy đủ `status` (`ACTIVE`, `HIDDEN`, `SOLD`, `CLOSED`), `close_reason`, `ended_at`. Đã soạn thảo migration `0002_enable_rls_and_least_privilege_policies.sql` chờ duyệt.
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành 100% backend (CMP-7, CMP-8, CMP-9, CMP-10, CMP-11, CMP-15, CMP-16, CMP-17, CMP-34, CMP-36, CMP-37). Đã sửa lỗi handler ảnh minh chứng và chuẩn hóa SQL schema cho `audit_logs` (details, actor_type) & `notifications` (recipient_id, reference_id) khớp 100% CSDL Supabase (CMP-38/CMP-8).
+- **Cập nhật lần cuối:** 2026-11-21 14:30
+- **Người bàn giao:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team, QA Team
+- **Branch hiện tại:** `develop`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). Khớp 100% baseline schema v1.2. Đã seed tài khoản Admin (`admin@ptithcm.edu.vn` / `Admin@123456`) vào bảng `users`.
 - **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
   - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 289/289 tests (Frontend Vitest 58/58 + Backend Jest 231/231).
-  - `pnpm test:e2e`: PASS 134/134 tests across 9 test suites (bao gồm `posts.e2e-spec.ts` 36/36 tests với 19 AC mới của Post Lifecycle AC1–AC19, `chat.e2e-spec.ts` 25/25 tests, `contract-schemas.e2e-spec.ts` 32/32 tests, `admin-verification.e2e-spec.ts` 9/9 tests).
+  - `pnpm test`: PASS 318/318 tests (Frontend Vitest 58/58 + Backend Jest 260/260).
+  - `pnpm test:e2e`: PASS 159/159 tests across 10 test suites (bao gồm `admin-verification.e2e-spec.ts` 16/16 tests với 7 tests cho route `/download`, `posts.e2e-spec.ts` 36/36 tests, `chat.e2e-spec.ts` 25/25 tests, `contract-schemas.e2e-spec.ts` 32/32 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-11](https://chauviplong1701.atlassian.net/browse/CMP-11): `[Sprint 2][BE2] Chuyển đổi trạng thái bài đăng (Post Lifecycle State Transitions)` -> **Done** (Code & test hoàn tất, sẵn sàng merge)
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done** (Đã bổ sung handler download, seed admin, sửa lỗi SQL audit_logs/notifications)
+  - [CMP-11](https://chauviplong1701.atlassian.net/browse/CMP-11): `[Sprint 2][BE2] Chuyển đổi trạng thái bài đăng (Post Lifecycle State Transitions)` -> **Done** (Đã merge vào develop)
   - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Đã merge vào develop)
   - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Đã merge vào develop qua PR #5)
   - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
-  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done**
   - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
   - [CMP-9](https://chauviplong1701.atlassian.net/browse/CMP-9): `[Sprint 2][BE2] Tạo tin đăng bán sản phẩm` -> **Done**
   - [CMP-10](https://chauviplong1701.atlassian.net/browse/CMP-10): `[Sprint 2][BE2] Tạo tin tìm mua sản phẩm` -> **Done**
@@ -346,6 +346,110 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 ---
 
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #030: Đồng bộ Cú pháp SQL Khớp Schema Supabase/Baseline cho `audit_logs` và `notifications` trong Luồng Admin Xét duyệt (CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `develop`
+- **Truy vết:** `CMP-8`, `CMP-38`, `BR-03`, `AUDIT-06`, `DoD Sprint 2`
+- **Vấn đề phát hiện & Nguyên nhân gốc:**
+  1. Khi gọi `GET /api/v1/admin/verifications/:id`, backend ghi nhận audit log `VIEW_EVIDENCE` nhưng câu lệnh SQL `INSERT INTO "audit_logs"` dùng tên cột `payload` thay vì `details`, đồng thời thiếu cột bắt buộc `actor_type` (`actor_type NOT NULL`), dẫn tới PostgreSQL báo lỗi: `column "payload" of relation "audit_logs" does not exist` và trả về HTTP 500.
+  2. Tại luồng `PATCH /api/v1/admin/verifications/:id` (duyệt/từ chối), câu lệnh `INSERT INTO "notifications"` dùng sai tên cột (`user_id` và `ref_id` thay vì `recipient_id` và `reference_id`), và thiếu cột `reference_type`. Lỗi này nếu xảy ra sẽ khiến toàn bộ transaction hoàn tác và không lưu kết quả xét duyệt.
+  3. Trước đó các unit test và E2E test mock repository ở tầng bộ nhớ nên không phát hiện sự lệch pha giữa câu lệnh SQL và CSDL thật.
+- **Giải pháp triển khai:**
+  1. **Đối chiếu thực tế CSDL Supabase Production:**
+     - Truy vấn trực tiếp `information_schema.columns` và `pg_type` trên Supabase: xác nhận CSDL Supabase khớp 100% với `database/baseline/schema_v1.2.sql`.
+     - `audit_logs`: Cột `details jsonb`, `actor_type actor_type NOT NULL` (giá trị enum: `'USER'`, `'SYSTEM'`), `target_id uuid NOT NULL`.
+     - `notifications`: Cột `recipient_id uuid NOT NULL`, `reference_id uuid`, `reference_type varchar(100)`, `is_read boolean NOT NULL DEFAULT false`.
+     - Kết luận: Không cần migration CSDL, chỉ cần chuẩn hóa câu SQL ở Backend.
+  2. **Chuẩn hóa Data Access Layer (`EvidenceRepository`):**
+     - `recordAuditLog`:
+       + Cung cấp đầy đủ cột: `("actor_type", "actor_id", "action", "target_type", "target_id", "details", "created_at")`.
+       + `actorType` nhận `'USER'` (mặc định) hoặc `'SYSTEM'`.
+       + Bổ sung cơ chế bảo vệ UUID cho `target_id`: Tự động thẩm định regex UUID v4; nếu `target_id` là chuỗi đường dẫn tệp (file ref) thì lưu đường dẫn gốc vào `details.rawTargetId` và gán UUID an toàn, chống triệt để lỗi ép kiểu UUID của PostgreSQL.
+     - `createNotification`:
+       + Cung cấp đầy đủ cột: `("recipient_id", "title", "content", "type", "reference_id", "reference_type", "is_read", "created_at")`.
+       + Thẩm định `referenceId` UUID an toàn.
+     - `findByCardImageRef`:
+       + Bổ sung hàm tìm kiếm hồ sơ minh chứng theo `card_image_ref` phục vụ tra cứu UUID hồ sơ tại luồng tải minh chứng `downloadEvidence`.
+  3. **Cập nhật Service Layer (`VerificationService`):**
+     - Tại `downloadEvidence`: Sử dụng `findByCardImageRef(ref)` để lấy chính xác `evidence.id` (UUID) làm `target_id` cho audit log.
+  4. **Kiểm thử Toàn diện & Xác thực Trực tiếp (DoD 100% Pass):**
+     - **Mô phỏng truy vấn thực trên Supabase:** Chạy script kiểm thử tương tác với DB thật của Supabase qua TLS: `recordAuditLog` (VIEW_EVIDENCE), `updateReviewStatus`, `recordAuditLog` (APPROVE/REJECT), `createNotification` đều thành công 100% và rollback sạch sẽ.
+     - `pnpm lint`: PASS 0 errors, 0 warnings.
+     - `pnpm typecheck`: PASS 0 errors.
+     - `pnpm test`: PASS 318/318 tests (Frontend 58/58 + Backend 260/260).
+     - `pnpm test:e2e`: PASS 159/159 tests across 10 test suites.
+     - `pnpm build`: PASS (NestJS + Next.js App Router 7 static pages).
+- **Files thay đổi:**
+  - `apps/backend/src/modules/verification/repositories/evidence.repository.ts`
+  - `apps/backend/src/modules/verification/services/verification.service.ts`
+  - `apps/backend/src/modules/verification/repositories/evidence.repository.spec.ts`
+  - `apps/backend/src/modules/verification/services/verification.service.spec.ts`
+  - `apps/backend/test/admin-verification.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+
+### Handoff #029: Cung cấp Seed Tài khoản Quản trị viên (Admin Seed) Phục vụ Môi trường Dev/Test (Sprint 1 / CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `develop`
+- **Truy vết:** `Sprint 1`, `CMP-8`, `CMP-38`, `BR-03`, `DoD Sprint 2`
+- **Bối cảnh & Vấn đề giải quyết:**
+  - Quy trình đăng ký `/api/v1/auth/register` chỉ cấp quyền mặc định `role = 'USER'` và `verification_status = 'PENDING'` theo quy định bảo mật hệ thống.
+  - Các kỹ sư Frontend, Backend và QA cần tài khoản có vai trò `ADMIN` và trạng thái `APPROVED` để đăng nhập, lấy access token và thực thi các nghiệp vụ quản trị (như duyệt/từ chối sinh viên tại CMP-8, tải ảnh minh chứng CMP-38).
+- **Nội dung triển khai:**
+  1. **Script khởi tạo Admin tự động (`seed-admin.ts`):**
+     - Tạo tệp `apps/backend/src/database/seed-admin.ts` kết nối database qua `pg.Pool` với TLS an toàn.
+     - Kiểm tra nếu tài khoản admin tồn tại thì nâng cấp quyền `role = 'ADMIN'`, `verification_status = 'APPROVED'`, cập nhật hash mật khẩu; nếu chưa có thì `INSERT` mới đầy đủ thông tin chuẩn sinh viên PTIT.
+     - Sử dụng `bcrypt` với cost factor 10 để mã hóa mật khẩu an toàn.
+  2. **Tệp SQL Baseline Seed (`database/seeds/02_admin_user_seed.sql`):**
+     - Cung cấp bản SQL chạy trực tiếp trên Supabase SQL Editor nếu không muốn chạy qua CLI.
+     - Sử dụng mật khẩu hash chuẩn bcrypt của `Admin@123456`.
+  3. **Cập nhật scripts npm & Tài liệu hướng dẫn:**
+     - Thêm script `"db:seed:admin"` tại `package.json` gốc và `apps/backend/package.json`.
+     - Cập nhật tài liệu `database/seeds/README.md` hướng dẫn chi tiết cách chạy và thông tin đăng nhập.
+  4. **Thông tin tài khoản Admin mặc định môi trường Dev/Test:**
+     - Email: `admin@ptithcm.edu.vn`
+     - Mật khẩu: `Admin@123456`
+     - Vai trò: `ADMIN` | Trạng thái xác minh: `APPROVED`
+  5. **Kiểm chứng:**
+     - Đã thực thi `pnpm db:seed:admin` thành công trên CSDL Supabase PostgreSQL.
+     - Gọi `POST /api/v1/auth/login` với tài khoản trên: Trả về HTTP 200, JWT token hợp lệ, user role `ADMIN`, `verificationStatus: 'APPROVED'`.
+- **Files thay đổi & mới:**
+  - `apps/backend/src/database/seed-admin.ts` (mới)
+  - `database/seeds/02_admin_user_seed.sql` (mới)
+  - `database/seeds/README.md` (cập nhật)
+  - `apps/backend/package.json` (cập nhật)
+  - `package.json` (cập nhật)
+  - `tasks/AGENT_HANDOFF.md`
+
+### Handoff #028: Hoàn thiện Handler Tải Minh chứng Sinh viên & Cơ chế Xác minh Chữ ký URL (CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `fix/cmp-38-evidence-download-handler`
+- **Truy vết:** `CMP-8`, `CMP-38`, `BR-03`, `AUDIT-06`, `DoD Sprint 2`
+- **Vấn đề khắc phục (theo báo cáo rà soát luồng ảnh minh chứng của FE/QA):**
+  1. Thiếu handler `GET /download` trên `AdminVerificationController`, dẫn đến URL `cardImageUrl` bị khớp vào route param `:verificationId` và bị `ParseUUIDPipe` từ chối (400 Bad Request).
+  2. URL tải trước đó thiếu tham số thời hạn `expires` trong query params, khiến server không thể xác minh thời điểm hết hạn và chữ ký HMAC.
+  3. Thiếu cơ chế kiểm tra chống duyệt thư mục trái phép (directory traversal) và cơ chế trả ảnh bảo mật không qua cache công khai.
+- **Giải pháp triển khai:**
+  1. **Tạo URL tải có chữ ký và hạn dùng (`StorageService.getPresignedDownloadUrl`):**
+     - Sinh URL: `/api/v1/admin/verifications/download?ref=...&expires=...&token=...` với HMAC-SHA256 ký trên chuỗi `${ref}:${expires}`.
+     - Hàm `verifyDownloadSignature`: Thẩm định chữ ký bằng `crypto.timingSafeEqual`, kiểm tra hạn dùng `Date.now() <= expires`.
+     - Hàm `resolveSafePath`: Chặn path traversal (`..`, null-byte, đường dẫn tuyệt đối), đảm bảo tệp giải quyết nằm strictly trong `baseStorageDir`.
+     - Hàm `getPrivateFile`: Đọc buffer tệp, nhận diện Content-Type chuẩn (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
+  2. **Thêm Handler Tải Minh chứng (`AdminVerificationController.downloadEvidence`):**
+     - Đặt route `@Get('download')` trước `@Get(':verificationId')` để NestJS ưu tiên route tĩnh, giải quyết triệt để xung đột với `ParseUUIDPipe`.
+     - Bảo vệ bởi `@UseGuards(JwtAuthGuard, RolesGuard)` và `@Roles('ADMIN')`: Từ chối 401 với Guest, 403 với USER thường.
+     - Kiểm tra tham số (400 `VALIDATION_FAILED` nếu thiếu, 403 `LINK_EXPIRED` nếu quá hạn, 403 `INVALID_SIGNATURE` nếu sai chữ ký, 404 `FILE_NOT_FOUND` nếu tệp không tồn tại).
+     - Thiết lập headers bảo mật: `Cache-Control: private, no-cache, no-store, must-revalidate`, `Pragma: no-cache`, `Expires: 0`.
+     - Ghi nhận Audit Log `VIEW_EVIDENCE` với payload `DOWNLOAD_EVIDENCE` và thời điểm tải.
+  3. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - Unit tests: `storage.service.spec.ts` (upload, presigned url, signature verification, safe path traversal, non-existent file), `verification.service.spec.ts` (downloadEvidence validation, expired, invalid signature, success), `admin-verification.controller.spec.ts` (downloadEvidence response headers & buffer).
+     - E2E tests: Thêm 7 tests mới trong `admin-verification.e2e-spec.ts` (401 unauth, 403 user, 400 missing params, 403 expired, 403 invalid signature, 404 not found, 200 raw binary image stream & audit log). Tổng cộng 159/159 E2E tests PASS.
 
 ### Handoff #027: Triển khai Bộ API Quản lý Hồ sơ & Sở thích Người dùng (CMP-21 / BE-01-T04) (19/11/2026)
 

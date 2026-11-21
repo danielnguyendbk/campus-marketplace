@@ -18,7 +18,7 @@ import {
   UploadedEvidenceFile,
   VerificationState,
 } from '../verification.types';
-import { StorageService } from './storage.service';
+import { PrivateFileResult, StorageService } from './storage.service';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
@@ -187,6 +187,60 @@ export class VerificationService {
       reason: row.reason ?? null,
       reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
     };
+  }
+
+  async downloadEvidence(
+    ref: string,
+    expires: number,
+    token: string,
+    admin: AuthenticatedUser,
+  ): Promise<PrivateFileResult> {
+    if (!ref || !expires || !token) {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        message: 'Thiếu thông tin xác thực tải tệp (ref, expires, token).',
+        details: [
+          ...(!ref ? [{ field: 'ref', message: 'Tham chiếu tệp là bắt buộc.' }] : []),
+          ...(!expires ? [{ field: 'expires', message: 'Thời hạn liên kết là bắt buộc.' }] : []),
+          ...(!token ? [{ field: 'token', message: 'Mã xác thực chữ ký là bắt buộc.' }] : []),
+        ],
+      });
+    }
+
+    const verification = this.storageService.verifyDownloadSignature(ref, expires, token);
+    if (!verification.valid) {
+      if (verification.reason === 'EXPIRED') {
+        throw new ForbiddenException({
+          code: 'LINK_EXPIRED',
+          message: 'Liên kết tải tệp minh chứng đã hết hạn.',
+        });
+      }
+      throw new ForbiddenException({
+        code: 'INVALID_SIGNATURE',
+        message: 'Chữ ký xác thực liên kết không hợp lệ.',
+      });
+    }
+
+    const file = await this.storageService.getPrivateFile(ref);
+
+    // Resolve target evidence ID for audit log
+    const evidence = await this.evidenceRepository.findByCardImageRef(ref);
+    const targetId = evidence ? evidence.id : ref;
+
+    // Record audit log for evidence download
+    await this.evidenceRepository.recordAuditLog(
+      admin.id,
+      'VIEW_EVIDENCE',
+      'student_evidences',
+      targetId,
+      {
+        action: 'DOWNLOAD_EVIDENCE',
+        ref,
+        downloadedAt: new Date().toISOString(),
+      },
+    );
+
+    return file;
   }
 
   async reviewVerification(
