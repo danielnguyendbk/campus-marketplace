@@ -4,11 +4,33 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Đồng bộ PR #6 sau khi PR #11 được merge (2026-11-22)
+
+- Develop đã tiến tới `d17323c` (merge PR #11). Merge develop mới vào nhánh resolve PR #6; conflict chỉ ở các mục bàn giao cùng thêm đầu file. Giữ cả lịch sử health và Admin UI, toàn bộ source/tests tự merge. Không sửa schema/migrations/contract và không merge PR remote.
+- Kiểm chứng sau đồng bộ: frontend 86/86 PASS; typecheck toàn workspace PASS; health unit 7/7 và health E2E mock 4/4 PASS. Backend giống bản PR #6 đã kiểm chứng trước, frontend giống develop mới.
+
 ### Local conflict resolution — PR #6 (2026-11-22)
 
 - Branch `fix/local-pr6-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #6 head `f38d7d4`; no push.
 - Keep the latest develop system status, all newer handoffs and the detailed historical CMP-34 handoff. Production safe DB error handling already matches develop; retain PR #6's missing regression tests for PostgresService, HealthController and both health routes.
 - Health E2E now overrides PostgresService with a mock to avoid live DB access. Targeted health unit tests 7/7 PASS; health E2E 4/4 PASS. Full combined checks follow on the integration branch.
+
+### Local conflict resolution — PR #11 (2026-11-22)
+
+- Branch `fix/local-pr11-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #11 head `caf9056`; no push.
+- Resolve `features/auth/api.ts` by retaining Admin verification/image methods and APPROVED post methods; retain both conditional navigation links in `marketplace-shell.tsx`, all Admin/post test imports and both CMP-38/CMP-39 handoffs.
+- Frontend tests: 86/86 PASS; frontend typecheck PASS. Full combined checks follow on the integration branch. Database, contract and two pre-existing untracked RLS migrations unchanged.
+
+### CMP-38 — Giao diện xác minh và xét duyệt (2026-11-21)
+
+- **Nhánh:** `feat/fe-cmp-38-verification-ui` đã gộp `develop` tại `ec8e737` bằng commit `ff74fa4`. FE ban đầu đã lưu ở `f509c9d`. Phần nối ảnh hiện ở working tree. Bản nháp CMP-39 đã lưu riêng tại `d720eb9`.
+- **Sinh viên:** `/verification` chấp nhận `submittedAt: null` là chưa nộp, giới hạn ảnh JPG/JPEG/PNG tối đa 10 MiB và có test nộp lại sau khi bị từ chối.
+- **Admin:** `apps/frontend/src/app/admin/verifications/page.tsx` mở qua mục “Xét duyệt hồ sơ” dành cho ADMIN trong `MarketplaceShell`. Component và CSS tại `apps/frontend/src/features/marketplace/components/admin-verification*` dùng hai cột ở màn rộng và chuyển danh sách/chi tiết ở màn hẹp. Có lọc trạng thái, phân trang, lỗi/thử lại, xác nhận duyệt, lý do từ chối tối đa 500 ký tự và cập nhật hàng đợi sau khi lưu. Khi kết quả PATCH chưa xác định, yêu cầu đọc lại hồ sơ trước khi gửi tiếp.
+- **Tích hợp ảnh:** BE đã thêm route tải ảnh có chữ ký ở `3574173` và sửa SQL audit/thông báo ở `ec8e737`. FE dùng `cardImageUrl` từ chi tiết Admin theo phê duyệt của người dùng trong khi route tải chờ đồng bộ OpenAPI/Apidog. ApiClient chỉ gửi JWT tới đúng route trên origin của backend, dùng `no-store`, chặn chuyển hướng và kiểm tra loại ảnh. UI hiển thị qua blob URL trong bộ nhớ, giải phóng URL khi rời chi tiết và xin link mới khi bấm “Tải lại ảnh”. Danh sách và khu vực sinh viên không giữ URL ảnh.
+- **Kiểm chứng:** 76/76 test frontend đạt với API giả lập. Các ca kiểm tra ảnh gồm tải có JWT, từ chối URL ngoài phạm vi, chặn guest/USER, xin lại link khi hết hạn và giải phóng ảnh khi đóng chi tiết. TypeScript FE/BE, ESLint frontend, Prettier các file FE đã sửa và `git diff --check` đạt. Chưa chạy production build hoặc nghiệm thu thay đổi mới trên BE/DB thật.
+- **Bước nghiệm thu:** Khởi động lại BE từ `apps/backend` để dùng vùng lưu ảnh local hiện có, xác nhận health `data.database.status = connected` trên đúng DB test, rồi dùng ảnh và tài khoản test. Admin mở chi tiết và xác nhận thấy ảnh, sau đó chạy vòng nộp → từ chối → nộp lại → duyệt. Đối chiếu trạng thái sinh viên và kết quả ghi audit/thông báo. Ghi bằng chứng đã che dữ liệu nhạy cảm và hoàn tất PR/review/CI trước khi đánh dấu Done.
+
+---
 
 ### CMP-39 — Tạo tin bán và tìm mua (2026-11-21)
 

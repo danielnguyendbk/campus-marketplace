@@ -98,6 +98,70 @@ export class ApiClient {
     return this.token;
   }
 
+  async requestPrivateImage(
+    resourceUrl: string,
+    endpoint: string,
+    imageTypes: readonly string[],
+    signal?: AbortSignal,
+  ): Promise<Blob> {
+    if (!this.token) {
+      throw new ApiError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+
+    let url: URL;
+    let base: URL;
+    try {
+      base = new URL(
+        this.baseUrl,
+        typeof window === 'undefined' ? undefined : window.location.origin,
+      );
+      url = new URL(resourceUrl, base.origin);
+    } catch {
+      throw new ApiError('Invalid private image URL', 0, 'INVALID_RESOURCE_URL');
+    }
+
+    const expectedPath = `${base.pathname.replace(/\/+$/, '')}${endpoint}`;
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.origin !== base.origin ||
+      url.pathname !== expectedPath ||
+      url.username ||
+      url.password ||
+      url.hash
+    ) {
+      throw new ApiError('Invalid private image URL', 0, 'INVALID_RESOURCE_URL');
+    }
+
+    const response = await (this.transport ?? fetch)(url.href, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${this.token}`, Accept: imageTypes.join(', ') },
+      cache: 'no-store',
+      redirect: 'error',
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+      signal,
+    });
+    if (!response.ok) {
+      const payload: Partial<ApiErrorEnvelope> | null = await response.json().catch(() => null);
+      const code = payload?.error?.code;
+      throw new ApiError(
+        'Private image request failed',
+        response.status,
+        typeof code === 'string' ? code : 'REQUEST_FAILED',
+      );
+    }
+
+    const mediaType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+    if (!mediaType || !imageTypes.includes(mediaType)) {
+      throw new ApiError('Invalid private image media type', response.status, 'INVALID_IMAGE');
+    }
+    const image = await response.blob();
+    if (image.size === 0) {
+      throw new ApiError('Empty private image', response.status, 'INVALID_IMAGE');
+    }
+    return image;
+  }
+
   /**
    * Generic request handler with automatic unwrap of standard single-entity envelope:
    * { success: true, data: T, timestamp: string } -> T
