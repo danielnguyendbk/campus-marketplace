@@ -208,8 +208,13 @@ export function authErrorMessage(
       ? 'Email hoặc mật khẩu chưa đúng. Vui lòng thử lại.'
       : 'Phiên xác thực không hợp lệ. Vui lòng thực hiện lại.';
   if (error.status === 403) return 'Tài khoản hiện không được phép thực hiện thao tác này.';
-  if (error.status === 429)
+  if (error.status === 429) {
+    if (error.code === 'OTP_ATTEMPTS_EXCEEDED')
+      return 'Bạn đã nhập sai OTP quá số lần cho phép. Vui lòng yêu cầu mã mới bằng nút “Gửi lại mã”.';
+    if (error.code === 'OTP_RATE_LIMITED')
+      return 'Bạn đã yêu cầu mã OTP quá nhiều lần. Vui lòng chờ trước khi gửi lại mã.';
     return 'Bạn đã yêu cầu quá nhiều lần. Vui lòng chờ một lát rồi thử lại.';
+  }
   if ([400, 409, 422].includes(error.status)) return error.message;
   return 'Yêu cầu chưa thành công. Vui lòng thử lại.';
 }

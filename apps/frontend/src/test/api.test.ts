@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { api, ApiClient, ApiError } from '../services/api';
 import { webcrypto } from 'node:crypto';
-import { createAuthApi } from '../features/auth/api';
+import { authErrorMessage, createAuthApi } from '../features/auth/api';
 import { createAuthMockAdapter, MOCK_OTP_CODE } from '../features/auth/mock-adapter';
 import { createPostsApi } from '../features/posts/api';
 import type { CreatePostInput } from '../features/posts/types';
@@ -9,6 +9,53 @@ import type { CreatePostInput } from '../features/posts/types';
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('CMP-35 OTP error messages', () => {
+  it.each([
+    {
+      code: 'OTP_ATTEMPTS_EXCEEDED',
+      action: 'verify' as const,
+      expected:
+        'Bạn đã nhập sai OTP quá số lần cho phép. Vui lòng yêu cầu mã mới bằng nút “Gửi lại mã”.',
+    },
+    {
+      code: 'OTP_RATE_LIMITED',
+      action: 'request' as const,
+      expected: 'Bạn đã yêu cầu mã OTP quá nhiều lần. Vui lòng chờ trước khi gửi lại mã.',
+    },
+    {
+      code: 'UNKNOWN_RATE_LIMIT',
+      action: 'verify' as const,
+      expected: 'Bạn đã yêu cầu quá nhiều lần. Vui lòng chờ một lát rồi thử lại.',
+    },
+  ])(
+    'maps HTTP 429 $code independently of the server message',
+    async ({ code, action, expected }) => {
+      const transport = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code, message: 'OTP request rejected' } }), {
+          status: 429,
+        }),
+      );
+      const client = createAuthApi('live', transport);
+      const failure = await (
+        action === 'request'
+          ? client.requestOtp({ email: 'student@ptit.edu.vn' })
+          : client.verifyOtp({ email: 'student@ptit.edu.vn', code: '000000' })
+      ).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(ApiError);
+      expect(failure).toMatchObject({ status: 429, code });
+      expect(authErrorMessage(failure, action)).toBe(expected);
+    },
+  );
+
+  it('keeps server failures generic even when an OTP code is present', () => {
+    const failure = new ApiError('Internal error details', 500, 'OTP_ATTEMPTS_EXCEEDED');
+    expect(authErrorMessage(failure, 'verify')).toBe(
+      'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.',
+    );
+  });
 });
 
 describe('CMP-39 posts API', () => {

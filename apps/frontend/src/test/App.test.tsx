@@ -427,6 +427,81 @@ describe('CMP-29 registration and login UI', () => {
     expect(resend).toHaveBeenCalledTimes(3);
     expect(screen.queryByLabelText('Mật khẩu', { exact: true })).not.toBeInTheDocument();
   });
+  it('CMP-35 requires a new OTP after attempts are exceeded before opening passwords', async () => {
+    const success = (data: unknown) =>
+      new Response(JSON.stringify({ success: true, data, timestamp: new Date().toISOString() }));
+    const attemptsExceeded = () =>
+      new Response(
+        JSON.stringify({
+          error: { code: 'OTP_ATTEMPTS_EXCEEDED', message: 'OTP request rejected' },
+        }),
+        { status: 429 },
+      );
+    const transport = vi
+      .fn()
+      .mockResolvedValueOnce(success({ success: true, message: 'Đã tiếp nhận yêu cầu.' }))
+      .mockResolvedValueOnce(attemptsExceeded())
+      .mockResolvedValueOnce(attemptsExceeded())
+      .mockResolvedValueOnce(success({ success: true, message: 'Đã tiếp nhận yêu cầu mã mới.' }))
+      .mockResolvedValueOnce(success({ otpTicket: 'cmp35-test-ticket', expiresIn: 600 }));
+    const client = createAuthApi('live', transport);
+    const register = vi.spyOn(client, 'register');
+    await beginOtp(client);
+
+    for (const code of ['000000', MOCK_OTP_CODE]) {
+      fireEvent.change(screen.getByLabelText('Mã OTP'), { target: { value: code } });
+      fireEvent.click(screen.getByRole('button', { name: 'Xác thực OTP' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Bạn đã nhập sai OTP quá số lần cho phép. Vui lòng yêu cầu mã mới',
+      );
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Xác thực OTP' })).toBeEnabled(),
+      );
+      expect(screen.queryByLabelText('Mật khẩu', { exact: true })).not.toBeInTheDocument();
+      expect(register).not.toHaveBeenCalled();
+    }
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gửi lại mã' }));
+    await waitFor(() => expect(screen.getByLabelText('Mã OTP')).toHaveValue(''));
+    expect(screen.queryByLabelText('Mật khẩu', { exact: true })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Mã OTP'), { target: { value: '654321' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Xác thực OTP' }));
+    expect(await screen.findByLabelText('Mật khẩu', { exact: true })).toBeInTheDocument();
+    expect(register).not.toHaveBeenCalled();
+    expect(transport).toHaveBeenCalledTimes(5);
+  });
+  it('CMP-35 asks users to wait when resending is rate limited and keeps passwords closed', async () => {
+    const transport = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: { success: true, message: 'Đã tiếp nhận yêu cầu.' },
+            timestamp: new Date().toISOString(),
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { code: 'OTP_RATE_LIMITED', message: 'OTP request rejected' } }),
+          { status: 429 },
+        ),
+      );
+    const client = createAuthApi('live', transport);
+    const register = vi.spyOn(client, 'register');
+    await beginOtp(client);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gửi lại mã' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Bạn đã yêu cầu mã OTP quá nhiều lần. Vui lòng chờ trước khi gửi lại mã.',
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent('nhập sai OTP');
+    expect(screen.getByLabelText('Mã OTP')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mật khẩu', { exact: true })).not.toBeInTheDocument();
+    expect(register).not.toHaveBeenCalled();
+    expect(transport).toHaveBeenCalledTimes(2);
+  });
   it('clears verified state when changing email', async () => {
     const client = await verifyOtp();
     const register = vi.spyOn(client, 'register');
