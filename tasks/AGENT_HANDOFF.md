@@ -4,6 +4,16 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Đồng bộ PR #6 sau khi PR #11 được merge (2026-11-22)
+
+- Develop đã tiến tới `d17323c` (merge PR #11). Merge develop mới vào nhánh resolve PR #6; conflict chỉ ở các mục bàn giao cùng thêm đầu file. Giữ cả lịch sử health và Admin UI, toàn bộ source/tests tự merge. Không sửa schema/migrations/contract và không merge PR remote.
+- Kiểm chứng sau đồng bộ: frontend 86/86 PASS; typecheck toàn workspace PASS; health unit 7/7 và health E2E mock 4/4 PASS. Backend giống bản PR #6 đã kiểm chứng trước, frontend giống develop mới.
+
+### Local conflict resolution — PR #6 (2026-11-22)
+
+- Branch `fix/local-pr6-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #6 head `f38d7d4`; no push.
+- Keep the latest develop system status, all newer handoffs and the detailed historical CMP-34 handoff. Production safe DB error handling already matches develop; retain PR #6's missing regression tests for PostgresService, HealthController and both health routes.
+- Health E2E now overrides PostgresService with a mock to avoid live DB access. Targeted health unit tests 7/7 PASS; health E2E 4/4 PASS. Full combined checks follow on the integration branch.
 ### Đồng bộ PR #10 sau khi PR #11 được merge (2026-11-22)
 
 - Develop đã tiến tới `d17323c` (merge PR #11). Giữ cả nhật ký OTP và Admin UI, toàn bộ test OTP/ảnh riêng tư/tạo bài đăng cùng các method API tương ứng. Conflict chỉ ở handoff; không thay đổi database, contract hoặc backend.
@@ -695,6 +705,30 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   3. Bổ sung unit test trong `health.controller.spec.ts` kiểm chứng không rò rỉ driver error message. Ticket CMP-34 đã chuyển sang `Done`.
 
 ---
+
+### Handoff #020: Khắc phục Lỗi Bảo mật Lộ Thông điệp Driver PostgreSQL qua /health (CMP-34) (17/11/2026)
+
+- **Ngày:** 2026-11-17 (08:30–08:40 GMT+7)
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `fix/cmp-34-health-db-error`
+- **Truy vết:** `CMP-34`, `CMP-6`, `CMP-31`, `Bug 1 (CMP-6-01)`
+- **Mục tiêu đạt được theo Definition of Done của CMP-34:**
+  1. **Ẩn Thông tin Lỗi Driver PostgreSQL trong /health Response:**
+     - Sửa `PostgresService.checkHealth()` (`apps/backend/src/database/postgres.service.ts`): Khi kết nối DB thất bại, trả thông điệp cố định an toàn `message: 'Database connection unavailable'` thay vì trả nguyên văn `error.message` của driver PostgreSQL (vốn làm lộ tên user `postgres` và thông tin môi trường).
+     - Áp dụng `sanitizeLogMessage` cho các log probe thất bại và lỗi idle client trong `PostgresService` để đảm bảo server log không rò rỉ credentials/connection strings.
+  2. **Bổ sung Kiểm thử Tự động (Unit Tests & E2E Tests):**
+     - `apps/backend/src/database/postgres.service.spec.ts`: Bổ sung 2 test cases kiểm tra trạng thái ngắt kết nối (`status: 'disconnected'`, `message: 'Database connection unavailable'`), xác minh 100% không chứa chuỗi nhạy cảm (`password`, `postgres`, `FATAL`, `supabase.com`), và kiểm tra log sanitization.
+     - `apps/backend/src/modules/health/health.controller.spec.ts`: Cập nhật mock test controller trả message chuẩn hóa.
+     - `apps/backend/test/app.e2e-spec.ts`: Bổ sung E2E test cho cả `/health` và `/api/v1/health` trong trường hợp DB disconnected, xác nhận trả HTTP 200 với envelope chuẩn `{ success: true, data: { status: 'degraded', database: { status: 'disconnected', message: 'Database connection unavailable' } } }`, không rò rỉ bất kỳ thông tin nội bộ nào.
+  3. **Kiểm tra Chất lượng Toàn diện (DoD):**
+     - `pnpm lint`: PASS (0 warnings across workspace).
+     - `pnpm typecheck`: PASS (0 errors across workspace).
+     - `pnpm test`: PASS **134/134 tests** (Frontend Vitest 58/58 + Backend Jest 76/76).
+     - `pnpm test:e2e`: PASS **42/42 tests** across test suites.
+     - `pnpm build`: PASS (NestJS + Next.js App Router 7/7 static pages).
+  4. **Trạng thái Jira:**
+     - Chuyển `CMP-34` sang **Done**.
+
 
 ### Handoff #019: Khắc phục Sự cố Môi trường ISS-01 & Tái tạo CSDL Supabase Sạch (CMP-33) (13/11/2026)
 
