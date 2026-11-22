@@ -72,6 +72,18 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
       };
     },
     getFeed: marketplace.getFeed,
+    listAdminVerifications: marketplace.listAdminVerifications,
+    getAdminVerification: marketplace.getAdminVerification,
+    reviewAdminVerification: marketplace.reviewAdminVerification,
+    async getAdminEvidenceImage(url: string, signal?: AbortSignal) {
+      if (!currentSession) {
+        throw new ApiError('Authentication required', 401, 'UNAUTHORIZED');
+      }
+      if (currentSession.user.role !== 'ADMIN') {
+        throw new ApiError('Admin role required', 403, 'FORBIDDEN');
+      }
+      return marketplace.getAdminEvidenceImage(url, signal);
+    },
     async listPostCategories(...args: Parameters<typeof posts.listPostCategories>) {
       requireApprovedSession();
       return posts.listPostCategories(...args);

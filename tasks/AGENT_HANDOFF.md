@@ -4,6 +4,11 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Đồng bộ PR #10 sau khi PR #11 được merge (2026-11-22)
+
+- Develop đã tiến tới `d17323c` (merge PR #11). Giữ cả nhật ký OTP và Admin UI, toàn bộ test OTP/ảnh riêng tư/tạo bài đăng cùng các method API tương ứng. Conflict chỉ ở handoff; không thay đổi database, contract hoặc backend.
+- Kiểm chứng sau đồng bộ: frontend 92/92 PASS; typecheck, lint và production build toàn workspace PASS. Cây frontend khớp bản tích hợp `0b6b480` đã kiểm chứng trước, backend khớp develop hiện tại. Chưa chạy live Supabase hay suite DROP SCHEMA.
+
 ### Local conflict resolution — PR #10 (2026-11-22)
 
 - Branch `fix/local-pr10-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #10 head `5f3cb6b`; no push.
@@ -30,6 +35,23 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Giới hạn kiểm chứng:** Backend typecheck và một số unit suites không chạy được do môi trường thiếu các dependency đã khai báo như `@nestjs/jwt`, `bcryptjs`, `class-transformer`, `class-validator`, `nodemailer`, Multer/types. Chưa cài thêm package. Chưa xác nhận UI với backend/SMTP/DB thật. Không chạy toàn bộ E2E vì `cmp37-otp-race-isolated-db.e2e-spec.ts` tự nạp `.env` và thực hiện `DROP SCHEMA`; không chạy production build toàn repo vì `apps/backend/nest-cli.json` đặt `deleteOutDir: true`, không phù hợp quy tắc người dùng cấm xóa file. Chưa có kết quả build mới hoặc CI.
 - **Kết quả backend unit và sai sót khi kiểm chứng:** 17/28 suites PASS, 11 suites không chạy được do lỗi biên dịch/dependency; 109 tests đã chạy PASS. Suite `src/modules/verification/services/storage.service.spec.ts` gọi service thật để tạo rồi tự xóa file giả `storage/private/evidence/user-123/da7615d1-bfe5-4204-9385-67fcc8e1b71b.png` trong cwd backend. Agent đã bỏ sót lời gọi `service.deleteFile()` khi rà soát test và chạy suite này dù người dùng cấm xóa mọi file; đã báo rõ trong chat và dừng chạy thêm test/dọn dẹp. Không coi bộ unit này là hoàn toàn không tác động filesystem; không chạy lại khi chưa duyệt phạm vi, không tự dọn thư mục còn lại.
 - **Còn chờ:** Duyệt bước xử lý môi trường/kiểm chứng còn thiếu; kiểm tra hai tình huống trên môi trường test được cấp quyền; review diff, commit/push và PR về `develop` theo template, CI pass trước khi kết luận hoàn tất CMP-35.
+
+---
+
+### Local conflict resolution — PR #11 (2026-11-22)
+
+- Branch `fix/local-pr11-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #11 head `caf9056`; no push.
+- Resolve `features/auth/api.ts` by retaining Admin verification/image methods and APPROVED post methods; retain both conditional navigation links in `marketplace-shell.tsx`, all Admin/post test imports and both CMP-38/CMP-39 handoffs.
+- Frontend tests: 86/86 PASS; frontend typecheck PASS. Full combined checks follow on the integration branch. Database, contract and two pre-existing untracked RLS migrations unchanged.
+
+### CMP-38 — Giao diện xác minh và xét duyệt (2026-11-21)
+
+- **Nhánh:** `feat/fe-cmp-38-verification-ui` đã gộp `develop` tại `ec8e737` bằng commit `ff74fa4`. FE ban đầu đã lưu ở `f509c9d`. Phần nối ảnh hiện ở working tree. Bản nháp CMP-39 đã lưu riêng tại `d720eb9`.
+- **Sinh viên:** `/verification` chấp nhận `submittedAt: null` là chưa nộp, giới hạn ảnh JPG/JPEG/PNG tối đa 10 MiB và có test nộp lại sau khi bị từ chối.
+- **Admin:** `apps/frontend/src/app/admin/verifications/page.tsx` mở qua mục “Xét duyệt hồ sơ” dành cho ADMIN trong `MarketplaceShell`. Component và CSS tại `apps/frontend/src/features/marketplace/components/admin-verification*` dùng hai cột ở màn rộng và chuyển danh sách/chi tiết ở màn hẹp. Có lọc trạng thái, phân trang, lỗi/thử lại, xác nhận duyệt, lý do từ chối tối đa 500 ký tự và cập nhật hàng đợi sau khi lưu. Khi kết quả PATCH chưa xác định, yêu cầu đọc lại hồ sơ trước khi gửi tiếp.
+- **Tích hợp ảnh:** BE đã thêm route tải ảnh có chữ ký ở `3574173` và sửa SQL audit/thông báo ở `ec8e737`. FE dùng `cardImageUrl` từ chi tiết Admin theo phê duyệt của người dùng trong khi route tải chờ đồng bộ OpenAPI/Apidog. ApiClient chỉ gửi JWT tới đúng route trên origin của backend, dùng `no-store`, chặn chuyển hướng và kiểm tra loại ảnh. UI hiển thị qua blob URL trong bộ nhớ, giải phóng URL khi rời chi tiết và xin link mới khi bấm “Tải lại ảnh”. Danh sách và khu vực sinh viên không giữ URL ảnh.
+- **Kiểm chứng:** 76/76 test frontend đạt với API giả lập. Các ca kiểm tra ảnh gồm tải có JWT, từ chối URL ngoài phạm vi, chặn guest/USER, xin lại link khi hết hạn và giải phóng ảnh khi đóng chi tiết. TypeScript FE/BE, ESLint frontend, Prettier các file FE đã sửa và `git diff --check` đạt. Chưa chạy production build hoặc nghiệm thu thay đổi mới trên BE/DB thật.
+- **Bước nghiệm thu:** Khởi động lại BE từ `apps/backend` để dùng vùng lưu ảnh local hiện có, xác nhận health `data.database.status = connected` trên đúng DB test, rồi dùng ảnh và tài khoản test. Admin mở chi tiết và xác nhận thấy ảnh, sau đó chạy vòng nộp → từ chối → nộp lại → duyệt. Đối chiếu trạng thái sinh viên và kết quả ghi audit/thông báo. Ghi bằng chứng đã che dữ liệu nhạy cảm và hoàn tất PR/review/CI trước khi đánh dấu Done.
 
 ---
 
