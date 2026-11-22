@@ -20,13 +20,18 @@ import { AuthenticatedRequest } from '../../common/auth/jwt-auth.guard';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { VerificationGuard } from '../../common/auth/verification.guard';
 import { PaginatedResult } from '../../common/interfaces/api-response.interface';
+import { ClosePostDto } from './dto/close-post.dto';
 import { CreatePostDto } from './dto/create-post.dto';
+import { PostLifecycleService } from './post-lifecycle.service';
 import { PostsService } from './posts.service';
 import { PhoneRevealDto, PostDetailDto, PostSummaryDto } from './posts.types';
 
 @Controller()
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(
+    private readonly postsService: PostsService,
+    private readonly postLifecycleService: PostLifecycleService,
+  ) {}
 
   @Post('posts')
   @HttpCode(HttpStatus.CREATED)
@@ -104,5 +109,94 @@ export class PostsController {
     @Req() req: AuthenticatedRequest,
   ): Promise<PhoneRevealDto> {
     return this.postsService.revealSellerPhone(id, req.user!);
+  }
+
+  @Post('posts/:id/hide')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, VerificationGuard)
+  async hidePost(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException({
+            code: 'VALIDATION_FAILED',
+            message: 'ID bài đăng không đúng định dạng UUID.',
+            details: [{ field: 'id', message: 'id phải là UUID hợp lệ.' }],
+          }),
+      }),
+    )
+    id: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PostDetailDto> {
+    return this.postLifecycleService.hidePost(id, req.user!);
+  }
+
+  @Post('posts/:id/activate')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, VerificationGuard)
+  async activatePost(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException({
+            code: 'VALIDATION_FAILED',
+            message: 'ID bài đăng không đúng định dạng UUID.',
+            details: [{ field: 'id', message: 'id phải là UUID hợp lệ.' }],
+          }),
+      }),
+    )
+    id: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PostDetailDto> {
+    return this.postLifecycleService.activatePost(id, req.user!);
+  }
+
+  @Post('posts/:id/sold')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, VerificationGuard)
+  async markPostSold(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException({
+            code: 'VALIDATION_FAILED',
+            message: 'ID bài đăng không đúng định dạng UUID.',
+            details: [{ field: 'id', message: 'id phải là UUID hợp lệ.' }],
+          }),
+      }),
+    )
+    id: string,
+    @Req() req: AuthenticatedRequest,
+  ): Promise<PostDetailDto> {
+    return this.postLifecycleService.markPostSold(id, req.user!);
+  }
+
+  @Post('posts/:id/close')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, VerificationGuard)
+  async closePost(
+    @Param(
+      'id',
+      new ParseUUIDPipe({
+        version: '4',
+        exceptionFactory: () =>
+          new BadRequestException({
+            code: 'VALIDATION_FAILED',
+            message: 'ID bài đăng không đúng định dạng UUID.',
+            details: [{ field: 'id', message: 'id phải là UUID hợp lệ.' }],
+          }),
+      }),
+    )
+    id: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ClosePostDto,
+  ): Promise<PostDetailDto> {
+    return this.postLifecycleService.closePost(id, req.user!, dto);
   }
 }

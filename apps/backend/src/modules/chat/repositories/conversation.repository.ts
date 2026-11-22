@@ -163,3 +163,4 @@ export class ConversationRepository extends BaseRepository<ConversationRow> {
     return { rows: rowsRes.rows, total };
   }
 }
+

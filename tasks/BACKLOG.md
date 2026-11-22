@@ -106,17 +106,17 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** `bcrypt` với `saltRounds = 12`; mặc định `role = 'USER'`, `verification_status = 'PENDING'`, `reputation_score = 5.0`; trả về `AuthSessionResponse` gồm `accessToken` và `user`.
   - **Tests:** Unit test bcrypt compare, JWT sign/verify, E2E login thành công và sai mật khẩu.
   - **Branch:** `feat/be-auth-otp-session`
-- [ ] **BE-01-T03: Security & RBAC — Core Guards, Roles & Verification Enforcer** (P0, 5 SP)
+- [x] **BE-01-T03: Security & RBAC — Core Guards, Roles & Verification Enforcer** (P0, 5 SP)
   - **API:** Middleware & Guards xuyên suốt toàn hệ thống.
   - **Database:** `users` (`role`, `verification_status`).
   - **Files:** `src/common/guards/jwt-auth.guard.ts`, `roles.guard.ts`, `verification.guard.ts`, `decorators/current-user.decorator.ts`.
   - **Acceptance Criteria:** `JwtAuthGuard` giải mã Bearer Token gắn `req.user`; `RolesGuard` thẩm định ADMIN/USER; `VerificationGuard` từ chối `PENDING` vào API yêu cầu `APPROVED` với HTTP 403; `SUSPENDED` bị chặn toàn diện.
   - **Tests:** Unit test từng guard với mock context; test 401 khi thiếu token, 403 khi sai role/status.
   - **Branch:** `feat/be-01-security-guards`
-- [ ] **BE-01-T04: User Domain — Profile & Preferences Management** (P1, 3 SP)
+- [x] **BE-01-T04: User Domain — Profile & Preferences Management** (P1, 3 SP)
   - **API:** `GET /me`, `PATCH /me`, `GET /me/preferences`, `PATCH /me/preferences`.
   - **Database:** `users`, `user_preferences`.
-  - **Files:** `src/modules/user/user.controller.ts`, `user.service.ts`, `repositories/user.repository.ts`.
+  - **Files:** `src/modules/user/user.controller.ts`, `user.service.ts`, `repositories/user-profile.repository.ts`.
   - **Acceptance Criteria:** `GET /me` tuyệt đối không trả `password_hash` và `card_image_ref` (BR-03); `PATCH /me` chỉ sửa `displayName`, `phoneNumber`, `province`; hỗ trợ `favoriteCategoryIds` và `interestKeywords`.
   - **Tests:** Contract test `MeResponse`, unit test update profile, negative test cố tình sửa `role`.
   - **Branch:** `feat/be-01-user-profile`
@@ -167,7 +167,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** Chặn người mua tự tạo hội thoại với chính mình (`buyer_id != seller_id`); idempotent nếu đã có hội thoại `OPEN` cùng `post_id`; `GET /conversations` trả `ConversationPage` có `meta` và `canSend = true`.
   - **Tests:** Unit test tạo conversation, kiểm tra chặn buyer = seller, E2E list conversations.
   - **Branch:** `feat/be-01-chat-conversations`
-- [ ] **BE-01-T07: Chat Domain — Messages & Secure Attachments Handling** (P0, 5 SP)
+- [x] **BE-01-T07: Chat Domain — Messages & Secure Attachments Handling** (P0, 5 SP)
   - **API:** `GET /conversations/{id}/messages`, `POST /conversations/{id}/messages`, `POST .../attachments`, `GET .../download`.
   - **Database:** `messages`, `attachments`, `conversations`.
   - **Files:** `src/modules/chat/messages.service.ts`, `repositories/message.repository.ts`, `services/attachment.service.ts`.
@@ -184,7 +184,7 @@ _Tổng Story Points: 89 SP (Phân bổ đồng đều ~11 SP / người / sprin
   - **Acceptance Criteria:** Chỉ tài khoản `APPROVED` mới được đăng bài; bài `SELL` bắt buộc có `price > 0`, `condition` và ít nhất 1 ảnh; bài `BUY_REQUEST` có `budget_min <= budget_max`; `GET /posts/{id}` chỉ cho `APPROVED` xem chi tiết (BR-01).
   - **Tests:** Unit test validation SELL/BUY, transaction rollback test, E2E test chặn PENDING xem chi tiết.
   - **Branch:** `feat/be-02-post-crud`
-- [ ] **BE-02-T05: Marketplace Core — Post Lifecycle State Transitions** (P1, 3 SP)
+- [x] **BE-02-T05: Marketplace Core — Post Lifecycle State Transitions** (P1, 3 SP)
   - **API:** `POST /posts/{id}/hide`, `POST /posts/{id}/activate`, `POST /posts/{id}/sold`, `POST /posts/{id}/close`.
   - **Database:** `posts`.
   - **Files:** `src/modules/posts/post-lifecycle.service.ts`.

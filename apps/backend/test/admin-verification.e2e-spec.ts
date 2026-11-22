@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { randomUUID } from 'crypto';
@@ -35,17 +35,22 @@ class InMemoryAdminEvidenceRepository {
     }
   > = {};
   public auditLogs: Array<{
+    actor_type?: string;
     actor_id: string;
     action: string;
     target_type: string;
     target_id: string;
+    details?: Record<string, unknown>;
     payload?: Record<string, unknown>;
   }> = [];
   public notifications: Array<{
+    recipient_id?: string;
     user_id: string;
     title: string;
     content: string;
     type: string;
+    reference_id?: string;
+    reference_type?: string;
     ref_id?: string;
   }> = [];
 
@@ -160,35 +165,58 @@ class InMemoryAdminEvidenceRepository {
     }
   }
 
+  async findByCardImageRef(cardImageRef: string): Promise<StudentEvidenceRow | null> {
+    const evidence = this.evidences.find((e) => e.card_image_ref === cardImageRef);
+    if (!evidence) return null;
+    return {
+      id: evidence.id,
+      user_id: evidence.user_id,
+      card_image_ref: evidence.card_image_ref,
+      submitted_at: evidence.submitted_at,
+      reviewed_by: evidence.reviewed_by ?? null,
+      reviewed_at: evidence.reviewed_at ?? null,
+      reason: evidence.reason ?? null,
+    };
+  }
+
   async recordAuditLog(
-    actorId: string,
+    actorId: string | null,
     action: string,
     targetType: string,
     targetId: string,
-    payload?: Record<string, unknown>,
+    details?: Record<string, unknown>,
+    _client?: unknown,
+    actorType: 'USER' | 'SYSTEM' = 'USER',
   ): Promise<void> {
     this.auditLogs.push({
-      actor_id: actorId,
+      actor_type: actorType,
+      actor_id: actorId ?? '',
       action,
       target_type: targetType,
       target_id: targetId,
-      payload,
+      details,
+      payload: details,
     });
   }
 
   async createNotification(
-    userId: string,
+    recipientId: string,
     title: string,
     content: string,
     type: string,
-    refId?: string,
+    referenceId?: string,
+    _client?: unknown,
+    referenceType?: string,
   ): Promise<void> {
     this.notifications.push({
-      user_id: userId,
+      recipient_id: recipientId,
+      user_id: recipientId,
       title,
       content,
       type,
-      ref_id: refId,
+      reference_id: referenceId,
+      ref_id: referenceId,
+      reference_type: referenceType ?? 'student_evidences',
     });
   }
 }
@@ -244,6 +272,24 @@ describe('Admin Verification Flow (e2e) — CMP-8 / OpenAPI v1.2 Contract', () =
       .useValue({
         uploadPrivate: jest.fn().mockResolvedValue({ ref: 'evidence/test-user/card.png' }),
         getPresignedDownloadUrl: jest.fn().mockResolvedValue('https://storage.example.com/download/card.png'),
+        verifyDownloadSignature: jest.fn().mockImplementation((_ref, _expires, token) => {
+          if (token === 'expired-token') return { valid: false, reason: 'EXPIRED' };
+          if (token === 'invalid-token') return { valid: false, reason: 'INVALID_SIGNATURE' };
+          return { valid: true };
+        }),
+        getPrivateFile: jest.fn().mockImplementation(async (ref: string) => {
+          if (ref.includes('non-existent')) {
+            throw new NotFoundException({
+              code: 'FILE_NOT_FOUND',
+              message: 'Tệp minh chứng không tồn tại hoặc đã bị xóa.',
+            });
+          }
+          return {
+            buffer: Buffer.from('fake-card-image-bytes'),
+            mimetype: 'image/png',
+            filename: 'card.png',
+          };
+        }),
         deleteFile: jest.fn().mockResolvedValue(undefined),
       })
       .compile();
@@ -410,10 +456,14 @@ describe('Admin Verification Flow (e2e) — CMP-8 / OpenAPI v1.2 Contract', () =
       expect(audit).toBeDefined();
       expect(audit?.actor_id).toBe(adminId);
       expect(audit?.target_id).toBe(userId);
+      expect(audit?.actor_type).toBe('USER');
+      expect(audit?.details).toBeDefined();
 
       // Verify in-app notification
       expect(adminEvidenceRepo.notifications).toHaveLength(1);
       expect(adminEvidenceRepo.notifications[0].user_id).toBe(userId);
+      expect(adminEvidenceRepo.notifications[0].recipient_id).toBe(userId);
+      expect(adminEvidenceRepo.notifications[0].reference_id).toBe(evidenceId);
       expect(adminEvidenceRepo.notifications[0].type).toBe('VERIFICATION_RESULT');
     });
 
@@ -446,6 +496,98 @@ describe('Admin Verification Flow (e2e) — CMP-8 / OpenAPI v1.2 Contract', () =
       // Verify notification
       expect(adminEvidenceRepo.notifications).toHaveLength(1);
       expect(adminEvidenceRepo.notifications[0].content).toContain(rejectReason);
+    });
+  });
+
+  describe('GET /api/v1/admin/verifications/download', () => {
+    const validRef = 'evidence/test-user/card.png';
+    const futureExpires = String(Date.now() + 600000);
+    const validToken = 'valid-token';
+
+    it('returns 401 UNAUTHORIZED when no token is provided', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=${validToken}`);
+
+      expect(res.status).toBe(401);
+    });
+
+    it('returns 403 FORBIDDEN when accessed by non-ADMIN user', async () => {
+      const userToken = createToken('USER');
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=${validToken}`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('returns 400 VALIDATION_FAILED when query parameters are missing', async () => {
+      const adminToken = createToken('ADMIN');
+
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/verifications/download')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    });
+
+    it('returns 403 LINK_EXPIRED when download link has expired', async () => {
+      const adminToken = createToken('ADMIN');
+      const pastExpires = String(Date.now() - 10000);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${pastExpires}&token=expired-token`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('LINK_EXPIRED');
+    });
+
+    it('returns 403 INVALID_SIGNATURE when token is invalid or tampered', async () => {
+      const adminToken = createToken('ADMIN');
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=invalid-token`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('INVALID_SIGNATURE');
+    });
+
+    it('returns 404 FILE_NOT_FOUND when file does not exist', async () => {
+      const adminToken = createToken('ADMIN');
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=evidence/test-user/non-existent.png&expires=${futureExpires}&token=${validToken}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('FILE_NOT_FOUND');
+    });
+
+    it('returns 200 with raw file binary and private no-cache headers when valid ADMIN calls', async () => {
+      const adminId = 'admin-download-auditor';
+      const adminToken = createToken('ADMIN', adminId);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/admin/verifications/download?ref=${validRef}&expires=${futureExpires}&token=${validToken}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers['content-type']).toBe('image/png');
+      expect(res.headers['cache-control']).toBe('private, no-cache, no-store, must-revalidate');
+      expect(res.headers['pragma']).toBe('no-cache');
+      expect(res.body).toEqual(Buffer.from('fake-card-image-bytes'));
+
+      // Check audit log recorded for DOWNLOAD_EVIDENCE
+      const audit = adminEvidenceRepo.auditLogs.find(
+        (a) =>
+          a.action === 'VIEW_EVIDENCE' &&
+          (a.payload as Record<string, unknown>)?.action === 'DOWNLOAD_EVIDENCE',
+      );
+      expect(audit).toBeDefined();
+      expect(audit?.actor_id).toBe(adminId);
     });
   });
 });
