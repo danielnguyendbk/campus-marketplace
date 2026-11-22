@@ -12,7 +12,15 @@ describe('AppController (e2e)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(PostgresService)
+      .useValue({
+        checkHealth: jest.fn().mockResolvedValue({
+          status: 'connected',
+          message: 'PostgreSQL connection healthy',
+        }),
+      })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1', {

@@ -1,6 +1,7 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -33,6 +34,16 @@ const isUniqueViolation = (err: unknown): boolean => {
   return (err as { code?: string }).code === '23505';
 };
 
+const isOtpTicketInvalid = (err: unknown): boolean => {
+  if (!(err instanceof HttpException)) return false;
+  const response = err.getResponse();
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    (response as { code?: string }).code === AUTH_ERROR_CODES.OTP_TICKET_INVALID
+  );
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -43,15 +54,17 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthSession> {
-    const { email } = await this.otpService.verifyOtpTicket(dto.otpTicket);
+    // 1. Signature/structure of the otpTicket only: the owner email is needed to keep
+    //    EX-03B (replaying a consumed ticket of a registered email) a 409.
+    const { email } = await this.otpService.verifyOtpTicketClaims(dto.otpTicket);
 
-    const alreadyExists = await this.userRepository.existsByEmail(email);
-    if (alreadyExists) {
-      throw new ConflictException({
-        code: AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED,
-        message: 'Email trường này đã được đăng ký tài khoản.',
-      });
+    // 2. Existing accounts win over ticket state.
+    if (await this.userRepository.existsByEmail(email)) {
+      throw this.emailAlreadyRegistered();
     }
+
+    // 3. Consume the ticket atomically before creating the account (R04 / CMP-37).
+    await this.consumeTicket(dto.otpTicket, email);
 
     const passwordHash = await bcrypt.hash(dto.password, this.config.bcryptSaltRounds);
 
@@ -64,15 +77,38 @@ export class AuthService {
       });
     } catch (error) {
       if (isUniqueViolation(error)) {
-        throw new ConflictException({
-          code: AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED,
-          message: 'Email trường này đã được đăng ký tài khoản.',
-        });
+        throw this.emailAlreadyRegistered();
       }
       throw error;
     }
 
     return this.issueSession(user, email);
+  }
+
+  private emailAlreadyRegistered(): ConflictException {
+    return new ConflictException({
+      code: AUTH_ERROR_CODES.EMAIL_ALREADY_REGISTERED,
+      message: 'Email trường này đã được đăng ký tài khoản.',
+    });
+  }
+
+  /**
+   * Consumes the otpTicket exactly once. A lost race (another request consumed it first)
+   * or a ticket revoked by a newer request-otp is rejected with 400 OTP_TICKET_INVALID,
+   * unless the account was created meanwhile, in which case 409 wins.
+   */
+  private async consumeTicket(otpTicket: string, email: string): Promise<void> {
+    try {
+      await this.otpService.consumeOtpTicket(otpTicket);
+    } catch (error) {
+      if (!isOtpTicketInvalid(error)) {
+        throw error;
+      }
+      if (await this.userRepository.existsByEmail(email)) {
+        throw this.emailAlreadyRegistered();
+      }
+      throw error;
+    }
   }
 
   async login(rawEmail: string, password: string): Promise<AuthSession> {

@@ -4,28 +4,293 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Local conflict resolution — PR #6 (2026-11-22)
+
+- Branch `fix/local-pr6-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #6 head `f38d7d4`; no push.
+- Keep the latest develop system status, all newer handoffs and the detailed historical CMP-34 handoff. Production safe DB error handling already matches develop; retain PR #6's missing regression tests for PostgresService, HealthController and both health routes.
+- Health E2E now overrides PostgresService with a mock to avoid live DB access. Targeted health unit tests 7/7 PASS; health E2E 4/4 PASS. Full combined checks follow on the integration branch.
+
+### CMP-39 — Tạo tin bán và tìm mua (2026-11-21)
+
+- **Nhánh:** `feat/fe-cmp-39-post-creation`. Bản nháp ở `d720eb9`, đã gộp `develop` tại `ec8e737` bằng `d4158e1`. Phần tích hợp FE hiện ở working tree.
+- **Tạo tin:** Tài khoản `APPROVED` có mục “Đăng tin”. Màn `/posts/new` dùng danh mục đang hoạt động từ `GET /categories` và gửi multipart qua `POST /posts` với phiên JWT hiện tại. SELL cần giá, tình trạng và 1–5 ảnh. BUY_REQUEST cần khoảng ngân sách hợp lệ và cho phép không ảnh. Form giữ dữ liệu khi API trả lỗi và chặn gửi lặp trong lúc xử lý.
+- **Xem lại:** Sau khi tạo thành công, “Xem tin vừa đăng” mở `/posts/[id]`, đọc lại bằng `GET /posts/{id}` và hiển thị thông tin theo loại tin. UI dùng bố cục thông tin và ảnh ở hai cột trên desktop, một cột trên điện thoại.
+- **Kiểm chứng:** 68/68 test frontend đạt với API giả lập. ESLint, Prettier và `git diff --check` đạt. TypeScript mã nguồn đạt sau khi loại các type sinh cũ của CMP-38 trong `.next` khỏi lần kiểm tra trong bộ nhớ. Đã kiểm tra bố cục bản xem trước ở desktop, viewport 375 px và màn ngang, cùng focus tới nhóm lỗi.
+- **Nghiệm thu:** Dùng tài khoản test `APPROVED` và ảnh giả để tạo SELL có ảnh, BUY_REQUEST không ảnh rồi mở lại từng tin. Đối chiếu HTTP 201/200, trạng thái `ACTIVE`, đúng loại tin và giá hoặc ngân sách. Thử guest/PENDING bị chặn. Xác nhận với BE trường hợp guard cho ADMIN chưa `APPROVED` đi qua ở server. Smoke test trên môi trường chung, production build, PR và CI còn chờ.
+
+---
+
+### Cập nhật tài liệu QA — CMP-40 (2026-11-17)
+
+- Theo tiến độ người giao: CMP-7/8/9/10/34/36 đã được dev triển khai; CMP-35 chưa triển khai, CMP-37 chưa hoàn tất. Các nhãn Done của CMP-37 trong phần lịch sử bên dưới không phải xác nhận tiến độ hiện tại.
+- Đã chỉnh `docs/qa/CMP-40/` thành đặc tả và hướng dẫn nghiệm thu, bổ sung `Implementation_Guide.md`, BDD, test cases và truy vết; giữ nguyên kết quả đã chạy trong báo cáo. Lần chỉnh này chỉ sửa tài liệu, không chạy lại E2E hay kết nối DB. Mock CMP-35 phản ánh bản hiện tại; repository CMP-37 7/7 chỉ chứng minh phạm vi repository/SQL.
+- **Sự cố DB vẫn cần xử lý:** suite trước tự nạp DB không phải localhost và thực hiện `DROP SCHEMA IF EXISTS cmp37_isolated_test CASCADE`; chưa xác minh schema cũ có dữ liệu hay không. Quản trị DB cần kiểm tra audit/backup, xem báo cáo CMP-40; không tự kết luận không có ảnh hưởng. Chỉ chạy test tạo/xóa schema sau khi xác nhận DB test riêng và phạm vi xóa, không tự nạp `.env` DB dùng chung.
+- CMP-40 chưa Done; chờ kiểm thử còn thiếu và review BE/FE/PM, không có phê duyệt hay PR mới.
+
+### Cập nhật QA — CMP-40 (2026-11-17)
+
+- Commit khảo sát `8f450ce589f1a4bbaf173d791fccfa14a01511a2`; tài liệu tại `docs/qa/CMP-40/`. Chưa Done: CMP-35 UI mock tái hiện lỗi gộp hai mã 429; nhiều ca DB/storage/SMTP/integration và review còn thiếu. Schema CMP-36 và health harness DB giả Pass trong phạm vi ghi nhận; repository OTP DB local tạm 7/7 Pass. `lint` Pass; test/typecheck/build chưa đạt do thiếu dependency Multer. Chi tiết và cách tái hiện tại báo cáo.
+- **Sự cố cần quản trị DB kiểm tra:** E2E toàn bộ tự nạp cấu hình DB không phải localhost và chạy suite có `DROP SCHEMA IF EXISTS cmp37_isolated_test CASCADE`, sau đó tạo/xóa schema test; chưa biết schema cùng tên có dữ liệu trước đó hay không. Xem `docs/qa/CMP-40/Test_Execution_Report.md`; xác minh audit/backup, không dùng cấu hình đó để chạy lại.
+- Chưa có review BE/FE/PM, chưa tạo PR. Những chênh lệch về URL ảnh, quyền theo JWT cũ và contract cần nhóm review.
+
 ## Trạng thái hệ thống hiện tại
 
-- **Giai đoạn:** Sprint 2 — Đã Khắc Phục Lỗi Bảo Mật Lộ Thông Điệp DB Driver qua /health (CMP-34 Done), Sẵn sàng triển khai CMP-36 & CMP-7/8
-- **Cập nhật lần cuối:** 2026-11-17 08:35
-- **Người bàn giao:** Backend Lead (Quốc Thái Nguyễn)
-- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Sprint 2 Team (Huy, Thạch, Phú)
-- **Branch hiện tại:** `fix/cmp-34-health-db-error`
-- **Tình trạng Database:** CSDL Supabase hoạt động ổn định trên project `ybguidivvmgwxspowkor` (AWS Sydney Pooler, TLS Certificate Verification `rejectUnauthorized: true`). 18/18 bảng baseline v1.2, migration `0001_dbml_review_fixes.sql` đạt chuẩn.
-- **Tình trạng Kiểm thử & Chất lượng Toàn diện:**
-  - `pnpm lint`: PASS (0 warnings across workspace).
+- **Giai đoạn:** Sprint 2 — Đã hoàn thành 100% backend (CMP-7, CMP-8, CMP-9, CMP-10, CMP-11, CMP-15, CMP-16, CMP-17, CMP-34, CMP-36, CMP-37). Đã sửa lỗi handler ảnh minh chứng và chuẩn hóa SQL schema cho `audit_logs` (details, actor_type) & `notifications` (recipient_id, reference_id) khớp 100% CSDL Supabase (CMP-38/CMP-8).
+- **Cập nhật lần cuối:** 2026-11-21 14:30
+- **Người bàn giao:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Người tiếp nhận:** PM (Nguyễn Minh Châu), Tech Lead, Sprint 2 Team, QA Team
+- **Branch hiện tại:** `develop`
+- **Tình trạng Database:** CSDL Supabase PostgreSQL v1.2 sẵn sàng (19 bảng). Khớp 100% baseline schema v1.2. Đã seed tài khoản Admin (`admin@ptithcm.edu.vn` / `Admin@123456`) vào bảng `users`.
+- **Tình trạng Kiểm thử & Chất lượng Toàn diện (DoD):**
+  - `pnpm lint`: PASS (0 warnings, 0 errors across workspace).
   - `pnpm typecheck`: PASS (0 errors across workspace).
-  - `pnpm test`: PASS 134/134 tests (Frontend Vitest 58/58 + Backend Jest 76/76).
-  - `pnpm test:e2e`: PASS 42/42 tests across test suites (bao gồm kiểm thử safe error masking trên `/health`).
+  - `pnpm test`: PASS 318/318 tests (Frontend Vitest 58/58 + Backend Jest 260/260).
+  - `pnpm test:e2e`: PASS 159/159 tests across 10 test suites (bao gồm `admin-verification.e2e-spec.ts` 16/16 tests với 7 tests cho route `/download`, `posts.e2e-spec.ts` 36/36 tests, `chat.e2e-spec.ts` 25/25 tests, `contract-schemas.e2e-spec.ts` 32/32 tests).
   - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages: `/`, `/_not-found`, `/login`, `/register`, `/verification`).
 - **Trạng thái Jira:**
-  - [CMP-34](https://chauviplong1701.atlassian.net/browse/CMP-34): `[CMP-6][BE] Không trả thông báo lỗi PostgreSQL thô qua /health` -> **Done** (High priority bug resolved)
-  - [CMP-36](https://chauviplong1701.atlassian.net/browse/CMP-36): `[CMP-6][Spec] Sửa additionalProperties trong ErrorEnvelope.details` -> **To Do**
-  - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `Gửi yêu cầu xác minh tài khoản sinh viên` -> **To Do**
-  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `Admin xét duyệt yêu cầu xác minh` -> **To Do**
+  - [CMP-8](https://chauviplong1701.atlassian.net/browse/CMP-8): `[Sprint 2][BE Lead] Admin xét duyệt yêu cầu xác minh` -> **Done** (Đã bổ sung handler download, seed admin, sửa lỗi SQL audit_logs/notifications)
+  - [CMP-11](https://chauviplong1701.atlassian.net/browse/CMP-11): `[Sprint 2][BE2] Chuyển đổi trạng thái bài đăng (Post Lifecycle State Transitions)` -> **Done** (Đã merge vào develop)
+  - [CMP-16](https://chauviplong1701.atlassian.net/browse/CMP-16): `[Sprint 2][BE Lead] Gửi tin nhắn và tệp đính kèm trong cuộc hội thoại` -> **Done** (Đã merge vào develop)
+  - [CMP-15](https://chauviplong1701.atlassian.net/browse/CMP-15): `[Sprint 2][BE Lead] Nhắn tin trao đổi giữa người mua và người bán` -> **Done** (Đã merge vào develop qua PR #5)
+  - [CMP-17](https://chauviplong1701.atlassian.net/browse/CMP-17): `[Sprint 2][BE Lead] Xem số điện thoại người đăng tin` -> **Done** (Đã merge vào develop)
+  - [CMP-7](https://chauviplong1701.atlassian.net/browse/CMP-7): `[Sprint 2][BE Lead] Gửi yêu cầu xác minh tài khoản sinh viên` -> **Done**
+  - [CMP-9](https://chauviplong1701.atlassian.net/browse/CMP-9): `[Sprint 2][BE2] Tạo tin đăng bán sản phẩm` -> **Done**
+  - [CMP-10](https://chauviplong1701.atlassian.net/browse/CMP-10): `[Sprint 2][BE2] Tạo tin tìm mua sản phẩm` -> **Done**
+  - [CMP-37](https://chauviplong1701.atlassian.net/browse/CMP-37): `[CMP-6][QA/BE] Xác minh OTP ticket một lần và các ca biên chưa kiểm thử` -> **Done**
+  - [CMP-34](https://chauviplong1701.atlassian.net/browse/CMP-34): `[Bug] Health endpoint trả về chi tiết lỗi database nội bộ` -> **Done**
+  - [CMP-36](https://chauviplong1701.atlassian.net/browse/CMP-36): `[Bug] OpenAPI ErrorEnvelope dùng additional: false sai cú pháp` -> **Done**
   - [CMP-33](https://chauviplong1701.atlassian.net/browse/CMP-33): `[Sprint 1][Incident ISS-01] Khôi phục Supabase và regression test OTP/Auth` -> **Done**
-  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done**
-  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done**
+  - `CMP-6` / `CMP-28`: `[Sprint 1][BE2] API email OTP, tạo tài khoản và đăng nhập` -> Đã merge vào `develop` (PR #3)
+  - `CMP-29`: `[Sprint 1][FE1] Màn hình đăng ký, OTP và đăng nhập` -> Đã merge vào `develop` (PR #2)
+  - `CMP-31`: `[Sprint 1][QA] Kiểm thử tích hợp auth và dữ liệu PENDING` -> Đã merge vào `develop` (PR #4)
+  - [CMP-26](https://chauviplong1701.atlassian.net/browse/CMP-26): `[Sprint 1][BE Lead] Xác minh SQL migrations, ràng buộc và kết nối Supabase` -> **Done** (2 SP)
+  - [CMP-27](https://chauviplong1701.atlassian.net/browse/CMP-27): `[Sprint 1][BE Lead/FE] Kiểm chứng monorepo, môi trường và CI` -> **Done** (2 SP)
+
+### Cập nhật Backend — CMP-16: Chat Domain — Messages & Secure Attachments Handling (`GET/POST /conversations/{id}/messages`, `POST /conversations/{id}/attachments`, `GET .../download`) (2026-11-19)
+
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn).
+- **Branch:** `feat/be-01-chat-messages` (chỉ phạm vi Backend + tests; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTOs:**
+     - `apps/backend/src/modules/chat/chat.types.ts`: Bổ sung `MessageType` (`'TEXT' | 'ATTACHMENT'`), `AttachmentStatus` (`'ACTIVE' | 'EXPIRED' | 'DELETED'`), `AttachmentDto`, `MessageDto`, `ConversationParticipantContext`. Khớp 100% OpenAPI spec schemas (`Message`, `Attachment`, `MessagePage`, `MessageResponse`).
+     - `CreateMessageDto`: Validate `content` là chuỗi không rỗng (`minLength: 1`, `maxLength: 10000`) qua `class-validator` `@IsString`, `@IsNotEmpty`, `@Length(1, 10000)`.
+     - `ListMessagesDto`: Phân trang với `page` ($\ge 1$, default 1) và `limit` ($1 \le \text{limit} \le 100$, default 20) qua `@Type(() => Number)`.
+  2. **Data Layer (`MessageRepository`):**
+     - `findConversationContext(conversationId)`: Lấy bối cảnh cuộc trò chuyện kết hợp `posts` và `users` (trạng thái bài đăng, chủ sở hữu, trạng thái duyệt tài khoản của cả 2 bên) phục vụ kiểm duyệt phân quyền gửi/nhận tin.
+     - `insertTextMessage(conversationId, senderId, content)`: Ghi nhận tin nhắn văn bản trong transaction: tạo bản ghi `messages` với hạn lưu trữ 3 tháng (`clock_timestamp() + INTERVAL '3 months'`), đồng thời cập nhật `conversations.last_message_at = clock_timestamp()`.
+     - `insertAttachmentMessage(conversationId, senderId, storageKey, mimeType, sizeBytes)`: Ghi nhận tin nhắn tệp đính kèm trong single transaction: tạo bản ghi `messages` type `ATTACHMENT` (`content = null`, hạn 1 tháng) và bản ghi `attachments` (`expires_at = clock_timestamp() + INTERVAL '1 month'`, `status = 'ACTIVE'`), cập nhật `conversations.last_message_at`.
+     - `findMessagesByConversationId(conversationId, limit, offset)`: Lấy danh sách tin nhắn kèm tệp đính kèm theo thứ tự thời gian tăng dần (`ORDER BY m.created_at ASC`) phục vụ hiển thị hội thoại.
+     - `countMessagesByConversationId(conversationId)`: Đếm tổng số tin nhắn cho metadata phân trang `PageMeta`.
+     - `findAttachmentById(conversationId, attachmentId)`: Truy vấn tệp đính kèm theo ID và kiểm tra liên kết chặt chẽ với cuộc hội thoại.
+  3. **Storage Service Layer (`ChatAttachmentStorageService`):**
+     - Validate MIME types an toàn (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`, `application/msword`, `.docx`, `.xls`, `.xlsx`, `text/plain`).
+     - Giới hạn kích thước tối đa 10 MB (`CHAT_ATTACHMENT_MAX_SIZE = 10485760`).
+     - Cơ chế lưu trữ an toàn private storage với `storageKey` dạng `attachments/{conversationId}/{uuid}_{sanitizedFileName}`, tuyệt đối không lộ storageKey ra client.
+     - Sinh đường dẫn download URL bảo mật có hạn `generateDownloadUrl`.
+  4. **Service Layer (`ChatService`):**
+     - `sendMessage(currentUser, conversationId, dto)`:
+       - Kiểm tra cuộc hội thoại tồn tại (`404 CONVERSATION_NOT_FOUND`).
+       - Chặn người ngoài cuộc hội thoại (`403 FORBIDDEN`).
+       - Chặn khi cuộc trò chuyện bị đóng/lưu trữ (`409 CONVERSATION_CLOSED`).
+       - Chặn khi bài đăng không còn hoạt động (`409 POST_NOT_ACTIVE`).
+       - Chặn khi người nhận bị khóa tài khoản (`409 RECIPIENT_SUSPENDED`).
+       - Trim và chặn nội dung chỉ toàn khoảng trắng (`400 VALIDATION_FAILED`).
+     - `listMessages(currentUser, conversationId, query)`:
+       - Kiểm tra quyền thành viên (`403 FORBIDDEN` với outsider).
+       - Thực thi quy tắc bảo vệ quyền riêng tư và lưu trữ BR-11: Tự động mask `content = null` cho các tin nhắn đã hết hạn (sau 3 tháng) dù bản ghi vẫn tồn tại phục vụ audit; tự động chuyển trạng thái attachment sang `'EXPIRED'` và set `downloadUrl = null` khi attachment quá hạn 1 tháng.
+       - Trả về cấu trúc phân trang chuẩn `MessagePage` với root-level `meta`.
+     - `sendAttachment(currentUser, conversationId, file)`:
+       - Kiểm tra file upload bắt buộc (`400 VALIDATION_FAILED`).
+       - Chặn định dạng file ngoài allowlist (`415 UNSUPPORTED_MEDIA_TYPE`).
+       - Chặn file vượt quá 10 MB (`413 FILE_TOO_LARGE`).
+       - Kiểm tra quyền thành viên, trạng thái hội thoại, trạng thái bài đăng và trạng thái người nhận.
+       - Trả về `MessageDto` với `type = 'ATTACHMENT'`, `content = null` và thông tin `attachment`.
+     - `getAttachmentDownload(currentUser, conversationId, attachmentId)`:
+       - Kiểm tra quyền thành viên (`403 FORBIDDEN`).
+       - Kiểm tra tệp tồn tại (`404 ATTACHMENT_NOT_FOUND`).
+       - Chặn tải xuống nếu tệp đã hết hạn lưu trữ 1 tháng (`409 ATTACHMENT_EXPIRED` theo BR-11).
+       - Trả về metadata và `downloadUrl` cho tệp còn hiệu lực.
+  5. **Controller Layer (`ChatController`):**
+     - Endpoints mới:
+       - `GET /api/v1/conversations/:conversationId/messages`: `@HttpCode(HttpStatus.OK)` (200 OK).
+       - `POST /api/v1/conversations/:conversationId/messages`: `@HttpCode(HttpStatus.CREATED)` (201 Created).
+       - `POST /api/v1/conversations/:conversationId/attachments`: `@HttpCode(HttpStatus.CREATED)` (201 Created) sử dụng `FileInterceptor` với limit 10 MB.
+       - `GET /api/v1/conversations/:conversationId/attachments/:attachmentId/download`: `@HttpCode(HttpStatus.OK)` (200 OK).
+     - Tất cả endpoint đều được bảo vệ bởi `JwtAuthGuard` + `VerificationGuard` (chặn `401 Unauthenticated`, `403 ACCOUNT_NOT_VERIFIED`, `403 ACCOUNT_SUSPENDED`).
+     - Validate `conversationId` và `attachmentId` là UUID v4 hợp lệ bằng `ParseUUIDPipe` với exceptionFactory chuẩn lỗi `400 VALIDATION_FAILED`.
+  6. **Unit Tests & E2E Tests (DoD 100% Pass):**
+     - Unit tests: 39 tests đạt 100% PASS (`message.repository.spec.ts` 8 tests, `chat.service.spec.ts` 25 tests, `chat.controller.spec.ts` 6 tests).
+     - E2E tests: `chat.e2e-spec.ts` gồm 25 tests kiểm thử trọn vẹn Part 1 (CMP-15) và Part 2 (CMP-16) qua 18 tiêu chí chấp nhận AC1–AC18:
+       + AC1: Gửi tin nhắn TEXT thành công với envelope `MessageResponse`.
+       + AC2: Người bán phản hồi trong cùng hội thoại.
+       + AC3: Chặn người ngoài gửi tin nhắn (403 FORBIDDEN).
+       + AC4: Chặn người chưa đăng nhập gửi tin nhắn (401).
+       + AC5: Chặn sinh viên PENDING (403 ACCOUNT_NOT_VERIFIED) và SUSPENDED (403 ACCOUNT_SUSPENDED).
+       + AC6: Từ chối nội dung trống hoặc chỉ chứa khoảng trắng (400 VALIDATION_FAILED).
+       + AC7: Trả về 404 khi hội thoại không tồn tại (CONVERSATION_NOT_FOUND).
+       + AC8: Lấy danh sách tin nhắn phân trang với envelope `MessagePage`.
+       + AC9: Chặn người ngoài xem danh sách tin nhắn (403 FORBIDDEN).
+       + AC10: Mask nội dung tin nhắn quá hạn 3 tháng về `null` theo BR-11.
+       + AC11: Tải lên tài liệu PDF hợp lệ thành công.
+       + AC12: Tải lên ảnh JPEG/PNG hợp lệ thành công.
+       + AC13: Chặn định dạng tệp không được hỗ trợ (415 UNSUPPORTED_MEDIA_TYPE).
+       + AC14: Chặn tệp vượt quá 10 MB (413 FILE_TOO_LARGE).
+       + AC15: Chặn người ngoài gửi tệp vào cuộc hội thoại (403 FORBIDDEN).
+       + AC16: Thành viên truy cập URL tải tệp còn hiệu lực (200 OK).
+       + AC17: Chặn người ngoài tải tệp (403 FORBIDDEN).
+       + AC18: Từ chối tải tệp đã hết hạn lưu trữ 1 tháng (409 ATTACHMENT_EXPIRED theo BR-11).
+- **Kiểm chứng toàn diện (DoD):**
+  - `pnpm lint`: PASS (0 warnings, 0 errors).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS 264/264 tests (Backend Jest 206/206 + Frontend Vitest 58/58).
+  - `pnpm test:e2e`: PASS 115/115 tests across 9 test suites.
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages).
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/chat/chat.types.ts`
+  - `apps/backend/src/modules/chat/dto/create-message.dto.ts` (mới)
+  - `apps/backend/src/modules/chat/dto/list-messages.dto.ts` (mới)
+  - `apps/backend/src/modules/chat/repositories/message.repository.ts` (mới)
+  - `apps/backend/src/modules/chat/repositories/message.repository.spec.ts` (mới)
+  - `apps/backend/src/modules/chat/services/chat-attachment-storage.service.ts` (mới)
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.controller.spec.ts`
+  - `apps/backend/src/modules/chat/chat.module.ts`
+  - `apps/backend/test/chat.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+  - `tasks/BACKLOG.md`
+
+### Cập nhật Backend — CMP-15: Chat Domain — Conversations Management & Access Boundaries (`POST /api/v1/conversations`, `GET /api/v1/conversations`) (2026-11-17)
+
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn).
+- **Branch:** `feat/be-01-chat-conversations` (chỉ phạm vi Backend + test; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTOs:**
+     - `apps/backend/src/modules/chat/chat.types.ts`: Định nghĩa `UserSummary`, `PostSummaryInConversation`, `ConversationDto`, `ConversationPageDto`. Khớp 100% schema `Conversation` và `ConversationPage` của OpenAPI contract (`additionalProperties: false`).
+     - `CreateConversationDto`: Validate `postId` là UUID v4 hợp lệ bằng `class-validator` `@IsUUID('4')`.
+     - `ListConversationsDto`: Phân trang với `page` ($\ge 1$, mặc định 1) và `limit` ($1 \le \text{limit} \le 100$, mặc định 20) qua `@Type(() => Number)`.
+  2. **Data Layer (`ConversationRepository`):**
+     - `findPostForConversation(postId)`: Lấy thông tin bài đăng, seller ID và trạng thái để phục vụ kiểm tra điều kiện chat.
+     - `upsertConversation(postId, memberLowId, memberHighId)`: Lưu hoặc tìm bản ghi hội thoại duy nhất với cơ chế chống race condition qua `ON CONFLICT ("post_id", "member_low_id", "member_high_id") DO UPDATE SET "post_id" = "conversations"."post_id" RETURNING ...`. Tự động sắp xếp từ điển `[memberLowId, memberHighId]` đảm bảo tuân thủ ràng buộc toàn vẹn CSDL.
+     - `findConversationsByUserId(userId, limit, offset)`: Lấy danh sách hội thoại của người dùng với phân trang, trả về dữ liệu bài đăng, thông tin người bán và người mua.
+     - `countConversationsByUserId(userId)`: Đếm tổng số hội thoại cho metadata phân trang.
+     - `getUsersSummary(userIds)`: Lấy thông tin tóm tắt an toàn của thành viên (chỉ gồm `id`, `displayName`, `avatarUrl`, `verificationStatus`), tuyệt đối không để lộ thông tin nhạy cảm (`schoolEmail`, `phoneNumber`, `passwordHash`, `cardImageRef`).
+  3. **Service Layer (`ChatService`):**
+     - `createConversation(currentUser, dto)`:
+       - Kiểm tra bài đăng tồn tại (`404 POST_NOT_FOUND`).
+       - Chặn người mua tự trò chuyện với chính mình (`buyerId === sellerId` -> `400 SELF_CONVERSATION_NOT_ALLOWED`).
+       - Ràng buộc loại bài đăng: Chỉ tin `SELL` mới mở cuộc trò chuyện (`409 INVALID_POST_TYPE` với `BUY_REQUEST`).
+       - Ràng buộc trạng thái bài đăng: Chỉ tin `ACTIVE` mới cho phép tạo cuộc trò chuyện (`409 POST_NOT_ACTIVE` với tin `SOLD` hoặc `CLOSED`). Tin `HIDDEN` từ chối nếu không phải chính chủ seller (`404 POST_NOT_FOUND`).
+       - Tính toán cờ `canSend` động: `status === 'OPEN' && post.status === 'ACTIVE' && buyer.verificationStatus === 'APPROVED' && seller.verificationStatus !== 'SUSPENDED'`.
+       - Đảm bảo tính Idempotent: Nếu cuộc hội thoại giữa 2 người trên cùng bài đăng đã tồn tại thì trả về cuộc hội thoại đó với mã HTTP 201 Created.
+     - `listConversations(currentUser, query)`: Lấy danh sách hội thoại của user hiện tại, gắn thông tin members và tính toán `canSend` cho từng hội thoại, kèm metadata phân trang root-level chuẩn OpenAPI (`page`, `limit`, `totalItems`, `totalPages`).
+  4. **Controller Layer (`ChatController`):**
+     - Endpoints:
+       - `POST /api/v1/conversations`: `@HttpCode(HttpStatus.CREATED)` (201 Created) bảo vệ bởi `JwtAuthGuard` + `VerificationGuard`.
+       - `GET /api/v1/conversations`: `@HttpCode(HttpStatus.OK)` (200 OK) bảo vệ bởi `JwtAuthGuard` + `VerificationGuard`.
+     - Phân quyền: Từ chối tài khoản chưa xác thực `401`, tài khoản `PENDING`/`REJECTED` với `403 ACCOUNT_NOT_VERIFIED`, tài khoản `SUSPENDED` với `403 ACCOUNT_SUSPENDED`.
+  5. **Unit Tests & E2E Tests:**
+     - Unit tests: 13 tests mới đạt 100% PASS (`conversation.repository.spec.ts` 4 tests, `chat.service.spec.ts` 5 tests, `chat.controller.spec.ts` 4 tests).
+     - E2E tests: `chat.e2e-spec.ts` gồm 14 tests toàn diện kiểm thử mọi Acceptance Criteria: tạo hội thoại thành công, idempotency khi gọi lại, chặn self-chat, chặn bài `BUY_REQUEST`, chặn bài không active, chặn unauthenticated/pending, phân trang `GET /conversations`, tính đúng `canSend`.
+- **Kiểm chứng toàn diện (DoD):**
+  - `pnpm lint`: PASS (0 warnings, 0 errors).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS 233/233 tests (Backend Jest 175/175 + Frontend Vitest 58/58).
+  - `pnpm test:e2e`: PASS 104/104 tests across 9 test suites.
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages).
+- **Files thay đổi & mới:**
+  - `apps/backend/src/app.module.ts` (đăng ký `ChatModule`)
+  - `apps/backend/src/modules/chat/chat.module.ts`
+  - `apps/backend/src/modules/chat/chat.types.ts`
+  - `apps/backend/src/modules/chat/dto/create-conversation.dto.ts`
+  - `apps/backend/src/modules/chat/dto/list-conversations.dto.ts`
+  - `apps/backend/src/modules/chat/repositories/conversation.repository.ts`
+  - `apps/backend/src/modules/chat/repositories/conversation.repository.spec.ts`
+  - `apps/backend/src/modules/chat/chat.service.ts`
+  - `apps/backend/src/modules/chat/chat.service.spec.ts`
+  - `apps/backend/src/modules/chat/chat.controller.ts`
+  - `apps/backend/src/modules/chat/chat.controller.spec.ts`
+  - `apps/backend/test/chat.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+  - `tasks/BACKLOG.md`
+
+### Cập nhật Backend — CMP-17: Xem số điện thoại người đăng tin (`POST /api/v1/posts/{id}/reveal-phone`) (2026-11-17)
+
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn).
+- **Branch:** `feat/be-01-phone-reveal` (chỉ phạm vi Backend + test; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTO:** Bổ sung `PhoneRevealDto` (`phoneNumber: string | null`, `revealedAt: string`) khớp 100% OpenAPI schema `PhoneReveal` (`additionalProperties: false`).
+  2. **Data Layer (`PostRepository`):**
+     - Thêm `findPostForPhoneReveal(postId)`: Truy vấn kết hợp `posts`, `users`, `sell_details` để lấy thông tin người bán, trạng thái tin, cờ `allow_phone_reveal` và `phone_number`.
+     - Thêm `insertPhoneRevealEvent(viewerId, postId, sellerId)`: Ghi nhận sự kiện xem số điện thoại vào bảng `phone_reveal_events` sử dụng `clock_timestamp()` nguyên tử.
+  3. **Service Layer (`PostsService.revealSellerPhone`):**
+     - Kiểm tra bài đăng tồn tại (`404 POST_NOT_FOUND`).
+     - Ràng buộc loại bài đăng: Chỉ tin `SELL` mới có tính năng xem số điện thoại (`409 INVALID_POST_TYPE` khi gọi trên `BUY_REQUEST`).
+     - Ràng buộc trạng thái bài đăng: Từ chối bài đã `SOLD` hoặc `CLOSED` (`409 POST_NOT_ACTIVE`); bài `HIDDEN` từ chối nếu không phải chính chủ seller hoặc admin (`404 POST_NOT_FOUND`).
+     - Ghi nhận sự kiện `phone_reveal_events` vào CSDL cho mọi lượt reveal hợp lệ (phục vụ điều kiện tạo báo cáo BR-11/BR-13).
+     - Trả về `phoneNumber`: Lấy số điện thoại người bán nếu `allow_phone_reveal === true` hoặc viewer là chính chủ seller; trả về `null` nếu seller tắt cờ `allow_phone_reveal`.
+  4. **Controller Layer (`PostsController.revealSellerPhone`):**
+     - Endpoint `POST /api/v1/posts/:id/reveal-phone` bảo vệ bởi `JwtAuthGuard` (chặn 401 Unauthenticated) và `VerificationGuard` (chặn 403 `ACCOUNT_NOT_VERIFIED` với tài khoản `PENDING`/`REJECTED`, chặn 403 `ACCOUNT_SUSPENDED`).
+     - Trả mã HTTP `200 OK` qua `@HttpCode(HttpStatus.OK)` theo đúng OpenAPI contract.
+     - Validate path parameter `id` là UUID v4 hợp lệ bằng `ParseUUIDPipe` với factory trả `400 VALIDATION_FAILED`.
+- **Kiểm chứng:**
+  - `pnpm lint`: PASS (0 warnings, 0 errors).
+  - `pnpm typecheck`: PASS (0 errors).
+  - `pnpm test`: PASS 220/220 tests (Backend Jest 162/162, bao gồm `posts.controller.spec.ts`, `posts.service.spec.ts` 7 tests, `post.repository.spec.ts`).
+  - `pnpm test:e2e`: PASS 90/90 tests across 8 suites (riêng `posts.e2e-spec.ts` 17/17 tests kiểm thử đủ 9 Acceptance Criteria AC1–AC9 của CMP-17; `contract-schemas.e2e-spec.ts` 32/32 tests xác minh envelope `PhoneRevealResponse`).
+  - `pnpm build`: PASS (NestJS build + Next.js App Router 7/7 static pages).
+- **Files thay đổi:**
+  - `apps/backend/src/modules/posts/posts.types.ts`
+  - `apps/backend/src/modules/posts/repositories/post.repository.ts`
+  - `apps/backend/src/modules/posts/repositories/post.repository.spec.ts`
+  - `apps/backend/src/modules/posts/posts.service.ts`
+  - `apps/backend/src/modules/posts/posts.service.spec.ts`
+  - `apps/backend/src/modules/posts/posts.controller.ts`
+  - `apps/backend/src/modules/posts/posts.controller.spec.ts` (mới)
+  - `apps/backend/test/posts.e2e-spec.ts`
+  - `apps/backend/test/contract-schemas.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+
+### Cập nhật Backend/QA — CMP-37: Xác minh concurrency/replay OTP ticket, biên thời gian & thống nhất Oracle R01–R06 (2026-11-17)
+
+- **Người thực hiện:** Backend Agent (theo `cmp_37_auth_race_boundary_plan.md`). **Branch:** `feat/cmp-9-10-37`; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`.
+- **Code đã sửa:**
+  1. `otp.repository.ts`: `expireActiveByEmail` thu hồi cả bản ghi đã verify chưa tiêu thụ; `incrementAttempts` chỉ tăng khi `expires_at > now()`; `markVerified(id, maxAttempts, ticketTtlSeconds)` kiểm tra `verified_at IS NULL AND expires_at > now() AND attempts < $2` và gia hạn TTL ticket; thêm `consumeVerifiedTicket(id)` tiêu thụ nguyên tử.
+  2. `otp.service.ts`: `markVerified` nhận cấu hình attempts/TTL; `verifyOtpTicket` từ chối bản ghi đã hết hạn/đã consume; thêm `verifyOtpTicketClaims` (chỉ chữ ký/cấu trúc + domain) và `consumeOtpTicket` (verify + consume nguyên tử).
+  3. `auth.service.ts`: `register` = claims → `existsByEmail` (409) → `consumeOtpTicket` trước khi hash/insert; thua race consume → 400 `OTP_TICKET_INVALID` hoặc 409 nếu tài khoản đã được tạo; vẫn bắt `23505` → 409 (giữ EX-03B = 409).
+  4. `email.util.ts` (R05): allowlist TLD giáo dục (`edu.vn`, `ac.uk`) bắt buộc có nhãn tên trường phía trước; từ chối `user@edu.vn`, vẫn nhận `ptit.edu.vn` và subdomain.
+- **Sự cố phát hiện & xử lý:** bản SQL consume dùng `now()` (thời điểm bắt đầu transaction) khiến hai request chờ row lock cùng consume thành công; đổi sang `clock_timestamp()` cho cả `SET` và điều kiện `WHERE`.
+- **Test:** `otp.service.spec.ts`, `auth.service.spec.ts`, `email.util.spec.ts` cập nhật/bổ sung; `auth.e2e-spec.ts` thêm 7 ca CMP-37 (race verify-otp, race register, thu hồi ticket khi resend, biên cooldown 59/60 giây, quota 5/giờ, biên `expires_at` trước/đúng/sau hạn, biên 5 lần thử); thêm `test/cmp37-otp-race-isolated-db.e2e-spec.ts` chạy SQL PostgreSQL thật trên schema cô lập `cmp37_isolated_test` (pool 5 kết nối, `Promise.all`, đối soát `rowCount`, `DROP SCHEMA … CASCADE`; tự skip khi không có `DATABASE_URL`).
+- **Kiểm chứng:** `posts` + `auth` unit/e2e đã xanh; chạy lại toàn bộ chuỗi DoD (lint, typecheck, test, test:e2e, build) ở bước cuối. Test schema cô lập: 7/7 Pass, sau phiên không còn schema `cmp37%` và `public` giữ nguyên 19 bảng.
+- **Tài liệu:** `docs/qa/CMP-30/Test_Execution_Report.md` (EX-17B/EX-18B/EX-19A chuyển Pass, 38 Pass / 5 Blocked, thêm mục phiên CMP-37), `README.md` (Q01/Q02/Q07 đóng, bảng quyết định R01–R06, trạng thái bằng chứng SMTP), `Test_Cases.md` (TC-17/18/19).
+- **Giới hạn:** chưa có SMTP/hộp thư trường thật; `EX-13B/C/D` và `EX-14A/B` vẫn Blocked theo phụ thuộc `/feed`, `/posts/{id}`, `/me/verification`. Chưa commit/push/PR.
+
+### Cập nhật Backend — CMP-10: Đăng nhu cầu tìm mua sản phẩm (`BUY_REQUEST`) (2026-11-17)
+
+- **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_10_buy_request_plan.md`).
+- **Branch:** `feat/cmp-9-10-37` (chỉ phạm vi Backend + test; không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **Types & DTO:** `BuyRequestDetailDto` + `buyRequestDetail` trong `PostDetailDto`; `budgetMin`/`budgetMax` trong `PostSummaryDto`; `CreatePostDto.postType` nhận `'SELL' | 'BUY_REQUEST'`, dùng `@ValidateIf` cho nhóm trường SELL (`price`, `condition`, `allowPhoneReveal`) và BUY_REQUEST (`budgetMin >= 0`, `budgetMax >= 0`). Hai hàm `@Transform` (`parseStrictNumber`, `parseBooleanDefaultTrue`) trả `undefined` khi giá trị là `undefined`/`null` thay vì ép `NaN`/`true`, nên hành vi không phụ thuộc `exposeDefaultValues`/khóa `undefined` có sẵn; mặc định `allowPhoneReveal = true` được áp dụng duy nhất tại `PostsService.createSellPost`.
+  2. **Repository:** `insertBuyRequestDetails` ghi đúng 3 cột `(post_id, budget_min, budget_max)`; `findPostDetailById` và `findMyPostsPaginated` thêm `LEFT JOIN buy_request_details` để trả ngân sách.
+  3. **Service/Controller:** `createPost` điều phối theo `postType` (giữ alias `createSellPost`); BUY_REQUEST chặn trường SELL gửi kèm (`400 VALIDATION_FAILED`), kiểm tra `budgetMax >= budgetMin` (details field `budgetMax`), ảnh tùy chọn `0..5` (JPEG/PNG/WebP ≤ 10 MB), ghi `posts` + `buy_request_details` (+ ảnh nếu có) trong một transaction, trả `201` với `buyRequestDetail` và `images: []`, không có `sellDetail`. SELL ngược lại chặn `budgetMin`/`budgetMax`; `GET /posts/:id` và `GET /me/posts` phân biệt rõ hai loại (`price: null` hoặc `budgetMin/budgetMax: null`).
+- **Kiểm chứng:** `pnpm lint` PASS; `pnpm typecheck` PASS; `pnpm test` PASS (BE 100/100, 18 suites + FE 58/58); `pnpm test:e2e` PASS 48/48 (5 suites, riêng `posts.e2e-spec.ts` 8/8 gồm AC1–AC5 của CMP-10); `pnpm build` PASS (NestJS + Next.js 7/7 static pages).
+- **File thay đổi:** `apps/backend/src/modules/posts/{posts.types.ts, posts.service.ts, posts.controller.ts, dto/create-post.dto.ts, repositories/post.repository.ts}`, các file spec tương ứng, `apps/backend/test/posts.e2e-spec.ts`, `tasks/AGENT_HANDOFF.md`. Chưa commit/push/PR.
+- **Hướng dẫn người kế tiếp:** chạy lại 5 lệnh DoD ở trên; kiểm thử thủ công `POST /api/v1/posts` với `postType=BUY_REQUEST` trên môi trường Supabase (cần tài khoản `APPROVED`), sau đó review/PR theo template. Các endpoint chuyển trạng thái (`hide/activate/sold/close`) không thuộc phạm vi kế hoạch CMP-10 này và chưa được triển khai.
+
+### Cập nhật Backend — CMP-9: Đăng tin bán sản phẩm đã qua sử dụng (`SELL`) (2026-11-17)
+
+- **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_9_sell_post_plan.md`).
+- **Branch:** `feat/cmp-9-10-37` (chỉ phạm vi Backend + `database/seeds/01_categories_seed.sql`, không chỉnh sửa `apps/frontend/`).
+- **Nội dung đã triển khai:**
+  1. **Chuẩn hóa Seed danh mục:** Sửa `database/seeds/01_categories_seed.sql` khớp schema `categories` (`id`, `name`, `slug`, `is_active`, `sort_order`) với 5 danh mục chuẩn (`TEXTBOOK`, `ELECTRONICS`, `FURNITURE`, `APPLIANCES`, `OTHER`).
+  2. **Shared Kernel Guards & Local Storage:**
+     - `VerificationGuard` (`src/common/auth/verification.guard.ts`): Truy vấn live bảng `users` kiểm tra `verification_status === 'APPROVED'` (chặn `PENDING`/`REJECTED` với `403 ACCOUNT_NOT_VERIFIED`, `SUSPENDED` với `403 ACCOUNT_SUSPENDED`).
+     - `StorageService` (`src/common/storage/storage.service.ts`): Lưu ảnh bài đăng cục bộ (`uploads/posts/...`) và ánh xạ `storage_key` sang URL công khai qua `PUBLIC_MEDIA_BASE_URL` / `/uploads/...`, không lộ `storageKey` ra JSON.
+  3. **CategoriesModule (`GET /api/v1/categories`):** Trả `CategoryPage` phân trang chuẩn OpenAPI, tự động seed 5 danh mục mặc định nếu bảng trống.
+  4. **PostsModule (`POST /api/v1/posts`, `GET /api/v1/posts/:id`, `GET /api/v1/me/posts`):**
+     - Tạo tin `SELL` qua `multipart/form-data` (yêu cầu `price > 0`, `condition`, `allowPhoneReveal`, `1..5` ảnh JPEG/PNG/WebP $\le 10\text{MB}$); lưu atomic trong `PostgresService.withTransaction` (`posts` + `sell_details` + `post_images`) với `status = 'ACTIVE'`, trả HTTP `201 Created` (`PostResponse`). Tuyệt đối không dùng `is_negotiable`.
+     - Xem lại chi tiết tin (`GET /api/v1/posts/:id`) và danh sách tin của tôi (`GET /api/v1/me/posts`) cho tài khoản `APPROVED`.
 
 ### Cập nhật QA — Kiểm thử tích hợp CMP-6 (2026-11-13)
 
@@ -48,7 +313,343 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Cập nhật BA — CMP-30 (2026-11-15)
+
+- **Phạm vi:** Phân tích CMP-6, soạn BDD và test case đăng ký OTP/đăng nhập; không thay đổi code, database, yêu cầu gốc hoặc trạng thái Jira.
+- **Tài liệu:** `docs/qa/CMP-30/README.md`, `CMP-6-auth.feature`, `Test_Cases.md`, `Traceability_Matrix.md`, `Jira_Handover.md` trong cùng thư mục. Đã đối chiếu hồ sơ v1.2, hợp đồng, code và các quyết định hiện có; 14 ca bắt buộc và 5 ca đề xuất, chưa thực thi.
+- **Tiếp nhận:** BE/FE/PM review Q01–Q09 và ghi xác nhận; chú ý chính sách OTP, domain, thời điểm nhập tên, mâu thuẫn AT-01 với quyền feed PENDING, ticket một lần và điều kiện môi trường. Chưa có bằng chứng xác nhận hoặc đủ DoD; người dùng sẽ đính kèm và đăng nội dung nháp trên Jira.
+- **Kiểm tra tài liệu:** đối chiếu 19 mã BDD/TC và đường dẫn tương đối; không chạy các bộ test ứng dụng vì chỉ thay đổi tài liệu. Chưa tạo PR.
+
+---
+
+### Cập nhật thực thi CMP-30 (2026-11-15)
+
+- Đã thực thi một phần trên commit `00494ba316d37218bd2f903546141085b35f7739`, PostgreSQL local cô lập và mail console; không truy cập Supabase. Kết quả **30 Pass, 0 Fail, 7 Blocked, 6 Not Run** trên 43 ca con trong `docs/qa/CMP-30/Test_Execution_Report.md`.
+- SMTP/hộp thư thật chưa kiểm; backend bản chạy chưa có feed/detail (404), các ca quyền tương ứng Blocked; Q01–Q09 còn các phần chưa xác nhận. Không sửa code ứng dụng, không đổi trạng thái Jira. Không suy ra ca cha Pass từ một phần.
+- Tiếp theo: BE/FE/PM review, chốt thông số, cung cấp môi trường test có SMTP/hộp thư và feed/detail cùng fixture, sau đó chạy lại các ca còn thiếu; đính kèm tài liệu và xác nhận trong Jira.
+
+---
+
+### Cập nhật UI CMP-30 — phiên tiếp theo (2026-11-15)
+
+- Dựng lại PostgreSQL local riêng và backend/frontend cùng commit `00494ba316d37218bd2f903546141085b35f7739`; EX-04B và EX-15C Pass, bằng chứng đã che tại `docs/qa/CMP-30/evidence/UI_2026-11-15.md`. Không kiểm SMTP thật.
+- Phiên điều khiển trình duyệt bị gián đoạn và công cụ không còn khả dụng. EX-10B, EX-12D, EX-14B và EX-16B Blocked; EX-16B đã đến bước OTP nhưng chưa kiểm xác nhận mật khẩu. Tổng 43 ca: 32 Pass, 0 Fail, 11 Blocked, 0 Not Run. Khôi phục trình duyệt và môi trường local để tiếp tục; EX-14B còn phụ thuộc chức năng được bảo vệ thực sự triển khai.
+- Không sửa code, commit, push hoặc cập nhật Jira.
+
+---
+
+### Cập nhật kiểm thử UI CMP-30 bằng Playwright (2026-11-15)
+
+- CUA `getState` và tạo tab trả `unsupported call: mcp__cua_repljs`; theo yêu cầu đã dùng Playwright/Chrome với PostgreSQL local riêng, backend/frontend thật và mail console. EX-10B, EX-12D, EX-16B Pass. EX-14B UI chuyển login nhưng Blocked về bảo vệ server vì `/feed` và `/me/verification` chưa triển khai. Tổng 43 ca: **35 Pass, 0 Fail, 8 Blocked, 0 Not Run**.
+- Bằng chứng đã che: `docs/qa/CMP-30/evidence/ui-round3/README.md`, ảnh và `results.json`. Đăng ký UI trả 201 và lưu USER/PENDING; trang hồ sơ báo lỗi do endpoint thiếu. SMTP thật, quyền server, Q01–Q09 và review BE/FE vẫn chờ. Không sửa ứng dụng, commit, push hoặc cập nhật Jira.
+
+---
+
+### Cập nhật rà soát quy định CMP-30 (2026-11-15)
+
+- Theo chỉ đạo nhóm đã thống nhất nghiệp vụ, đối chiếu code, contract và cấu hình dự án; cụ thể hóa mặc định OTP/allowlist, phân biệt override phiên test, đóng Q01/Q02/Q06/Q09 về quy định và ghi các phần rõ của Q04/Q05/Q08.
+- Sai khác R01–R06 và phụ thuộc chưa triển khai còn để review trong `docs/qa/CMP-30/README.md`; đã đồng bộ BDD, test case, ma trận, báo cáo và Jira handover. Kết quả thực thi giữ nguyên 35 Pass / 8 Blocked; chưa có xác nhận BE/FE, chưa gửi Jira.
+
+---
+
 ## Lịch sử bàn giao (Handoff Log)
+
+### Handoff #030: Đồng bộ Cú pháp SQL Khớp Schema Supabase/Baseline cho `audit_logs` và `notifications` trong Luồng Admin Xét duyệt (CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `develop`
+- **Truy vết:** `CMP-8`, `CMP-38`, `BR-03`, `AUDIT-06`, `DoD Sprint 2`
+- **Vấn đề phát hiện & Nguyên nhân gốc:**
+  1. Khi gọi `GET /api/v1/admin/verifications/:id`, backend ghi nhận audit log `VIEW_EVIDENCE` nhưng câu lệnh SQL `INSERT INTO "audit_logs"` dùng tên cột `payload` thay vì `details`, đồng thời thiếu cột bắt buộc `actor_type` (`actor_type NOT NULL`), dẫn tới PostgreSQL báo lỗi: `column "payload" of relation "audit_logs" does not exist` và trả về HTTP 500.
+  2. Tại luồng `PATCH /api/v1/admin/verifications/:id` (duyệt/từ chối), câu lệnh `INSERT INTO "notifications"` dùng sai tên cột (`user_id` và `ref_id` thay vì `recipient_id` và `reference_id`), và thiếu cột `reference_type`. Lỗi này nếu xảy ra sẽ khiến toàn bộ transaction hoàn tác và không lưu kết quả xét duyệt.
+  3. Trước đó các unit test và E2E test mock repository ở tầng bộ nhớ nên không phát hiện sự lệch pha giữa câu lệnh SQL và CSDL thật.
+- **Giải pháp triển khai:**
+  1. **Đối chiếu thực tế CSDL Supabase Production:**
+     - Truy vấn trực tiếp `information_schema.columns` và `pg_type` trên Supabase: xác nhận CSDL Supabase khớp 100% với `database/baseline/schema_v1.2.sql`.
+     - `audit_logs`: Cột `details jsonb`, `actor_type actor_type NOT NULL` (giá trị enum: `'USER'`, `'SYSTEM'`), `target_id uuid NOT NULL`.
+     - `notifications`: Cột `recipient_id uuid NOT NULL`, `reference_id uuid`, `reference_type varchar(100)`, `is_read boolean NOT NULL DEFAULT false`.
+     - Kết luận: Không cần migration CSDL, chỉ cần chuẩn hóa câu SQL ở Backend.
+  2. **Chuẩn hóa Data Access Layer (`EvidenceRepository`):**
+     - `recordAuditLog`:
+       + Cung cấp đầy đủ cột: `("actor_type", "actor_id", "action", "target_type", "target_id", "details", "created_at")`.
+       + `actorType` nhận `'USER'` (mặc định) hoặc `'SYSTEM'`.
+       + Bổ sung cơ chế bảo vệ UUID cho `target_id`: Tự động thẩm định regex UUID v4; nếu `target_id` là chuỗi đường dẫn tệp (file ref) thì lưu đường dẫn gốc vào `details.rawTargetId` và gán UUID an toàn, chống triệt để lỗi ép kiểu UUID của PostgreSQL.
+     - `createNotification`:
+       + Cung cấp đầy đủ cột: `("recipient_id", "title", "content", "type", "reference_id", "reference_type", "is_read", "created_at")`.
+       + Thẩm định `referenceId` UUID an toàn.
+     - `findByCardImageRef`:
+       + Bổ sung hàm tìm kiếm hồ sơ minh chứng theo `card_image_ref` phục vụ tra cứu UUID hồ sơ tại luồng tải minh chứng `downloadEvidence`.
+  3. **Cập nhật Service Layer (`VerificationService`):**
+     - Tại `downloadEvidence`: Sử dụng `findByCardImageRef(ref)` để lấy chính xác `evidence.id` (UUID) làm `target_id` cho audit log.
+  4. **Kiểm thử Toàn diện & Xác thực Trực tiếp (DoD 100% Pass):**
+     - **Mô phỏng truy vấn thực trên Supabase:** Chạy script kiểm thử tương tác với DB thật của Supabase qua TLS: `recordAuditLog` (VIEW_EVIDENCE), `updateReviewStatus`, `recordAuditLog` (APPROVE/REJECT), `createNotification` đều thành công 100% và rollback sạch sẽ.
+     - `pnpm lint`: PASS 0 errors, 0 warnings.
+     - `pnpm typecheck`: PASS 0 errors.
+     - `pnpm test`: PASS 318/318 tests (Frontend 58/58 + Backend 260/260).
+     - `pnpm test:e2e`: PASS 159/159 tests across 10 test suites.
+     - `pnpm build`: PASS (NestJS + Next.js App Router 7 static pages).
+- **Files thay đổi:**
+  - `apps/backend/src/modules/verification/repositories/evidence.repository.ts`
+  - `apps/backend/src/modules/verification/services/verification.service.ts`
+  - `apps/backend/src/modules/verification/repositories/evidence.repository.spec.ts`
+  - `apps/backend/src/modules/verification/services/verification.service.spec.ts`
+  - `apps/backend/test/admin-verification.e2e-spec.ts`
+  - `tasks/AGENT_HANDOFF.md`
+
+### Handoff #029: Cung cấp Seed Tài khoản Quản trị viên (Admin Seed) Phục vụ Môi trường Dev/Test (Sprint 1 / CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `develop`
+- **Truy vết:** `Sprint 1`, `CMP-8`, `CMP-38`, `BR-03`, `DoD Sprint 2`
+- **Bối cảnh & Vấn đề giải quyết:**
+  - Quy trình đăng ký `/api/v1/auth/register` chỉ cấp quyền mặc định `role = 'USER'` và `verification_status = 'PENDING'` theo quy định bảo mật hệ thống.
+  - Các kỹ sư Frontend, Backend và QA cần tài khoản có vai trò `ADMIN` và trạng thái `APPROVED` để đăng nhập, lấy access token và thực thi các nghiệp vụ quản trị (như duyệt/từ chối sinh viên tại CMP-8, tải ảnh minh chứng CMP-38).
+- **Nội dung triển khai:**
+  1. **Script khởi tạo Admin tự động (`seed-admin.ts`):**
+     - Tạo tệp `apps/backend/src/database/seed-admin.ts` kết nối database qua `pg.Pool` với TLS an toàn.
+     - Kiểm tra nếu tài khoản admin tồn tại thì nâng cấp quyền `role = 'ADMIN'`, `verification_status = 'APPROVED'`, cập nhật hash mật khẩu; nếu chưa có thì `INSERT` mới đầy đủ thông tin chuẩn sinh viên PTIT.
+     - Sử dụng `bcrypt` với cost factor 10 để mã hóa mật khẩu an toàn.
+  2. **Tệp SQL Baseline Seed (`database/seeds/02_admin_user_seed.sql`):**
+     - Cung cấp bản SQL chạy trực tiếp trên Supabase SQL Editor nếu không muốn chạy qua CLI.
+     - Sử dụng mật khẩu hash chuẩn bcrypt của `Admin@123456`.
+  3. **Cập nhật scripts npm & Tài liệu hướng dẫn:**
+     - Thêm script `"db:seed:admin"` tại `package.json` gốc và `apps/backend/package.json`.
+     - Cập nhật tài liệu `database/seeds/README.md` hướng dẫn chi tiết cách chạy và thông tin đăng nhập.
+  4. **Thông tin tài khoản Admin mặc định môi trường Dev/Test:**
+     - Email: `admin@ptithcm.edu.vn`
+     - Mật khẩu: `Admin@123456`
+     - Vai trò: `ADMIN` | Trạng thái xác minh: `APPROVED`
+  5. **Kiểm chứng:**
+     - Đã thực thi `pnpm db:seed:admin` thành công trên CSDL Supabase PostgreSQL.
+     - Gọi `POST /api/v1/auth/login` với tài khoản trên: Trả về HTTP 200, JWT token hợp lệ, user role `ADMIN`, `verificationStatus: 'APPROVED'`.
+- **Files thay đổi & mới:**
+  - `apps/backend/src/database/seed-admin.ts` (mới)
+  - `database/seeds/02_admin_user_seed.sql` (mới)
+  - `database/seeds/README.md` (cập nhật)
+  - `apps/backend/package.json` (cập nhật)
+  - `package.json` (cập nhật)
+  - `tasks/AGENT_HANDOFF.md`
+
+### Handoff #028: Hoàn thiện Handler Tải Minh chứng Sinh viên & Cơ chế Xác minh Chữ ký URL (CMP-8 / CMP-38) (21/11/2026)
+
+- **Ngày:** 2026-11-21
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `fix/cmp-38-evidence-download-handler`
+- **Truy vết:** `CMP-8`, `CMP-38`, `BR-03`, `AUDIT-06`, `DoD Sprint 2`
+- **Vấn đề khắc phục (theo báo cáo rà soát luồng ảnh minh chứng của FE/QA):**
+  1. Thiếu handler `GET /download` trên `AdminVerificationController`, dẫn đến URL `cardImageUrl` bị khớp vào route param `:verificationId` và bị `ParseUUIDPipe` từ chối (400 Bad Request).
+  2. URL tải trước đó thiếu tham số thời hạn `expires` trong query params, khiến server không thể xác minh thời điểm hết hạn và chữ ký HMAC.
+  3. Thiếu cơ chế kiểm tra chống duyệt thư mục trái phép (directory traversal) và cơ chế trả ảnh bảo mật không qua cache công khai.
+- **Giải pháp triển khai:**
+  1. **Tạo URL tải có chữ ký và hạn dùng (`StorageService.getPresignedDownloadUrl`):**
+     - Sinh URL: `/api/v1/admin/verifications/download?ref=...&expires=...&token=...` với HMAC-SHA256 ký trên chuỗi `${ref}:${expires}`.
+     - Hàm `verifyDownloadSignature`: Thẩm định chữ ký bằng `crypto.timingSafeEqual`, kiểm tra hạn dùng `Date.now() <= expires`.
+     - Hàm `resolveSafePath`: Chặn path traversal (`..`, null-byte, đường dẫn tuyệt đối), đảm bảo tệp giải quyết nằm strictly trong `baseStorageDir`.
+     - Hàm `getPrivateFile`: Đọc buffer tệp, nhận diện Content-Type chuẩn (`image/jpeg`, `image/png`, `image/webp`, `application/pdf`).
+  2. **Thêm Handler Tải Minh chứng (`AdminVerificationController.downloadEvidence`):**
+     - Đặt route `@Get('download')` trước `@Get(':verificationId')` để NestJS ưu tiên route tĩnh, giải quyết triệt để xung đột với `ParseUUIDPipe`.
+     - Bảo vệ bởi `@UseGuards(JwtAuthGuard, RolesGuard)` và `@Roles('ADMIN')`: Từ chối 401 với Guest, 403 với USER thường.
+     - Kiểm tra tham số (400 `VALIDATION_FAILED` nếu thiếu, 403 `LINK_EXPIRED` nếu quá hạn, 403 `INVALID_SIGNATURE` nếu sai chữ ký, 404 `FILE_NOT_FOUND` nếu tệp không tồn tại).
+     - Thiết lập headers bảo mật: `Cache-Control: private, no-cache, no-store, must-revalidate`, `Pragma: no-cache`, `Expires: 0`.
+     - Ghi nhận Audit Log `VIEW_EVIDENCE` với payload `DOWNLOAD_EVIDENCE` và thời điểm tải.
+  3. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - Unit tests: `storage.service.spec.ts` (upload, presigned url, signature verification, safe path traversal, non-existent file), `verification.service.spec.ts` (downloadEvidence validation, expired, invalid signature, success), `admin-verification.controller.spec.ts` (downloadEvidence response headers & buffer).
+     - E2E tests: Thêm 7 tests mới trong `admin-verification.e2e-spec.ts` (401 unauth, 403 user, 400 missing params, 403 expired, 403 invalid signature, 404 not found, 200 raw binary image stream & audit log). Tổng cộng 159/159 E2E tests PASS.
+
+### Handoff #027: Triển khai Bộ API Quản lý Hồ sơ & Sở thích Người dùng (CMP-21 / BE-01-T04) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Tech Lead (Quốc Thái Nguyễn - BE-01)
+- **Branch:** `feat/be-01-user-profile`
+- **Truy vết:** `CMP-21`, `BE-01-T04`, `FR-05`, `BR-03`, `DB05`, `Sprint 1 Backlog`
+- **Nội dung hoàn thành:**
+  1. **Triển khai 4 API endpoints chuẩn OpenAPI 3.x v1.2:**
+     - `GET /api/v1/me`: Trả về `MeResponse` chứa `MeProfile` (`id`, `schoolEmail`, `displayName`, `phoneNumber`, `role`, `verificationStatus`, `school`, `major`, `className`, `studentCode`, `cohort`, `province`, `reputationScore`, `createdAt`). Bảo mật tuyệt đối theo BR-03 (không trả `passwordHash`, `codeHash`, `cardImageRef`). Cho phép cả tài khoản `APPROVED`, `PENDING` và `REJECTED` tra cứu thông tin chính chủ qua `JwtAuthGuard`.
+     - `PATCH /api/v1/me`: Cập nhật thông tin liên hệ sinh viên (`displayName`, `phoneNumber`, `province`). Chặn chỉnh sửa các trường được bảo vệ hệ thống (`schoolEmail`, `role`, `verificationStatus`, `reputationScore`) bằng `createValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`. Yêu cầu `JwtAuthGuard` + `VerificationGuard` (chỉ `APPROVED` mới được cập nhật).
+     - `GET /api/v1/me/preferences`: Trả về `PreferenceResponse` chứa `Preference` (`favoriteCategoryIds`, `interestKeywords`, `updatedAt`). Trả mảng rỗng mặc định nếu tài khoản chưa có bản ghi cấu hình sở thích. Bảo vệ bởi `JwtAuthGuard` + `VerificationGuard`.
+     - `PATCH /api/v1/me/preferences`: Tiếp nhận và khử trùng lặp danh mục yêu thích, thẩm thực tính hợp lệ của từng category ID qua `CategoriesRepository.findActiveById(id)` (từ chối 400 `VALIDATION_FAILED` nếu danh mục không tồn tại hoặc `is_active = false`), chuẩn hóa và khử trùng lặp `interestKeywords`, thực hiện upsert an toàn vào bảng `user_preferences`.
+  2. **Data Layer (`UserProfileRepository`):**
+     - Kế thừa `BaseRepository` và kết nối PostgreSQL qua `PostgresService`.
+     - `findProfileById(userId)`: Truy vấn loại trừ tài khoản đã bị xóa mềm (`deleted_at IS NULL`).
+     - `updateProfile(userId, data)`: Cập nhật động các trường hợp lệ và `updated_at = clock_timestamp()`.
+     - `findPreferences(userId)`: Đọc thiết lập sở thích theo `user_id`.
+     - `upsertPreferences(userId, categoryIds, interestKeywords)`: Câu lệnh `INSERT ... ON CONFLICT ("user_id") DO UPDATE` với PostgreSQL array type.
+  3. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - **Unit Tests:** Đạt 100% PASS cho toàn bộ User Module (`user-profile.repository.spec.ts`, `user.service.spec.ts`, `user.controller.spec.ts` cùng với các unit tests hiện hữu). Tổng cộng 33 test suites (251 tests) backend và 2 test suites (58 tests) frontend PASS.
+     - **E2E Tests:** Tạo mới `test/user-profile.e2e-spec.ts` gồm 18 test cases kiểm thử chi tiết mọi kịch bản (APPROVED, PENDING, SUSPENDED, Unauthenticated, vi phạm whitelist, invalid category, empty displayName, envelope schema adherence). 10/10 test suites (152 tests) E2E backend PASS.
+     - **Code Quality & Build:** `pnpm lint` PASS (0 errors, 0 warnings), `pnpm typecheck` PASS (0 errors), `pnpm build` PASS (biên dịch hoàn tất backend và Next.js frontend).
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/user/user.types.ts` (mới)
+  - `apps/backend/src/modules/user/dto/update-me.dto.ts` (mới)
+  - `apps/backend/src/modules/user/dto/update-preference.dto.ts` (mới)
+  - `apps/backend/src/modules/user/repositories/user-profile.repository.ts` (mới)
+  - `apps/backend/src/modules/user/repositories/user-profile.repository.spec.ts` (mới)
+  - `apps/backend/src/modules/user/user.service.ts` (mới)
+  - `apps/backend/src/modules/user/user.service.spec.ts` (mới)
+  - `apps/backend/src/modules/user/user.controller.ts` (mới)
+  - `apps/backend/src/modules/user/user.controller.spec.ts` (mới)
+  - `apps/backend/src/modules/user/user.module.ts` (mới)
+  - `apps/backend/src/app.module.ts`
+  - `apps/backend/test/user-profile.e2e-spec.ts` (mới)
+  - `tasks/BACKLOG.md`
+  - `tasks/AGENT_HANDOFF.md`
+
+---
+
+### Handoff #026: Triển khai Bộ API Chuyển đổi Vòng đời Bài đăng (CMP-11 / BE-02-T05) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Developer (BE-02) / Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-post-lifecycle`
+- **Truy vết:** `CMP-11`, `CMP-10`, `BE-02-T05`, `FR-06`, `FR-07`, `BR-01`, `State Machines §2`
+- **Nội dung hoàn thành:**
+  1. **Triển khai 4 API endpoints chuẩn OpenAPI spec v1.2:**
+     - `POST /api/v1/posts/{id}/hide`: Ẩn bài đăng (`ACTIVE` -> `HIDDEN`), lập tức loại khỏi feed công khai và tìm kiếm.
+     - `POST /api/v1/posts/{id}/activate`: Kích hoạt lại bài đăng (`HIDDEN` -> `ACTIVE`).
+     - `POST /api/v1/posts/{id}/sold`: Đánh dấu đã bán (`ACTIVE`/`HIDDEN` -> `SOLD`), thiết lập `ended_at = clock_timestamp()`. Chỉ áp dụng cho tin `SELL`, chặn `BUY_REQUEST` với `409 INVALID_POST_TYPE`.
+     - `POST /api/v1/posts/{id}/close`: Đóng bài đăng (`ACTIVE`/`HIDDEN` -> `CLOSED`), nhận `ClosePostDto` (`reason: string`, tối đa 100 ký tự), thiết lập `close_reason` và `ended_at = clock_timestamp()`.
+  2. **Thực thi nghiêm ngặt State Machine & Phân quyền:**
+     - Chỉ chủ bài đăng (Owner) hoặc Admin mới có quyền thao tác (`403 FORBIDDEN` với user khác).
+     - Bắt buộc tài khoản đã xác minh (`401 Unauthenticated`, `403 ACCOUNT_NOT_VERIFIED`, `403 ACCOUNT_SUSPENDED`).
+     - Ràng buộc trạng thái kết thúc (Terminal State Invariant): Tin đã `SOLD` hoặc `CLOSED` tuyệt đối không thể kích hoạt lại (`409 POST_TERMINATED`).
+  3. **Data Layer (`PostRepository`):**
+     - Bổ sung `updatePostStatus(postId, status, options)` cập nhật `status`, `close_reason`, `ended_at`, `updated_at`.
+  4. **Kiểm thử Toàn diện (DoD 100% Pass):**
+     - Unit tests: 28 unit tests đạt 100% PASS (`post-lifecycle.service.spec.ts` 20 tests, `posts.controller.spec.ts` 8 tests, `post.repository.spec.ts` 6 tests).
+     - E2E tests: `posts.e2e-spec.ts` đạt 36/36 tests PASS (bổ sung 19 tests E2E AC1–AC19 kiểm thử toàn bộ luồng chuyển đổi trạng thái, quyền sở hữu, ngoại lệ biên và envelope chuẩn `PostResponse`).
+     - Toàn monorepo: `pnpm lint` PASS (0 errors), `pnpm typecheck` PASS (0 errors), `pnpm test` PASS 289/289 tests, `pnpm test:e2e` PASS 134/134 tests across 9 suites, `pnpm build` PASS.
+- **Files thay đổi & mới:**
+  - `apps/backend/src/modules/posts/dto/close-post.dto.ts` (mới)
+  - `apps/backend/src/modules/posts/post-lifecycle.service.ts` (mới)
+  - `apps/backend/src/modules/posts/post-lifecycle.service.spec.ts` (mới)
+  - `apps/backend/src/modules/posts/repositories/post.repository.ts`
+  - `apps/backend/src/modules/posts/repositories/post.repository.spec.ts`
+  - `apps/backend/src/modules/posts/posts.service.ts`
+  - `apps/backend/src/modules/posts/posts.controller.ts`
+  - `apps/backend/src/modules/posts/posts.controller.spec.ts`
+  - `apps/backend/src/modules/posts/posts.module.ts`
+  - `apps/backend/test/posts.e2e-spec.ts`
+  - `tasks/BACKLOG.md`
+  - `tasks/AGENT_HANDOFF.md`
+
+---
+
+### Handoff #025: Triển khai Bộ API Tin nhắn & Tệp đính kèm Hội thoại Chat (CMP-16 / BE-01-T07) (19/11/2026)
+
+- **Ngày:** 2026-11-19
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-01-chat-messages`
+- **Truy vết:** `CMP-16`, `BE-01-T07`, `FR-11`, `FR-12`, `BR-10`, `BR-11`, `DB06`
+- **Nội dung hoàn thành:**
+  1. Triển khai 4 API endpoints: `GET /conversations/{id}/messages`, `POST /conversations/{id}/messages`, `POST /conversations/{id}/attachments`, `GET /conversations/{id}/attachments/{id}/download`.
+  2. Tuân thủ 100% OpenAPI spec v1.2 (`MessageResponse`, `MessagePage`, `Attachment`).
+  3. Cơ chế bảo vệ quyền riêng tư & thời hạn lưu trữ BR-11: TTL tin nhắn văn bản 3 tháng (mask content thành `null` khi quá hạn), TTL tệp đính kèm 1 tháng (`status = EXPIRED`, `downloadUrl = null`, từ chối download trả 409 `ATTACHMENT_EXPIRED`).
+  4. Lưu trữ file an toàn trong Private Storage, kiểm duyệt MIME allowlist và giới hạn 10 MB.
+  5. 100% tests PASS: 39 unit tests (`chat.service.spec.ts`, `chat.controller.spec.ts`, `message.repository.spec.ts`), 25 E2E tests (`chat.e2e-spec.ts`). Toàn hệ thống: 264/264 unit tests, 115/115 e2e tests across 9 suites, lint 0 error, typecheck 0 error, build PASS.
+
+---
+
+### Handoff #024: Kiểm toán Bảo mật CSDL Supabase Production (READ-ONLY) & Soạn thảo Migration Hardening RLS (18/11/2026)
+
+- **Ngày:** 2026-11-18
+- **Người thực hiện:** Security / Backend Audit Agent
+- **Branch:** `feat/be-01-chat-conversations`
+- **Truy vết:** `Security Directives`, `BR-03`, `BR-11`, `PostgreSQL DAC vs RLS`, `Supabase Advisor`
+- **Chế độ thực thi:** READ-ONLY tuyệt đối (chỉ đọc system catalogs `pg_class`, `pg_roles`, `pg_default_acl`, `pg_policies`, `information_schema`; không đọc hàng dữ liệu cá nhân, không sửa đổi CSDL production, không bật/tắt RLS trên production).
+- **Phát hiện chính:**
+  1. **19/19 bảng public có `relrowsecurity = false`** (RLS đang bị tắt 100%).
+  2. **Role `anon` và `authenticated` có đầy đủ quyền `SELECT, INSERT, UPDATE, DELETE, TRUNCATE` trên 19/19 bảng** do default privileges của Supabase.
+  3. Mặc dù NestJS backend bảo vệ API gateway qua `JwtAuthGuard`, `VerificationGuard`, `RolesGuard`, kẻ tấn công nắm được Project URL và public anon key có thể gọi trực tiếp PostgREST API (`/rest/v1`) để đọc/ghi dữ liệu nhạy cảm nếu không có RLS.
+  4. Backend NestJS kết nối bằng role `postgres` (`rolbypassrls: true`), do đó việc bật RLS và thu hồi quyền `anon`/`authenticated` **hoàn toàn không làm ảnh hưởng hay gãy các truy vấn của NestJS**.
+- **Sản phẩm bàn giao:**
+  1. Báo cáo kiểm toán bảo mật chi tiết: `supabase_security_audit_report.md` (Artifact ID).
+  2. File migration đề xuất (chờ duyệt): `database/migrations/0002_enable_rls_and_least_privilege_policies.sql`.
+  3. File rollback migration tương ứng: `database/migrations/0002_enable_rls_and_least_privilege_policies.down.sql`.
+  4. Kịch bản kiểm thử Staging đa vai trò (Anonymous, Authenticated, Owner, Unrelated, Backend).
+- **Yêu cầu tiếp theo:** Chờ Backend Lead và Tech Lead phê duyệt trước khi thực thi trên môi trường staging/production.
+
+---
+
+### Handoff #023: Triển khai Bộ API Admin Xét duyệt Xác minh Sinh viên (CMP-8 / BE-02-T02) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-admin-verification`
+- **Truy vết:** `CMP-8`, `BE-02-T02`, `BR-03`, `BR-18`, `Security Directives`
+- **Mục tiêu đạt được theo Definition of Done của CMP-8:**
+  1. **Triển khai 3 API Endpoints Chuẩn OpenAPI v1.2:**
+     - `GET /api/v1/admin/verifications`: Lấy danh sách hồ sơ xác minh với phân trang root-level (`PageMeta`) và bộ lọc trạng thái (`status`), trả về mảng `AdminVerification[]`.
+     - `GET /api/v1/admin/verifications/{verificationId}`: Xem chi tiết một hồ sơ xác minh kèm `cardImageUrl` (presigned URL tạm thời từ private storage). Tự động ghi `audit_logs` khi Admin truy cập xem ảnh thẻ sinh viên (`action: VIEW_EVIDENCE`).
+     - `PATCH /api/v1/admin/verifications/{verificationId}`: Admin đưa ra quyết định (`APPROVED` hoặc `REJECTED`).
+       - Nếu `APPROVED`: Cập nhật `users.verification_status = 'APPROVED'`, `student_evidences.reviewed_by = adminId`, ghi nhận audit log `APPROVE_VERIFICATION`, gửi thông báo in-app `notifications`.
+       - Nếu `REJECTED`: Bắt buộc kèm `reason` (ném HTTP 400 nếu thiếu), cập nhật `users.verification_status = 'REJECTED'`, `student_evidences.reason = reason`, ghi nhận audit log `REJECT_VERIFICATION`, gửi thông báo in-app `notifications`.
+  2. **Bảo mật & Phân quyền Role-Based (RBAC):**
+     - Xây dựng `@Roles('ADMIN')` decorator và `RolesGuard` (`src/common/auth/roles.guard.ts`).
+     - Chặn 401 khi chưa đăng nhập, chặn 403 khi role không phải `ADMIN`.
+     - Tuyệt đối bảo vệ ảnh thẻ sinh viên trong private storage, chỉ sinh presigned URL ngắn hạn cho Admin.
+  3. **Kiểm thử Toàn diện & Xác thực Chất lượng (DoD):**
+     - Unit tests: 19/19 test suites PASS, 115 unit tests backend (bao gồm `roles.guard.spec.ts`, `admin-verification.controller.spec.ts`, `verification.service.spec.ts`, `evidence.repository.spec.ts`).
+     - E2E tests: Thêm `test/admin-verification.e2e-spec.ts` (9/9 tests PASS). Toàn bộ 6 E2E test suites (58/58 tests PASS).
+     - `pnpm lint`: 0 warnings across workspace.
+     - `pnpm typecheck`: 0 errors across workspace.
+     - `pnpm build`: Biên dịch thành công cả backend NestJS và frontend Next.js 14 App Router.
+
+---
+
+### Handoff #022: Triển khai API Nộp Minh chứng Thẻ Sinh viên & Tra cứu Hồ sơ (CMP-7 / BE-02-T01) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `feat/be-02-evidence-submit`
+- **Truy vết:** `CMP-7`, `BE-02-T01`, `BR-03`, `BR-04`, `Security Directives`
+- **Mục tiêu đạt được theo Definition of Done của CMP-7:**
+  1. **Triển khai 2 API Endpoints Chuẩn OpenAPI v1.2:**
+     - `POST /api/v1/me/evidence`: Tiếp nhận multipart form-data (`school`, `studentCode`, `major`, `className`, `cohort`, `province`, `cardImage`), lưu ảnh an toàn vào private storage, ghi bản ghi `student_evidences`, cập nhật trạng thái `users` thành `PENDING` và cập nhật thông tin sinh viên trên database qua transaction. Phản hồi HTTP 201 với Success Envelope `{ success: true, data: { status, reason, submittedAt }, timestamp }`.
+     - `GET /api/v1/me/verification`: Trả về trạng thái xác minh hiện tại của người dùng đã đăng nhập (`PENDING`, `APPROVED`, `REJECTED`, `SUSPENDED`).
+  2. **Bảo mật Tối cao & Bảo vệ Dữ liệu Thẻ Sinh viên (BR-03 & Security Directives):**
+     - Tuyệt đối KHÔNG trả về `card_image_ref`, URL ảnh thẻ hay bất kỳ trường nội bộ nào ra ngoài người dùng thông thường (`VerificationState` tuân thủ nghiêm ngặt `additionalProperties: false`).
+     - Chỉ Admin mới có quyền xem ảnh thẻ sinh viên qua presigned URL có thời hạn ngắn (chuẩn bị trong CMP-8).
+     - Giới hạn tệp: Dung lượng tối đa 10 MB (ném HTTP 413 `FILE_TOO_LARGE`), định dạng chỉ chấp nhận JPEG/PNG (ném HTTP 415 `UNSUPPORTED_MEDIA_TYPE`).
+     - Chặn người dùng có trạng thái `SUSPENDED` (HTTP 403) hoặc đã `APPROVED` (HTTP 400). Cho phép người dùng `REJECTED` nộp lại minh chứng để quay về `PENDING`.
+  3. **Module & Infrastructure Hoàn thiện:**
+     - `apps/backend/src/common/decorators/current-user.decorator.ts`: `@CurrentUser()` decorator trích xuất payload từ `JwtAuthGuard`.
+     - `apps/backend/src/common/filters/http-exception.filter.ts`: Hỗ trợ chuẩn hóa mã lỗi 413 (`FILE_TOO_LARGE`), 415 (`UNSUPPORTED_MEDIA_TYPE`) và bắt `MulterError`.
+     - `apps/backend/src/modules/verification/`: Gồm `StorageService`, `EvidenceRepository`, `VerificationService`, `VerificationController`, `SubmitEvidenceDto`.
+  4. **Kiểm thử Toàn diện & Xác thực Chất lượng (DoD):**
+     - Unit tests: 19/19 tests PASS (bao gồm `storage.service.spec.ts`, `evidence.repository.spec.ts`, `verification.service.spec.ts`, `verification.controller.spec.ts`).
+     - E2E tests: `verification.e2e-spec.ts` đạt 9/9 tests PASS kiểm thử toàn diện cả negative/positive paths và envelope schema.
+     - Toàn bộ monorepo test suites: 151/151 unit tests PASS, 49/49 E2E tests PASS.
+     - `pnpm lint`: 0 warnings, `pnpm typecheck`: 0 errors, `pnpm build`: PASS toàn bộ.
+
+---
+
+### Handoff #021: Khắc phục Lỗi Cú pháp Schema ErrorEnvelope (additional: false) trong OpenAPI Spec (CMP-36) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `fix/cmp-36-spec-error-envelope`
+- **Truy vết:** `CMP-36`
+- **Mục tiêu đạt được:**
+  1. Loại bỏ từ khóa sai cú pháp `additional: false` tại `packages/api-contract/openapi.yaml` (dòng 853) và `docs/api/Campus_Marketplace_OpenAPI_v1.2.yaml` (dòng 853).
+  2. Bổ sung assertion kiểm tra tĩnh trong `apps/backend/test/contract-schemas.e2e-spec.ts` để ngăn ngừa tái phát từ khóa phi tiêu chuẩn trong OpenAPI schemas.
+  3. Toàn bộ test suites, lint và build đều đạt 100%. Ticket CMP-36 đã chuyển sang `Done`.
+
+---
+
+### Handoff #020: Khắc phục Lỗi Rò rỉ Driver PostgreSQL tại Health Endpoint (CMP-34) (17/11/2026)
+
+- **Ngày:** 2026-11-17
+- **Người thực hiện:** Backend Lead (Quốc Thái Nguyễn)
+- **Branch:** `fix/cmp-34-health-db-error`
+- **Truy vết:** `CMP-34`, `Security Directives`
+- **Mục tiêu đạt được:**
+  1. Thay thế việc trả về `driverError.message` trực tiếp ra HTTP response tại `GET /api/v1/health` bằng thông điệp generic an toàn: `Database ping failed`.
+  2. Toàn bộ chi tiết lỗi nội bộ, credentials hoặc stack trace chỉ được ghi vào server logs qua `Logger.warn/error`.
+  3. Bổ sung unit test trong `health.controller.spec.ts` kiểm chứng không rò rỉ driver error message. Ticket CMP-34 đã chuyển sang `Done`.
+
+---
 
 ### Handoff #020: Khắc phục Lỗi Bảo mật Lộ Thông điệp Driver PostgreSQL qua /health (CMP-34) (17/11/2026)
 
@@ -72,6 +673,7 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
      - `pnpm build`: PASS (NestJS + Next.js App Router 7/7 static pages).
   4. **Trạng thái Jira:**
      - Chuyển `CMP-34` sang **Done**.
+
 
 ### Handoff #019: Khắc phục Sự cố Môi trường ISS-01 & Tái tạo CSDL Supabase Sạch (CMP-33) (13/11/2026)
 

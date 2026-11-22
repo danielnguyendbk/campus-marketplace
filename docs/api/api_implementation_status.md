@@ -31,8 +31,8 @@ Tài liệu này theo dõi trạng thái triển khai thực tế của toàn b�
 | 10 | `GET` | `/me/preferences` | Preferences | Lấy cài đặt tìm kiếm/nhận tin | Contract Defined | `TASK-BE-PREF-01` |
 | 11 | `PATCH` | `/me/preferences` | Preferences | Cập nhật bộ lọc trường, cơ sở | Contract Defined | `TASK-BE-PREF-02` |
 | 12 | `GET` | `/posts` | Posts & Search | Tìm kiếm danh sách bài đăng bán/mua | Contract Defined | `TASK-BE-POST-01` |
-| 13 | `POST` | `/posts` | Posts & Search | Đăng tin bán đồ cũ hoặc tìm mua | Contract Defined | `TASK-BE-POST-02` |
-| 14 | `GET` | `/posts/{id}` | Posts & Search | Xem chi tiết bài đăng (chỉ APPROVED) | Contract Defined | `TASK-BE-POST-03` |
+| 13 | `POST` | `/posts` | Posts & Search | Đăng tin bán đồ cũ (`SELL`) hoặc tìm mua | **Implemented & Tested (`SELL`, CMP-9)** | `BE-02-T04` |
+| 14 | `GET` | `/posts/{id}` | Posts & Search | Xem chi tiết bài đăng (chỉ APPROVED) | **Implemented & Tested (CMP-9)** | `BE-02-T04` |
 | 15 | `PATCH` | `/posts/{id}` | Posts & Search | Sửa nội dung, giá bán bài đăng | Contract Defined | `TASK-BE-POST-04` |
 | 16 | `POST` | `/posts/{id}/hide` | Post Lifecycle | Chủ bài tự ẩn bài đăng | Contract Defined | `TASK-BE-POST-05` |
 | 17 | `POST` | `/posts/{id}/sold` | Post Lifecycle | Đánh dấu bài đăng đã bán (bài SELL) | Contract Defined | `TASK-BE-POST-06` |
@@ -63,8 +63,8 @@ Tài liệu này theo dõi trạng thái triển khai thực tế của toàn b�
 |---|---|---|---|---|---|
 | 1 | `PATCH` | `/me` | Profile | Cho phép cập nhật tên hiển thị, avatar | Chờ duyệt nhóm |
 | 2 | `GET` | `/admin/verifications` | Admin Verification | Danh sách hồ sơ SV chờ duyệt phân trang | Chờ duyệt nhóm |
-| 3 | `GET` | `/categories` | Categories | Lấy danh mục ngành hàng phục vụ form đăng tin | Chờ duyệt nhóm |
-| 4 | `GET` | `/me/posts` | Posts & Search | Danh sách bài đăng do chính user quản lý | Chờ duyệt nhóm |
+| 3 | `GET` | `/categories` | Categories | Lấy danh mục ngành hàng phục vụ form đăng tin | **Implemented & Tested (CMP-9)** |
+| 4 | `GET` | `/me/posts` | Posts & Search | Danh sách bài đăng do chính user quản lý | **Implemented & Tested (CMP-9)** |
 | 5 | `POST` | `/posts/{id}/activate` | Post Lifecycle | Kích hoạt lại bài viết sau khi tự ẩn (`HIDDEN` -> `ACTIVE`) | Chờ duyệt nhóm |
 | 6 | `POST` | `/posts/{id}/images` | Posts & Search | Thêm ảnh vào bài đăng đã tạo | Chờ duyệt nhóm |
 | 7 | `DELETE` | `/posts/{id}/images/{imageId}` | Posts & Search | Xóa bớt ảnh trong bài đăng | Chờ duyệt nhóm |
