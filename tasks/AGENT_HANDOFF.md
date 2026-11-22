@@ -14,6 +14,39 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - Branch `fix/local-pr6-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #6 head `f38d7d4`; no push.
 - Keep the latest develop system status, all newer handoffs and the detailed historical CMP-34 handoff. Production safe DB error handling already matches develop; retain PR #6's missing regression tests for PostgresService, HealthController and both health routes.
 - Health E2E now overrides PostgresService with a mock to avoid live DB access. Targeted health unit tests 7/7 PASS; health E2E 4/4 PASS. Full combined checks follow on the integration branch.
+### Đồng bộ PR #10 sau khi PR #11 được merge (2026-11-22)
+
+- Develop đã tiến tới `d17323c` (merge PR #11). Giữ cả nhật ký OTP và Admin UI, toàn bộ test OTP/ảnh riêng tư/tạo bài đăng cùng các method API tương ứng. Conflict chỉ ở handoff; không thay đổi database, contract hoặc backend.
+- Kiểm chứng sau đồng bộ: frontend 92/92 PASS; typecheck, lint và production build toàn workspace PASS. Cây frontend khớp bản tích hợp `0b6b480` đã kiểm chứng trước, backend khớp develop hiện tại. Chưa chạy live Supabase hay suite DROP SCHEMA.
+
+### Local conflict resolution — PR #10 (2026-11-22)
+
+- Branch `fix/local-pr10-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #10 head `5f3cb6b`; no push.
+- Retain both independent suites in `src/test/api.test.ts` (CMP-35 OTP errors and CMP-39 posts) with separate describe closures; retain both historical handoff sections. Auto-merged auth methods and UI tests preserve OTP limits and posting.
+- Frontend tests 74/74 PASS; frontend typecheck PASS. Full combined checks follow on the integration branch. Database and contract unchanged.
+
+### Bàn giao CMP-35 để commit/push và mở PR thủ công (2026-11-19)
+
+- **Yêu cầu người dùng:** Commit và push nhánh `fix/fe-cmp-35-otp-errors`; không tạo PR. Người dùng tự mở PR trên web với base `develop`, theo `.github/pull_request_template.md`. Commit message: `fix(frontend): distinguish OTP attempt and rate limits (CMP-35)`.
+- **Phạm vi commit:** Chỉ `apps/frontend/src/features/auth/api.ts`, `apps/frontend/src/test/App.test.tsx`, `apps/frontend/src/test/api.test.ts` và nhật ký này. Không thay đổi backend, database, API contract, package manifests, lockfile hoặc cấu hình; không đưa `.env`, dependencies hay output build vào Git.
+- **Môi trường đã cập nhật:** Đã cài dependency theo lockfile bằng pnpm 10.14.0 với `--frozen-lockfile --ignore-scripts --ignore-pnpmfile`, dùng store/cache trong dự án theo xác nhận riêng của người dùng. Kiểm tra package resolution đạt; đối chiếu 226 file được bảo vệ trước/sau cài không có thay đổi hoặc mất file. Giới hạn thiếu dependency trong bản ghi triển khai ban đầu bên dưới đã được xử lý.
+- **Kiểm chứng mới trước commit:** Frontend Vitest **64/64 PASS** (2 files); backend unit **172/172 PASS** (27 suites, loại đúng suite storage có xóa file); backend E2E dùng DB giả **95/95 PASS** (7 suites). FE/BE ESLint đều 0 warnings; FE/BE/API contract TypeScript với `--noEmit --incremental false` đều PASS; Prettier check ba file FE và `git diff --check` PASS. E2E ban đầu bị sandbox chặn localhost (`EACCES`), chạy lại cùng nhóm đã loại các suite bên dưới ngoài sandbox sau phê duyệt và PASS.
+- **Giới hạn kiểm chứng:** Không chạy unit `src/modules/verification/services/storage.service.spec.ts` vì tạo/xóa file thật; không chạy E2E `cmp37-otp-race-isolated-db.e2e-spec.ts` vì xóa schema và `app.e2e-spec.ts` vì tự nạp AppModule có cấu hình DB thật. Không chạy production build vì cấu hình backend `deleteOutDir: true` và quy tắc người dùng không cho phép xóa output trong bước này. Không khẳng định toàn bộ test/build đã đạt. Chưa có minh chứng xác nhận đủ hai ca UI với backend thật; CI chỉ được đánh giá sau khi người dùng mở PR.
+- **Trạng thái bàn giao:** Sẵn sàng commit/push theo phạm vi trên; không tự mở PR, merge hoặc đánh dấu Jira Done. Nội dung PR phải ghi rõ kết quả kiểm chứng, các suite đã loại và build còn chờ.
+
+### Cập nhật Frontend — CMP-35: Phân biệt lỗi OTP 429 (2026-11-19)
+
+- **Người thực hiện:** Đình Thạch (Frontend), với Codex hỗ trợ; người dùng đã yêu cầu triển khai sau khi duyệt phạm vi phân tích.
+- **Branch:** `fix/fe-cmp-35-otp-errors`, tạo từ `develop` tại `2a666b6`. Chưa commit, push hoặc tạo PR; chưa đánh dấu Jira Done.
+- **Thay đổi:** `apps/frontend/src/features/auth/api.ts` phân nhánh HTTP 429 theo `error.code`: `OTP_ATTEMPTS_EXCEEDED` hướng dẫn yêu cầu OTP mới qua nút “Gửi lại mã”; `OTP_RATE_LIMITED` hướng dẫn chờ trước khi gửi lại. Mã 429 khác giữ thông báo dự phòng; lỗi 5xx vẫn có thông báo chung an toàn.
+- **Kiểm thử:** Bổ sung 6 test trong hai file hiện có `apps/frontend/src/test/App.test.tsx` và `apps/frontend/src/test/api.test.ts`. Dùng transport giả trả ErrorEnvelope với hai mã backend thật và cùng một server message để kiểm tra phân nhánh theo code. UI giữ bước mật khẩu đóng khi bị giới hạn, kể cả thử lại OTP cũ sau khi hết số lần thử; chỉ mở sau phản hồi xác thực thành công khi gửi mã mới. Kiểm tra thêm fallback 429 và giữ thông báo 5xx an toàn.
+- **Phạm vi:** Chỉ sửa ba file FE trên và nhật ký này. Giữ nguyên register component, mock adapter, backend, database, API contract, dependencies, lockfile và cấu hình. Mock adapter cũ vẫn trả `TOO_MANY_REQUESTS`; test mới chủ động dùng mã backend thật, không coi mock cũ là bằng chứng tích hợp.
+- **Kết quả đạt:** Frontend Vitest **64/64 PASS** (31 UI + 33 API); FE ESLint 0 warnings; FE TypeScript PASS; API contract TypeScript PASS; backend ESLint 0 warnings; Prettier check ba file FE PASS; `git diff --check` PASS. Gọi trực tiếp binary Node có sẵn trong `node_modules`; TypeScript dùng `--noEmit --incremental false`, Vitest/Jest dùng `--no-cache`, không tự cài dependency.
+- **Giới hạn kiểm chứng:** Backend typecheck và một số unit suites không chạy được do môi trường thiếu các dependency đã khai báo như `@nestjs/jwt`, `bcryptjs`, `class-transformer`, `class-validator`, `nodemailer`, Multer/types. Chưa cài thêm package. Chưa xác nhận UI với backend/SMTP/DB thật. Không chạy toàn bộ E2E vì `cmp37-otp-race-isolated-db.e2e-spec.ts` tự nạp `.env` và thực hiện `DROP SCHEMA`; không chạy production build toàn repo vì `apps/backend/nest-cli.json` đặt `deleteOutDir: true`, không phù hợp quy tắc người dùng cấm xóa file. Chưa có kết quả build mới hoặc CI.
+- **Kết quả backend unit và sai sót khi kiểm chứng:** 17/28 suites PASS, 11 suites không chạy được do lỗi biên dịch/dependency; 109 tests đã chạy PASS. Suite `src/modules/verification/services/storage.service.spec.ts` gọi service thật để tạo rồi tự xóa file giả `storage/private/evidence/user-123/da7615d1-bfe5-4204-9385-67fcc8e1b71b.png` trong cwd backend. Agent đã bỏ sót lời gọi `service.deleteFile()` khi rà soát test và chạy suite này dù người dùng cấm xóa mọi file; đã báo rõ trong chat và dừng chạy thêm test/dọn dẹp. Không coi bộ unit này là hoàn toàn không tác động filesystem; không chạy lại khi chưa duyệt phạm vi, không tự dọn thư mục còn lại.
+- **Còn chờ:** Duyệt bước xử lý môi trường/kiểm chứng còn thiếu; kiểm tra hai tình huống trên môi trường test được cấp quyền; review diff, commit/push và PR về `develop` theo template, CI pass trước khi kết luận hoàn tất CMP-35.
+
+---
 
 ### Local conflict resolution — PR #11 (2026-11-22)
 
