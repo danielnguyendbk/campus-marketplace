@@ -1,6 +1,7 @@
 import { api, ApiClient, ApiError, API_BASE_URL, type ApiTransport } from '../../services/api';
 import { createAuthMockAdapter } from './mock-adapter';
 import { createMarketplaceApi } from '../marketplace/api';
+import { createPostsApi } from '../posts/api';
 import {
   isAuthSession,
   type AuthMode,
@@ -25,12 +26,21 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
   let expiration: ReturnType<typeof setTimeout> | undefined;
   const listeners = new Set<() => void>();
   const marketplace = createMarketplaceApi(client);
+  const posts = createPostsApi(client);
   const notify = () => listeners.forEach((listener) => listener());
   function clearSession() {
     clearTimeout(expiration);
     currentSession = null;
     client.setToken(null);
     notify();
+  }
+  function requireApprovedSession() {
+    if (!currentSession) {
+      throw new ApiError('Authentication required', 401, 'UNAUTHORIZED');
+    }
+    if (currentSession.user.verificationStatus !== 'APPROVED') {
+      throw new ApiError('Verification required', 403, 'ACCOUNT_NOT_VERIFIED');
+    }
   }
   function acceptSession(result: unknown, registration = false, signal?: AbortSignal): AuthSession {
     if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
@@ -73,6 +83,18 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
         throw new ApiError('Admin role required', 403, 'FORBIDDEN');
       }
       return marketplace.getAdminEvidenceImage(url, signal);
+    },
+    async listPostCategories(...args: Parameters<typeof posts.listPostCategories>) {
+      requireApprovedSession();
+      return posts.listPostCategories(...args);
+    },
+    async createPost(...args: Parameters<typeof posts.createPost>) {
+      requireApprovedSession();
+      return posts.createPost(...args);
+    },
+    async getPostDetail(...args: Parameters<typeof posts.getPostDetail>) {
+      requireApprovedSession();
+      return posts.getPostDetail(...args);
     },
     async getVerification(signal?: AbortSignal) {
       const activeToken = currentSession?.accessToken;

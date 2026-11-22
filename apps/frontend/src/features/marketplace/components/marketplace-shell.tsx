@@ -43,6 +43,9 @@ export function MarketplaceShell({
             {session.user.role === 'ADMIN' && (
               <Link href="/admin/verifications">Xét duyệt hồ sơ</Link>
             )}
+            {session.user.verificationStatus === 'APPROVED' && (
+              <Link href="/posts/new">Đăng tin</Link>
+            )}
           </nav>
           <div className={styles.account}>
             <span>{session.user.displayName}</span>

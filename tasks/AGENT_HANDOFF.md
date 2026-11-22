@@ -4,6 +4,12 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Local conflict resolution — PR #11 (2026-11-22)
+
+- Branch `fix/local-pr11-conflicts-20261122`: merge `origin/develop` at `df3d1c2` into PR #11 head `caf9056`; no push.
+- Resolve `features/auth/api.ts` by retaining Admin verification/image methods and APPROVED post methods; retain both conditional navigation links in `marketplace-shell.tsx`, all Admin/post test imports and both CMP-38/CMP-39 handoffs.
+- Frontend tests: 86/86 PASS; frontend typecheck PASS. Full combined checks follow on the integration branch. Database, contract and two pre-existing untracked RLS migrations unchanged.
+
 ### CMP-38 — Giao diện xác minh và xét duyệt (2026-11-21)
 
 - **Nhánh:** `feat/fe-cmp-38-verification-ui` đã gộp `develop` tại `ec8e737` bằng commit `ff74fa4`. FE ban đầu đã lưu ở `f509c9d`. Phần nối ảnh hiện ở working tree. Bản nháp CMP-39 đã lưu riêng tại `d720eb9`.
@@ -12,6 +18,18 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 - **Tích hợp ảnh:** BE đã thêm route tải ảnh có chữ ký ở `3574173` và sửa SQL audit/thông báo ở `ec8e737`. FE dùng `cardImageUrl` từ chi tiết Admin theo phê duyệt của người dùng trong khi route tải chờ đồng bộ OpenAPI/Apidog. ApiClient chỉ gửi JWT tới đúng route trên origin của backend, dùng `no-store`, chặn chuyển hướng và kiểm tra loại ảnh. UI hiển thị qua blob URL trong bộ nhớ, giải phóng URL khi rời chi tiết và xin link mới khi bấm “Tải lại ảnh”. Danh sách và khu vực sinh viên không giữ URL ảnh.
 - **Kiểm chứng:** 76/76 test frontend đạt với API giả lập. Các ca kiểm tra ảnh gồm tải có JWT, từ chối URL ngoài phạm vi, chặn guest/USER, xin lại link khi hết hạn và giải phóng ảnh khi đóng chi tiết. TypeScript FE/BE, ESLint frontend, Prettier các file FE đã sửa và `git diff --check` đạt. Chưa chạy production build hoặc nghiệm thu thay đổi mới trên BE/DB thật.
 - **Bước nghiệm thu:** Khởi động lại BE từ `apps/backend` để dùng vùng lưu ảnh local hiện có, xác nhận health `data.database.status = connected` trên đúng DB test, rồi dùng ảnh và tài khoản test. Admin mở chi tiết và xác nhận thấy ảnh, sau đó chạy vòng nộp → từ chối → nộp lại → duyệt. Đối chiếu trạng thái sinh viên và kết quả ghi audit/thông báo. Ghi bằng chứng đã che dữ liệu nhạy cảm và hoàn tất PR/review/CI trước khi đánh dấu Done.
+
+---
+
+### CMP-39 — Tạo tin bán và tìm mua (2026-11-21)
+
+- **Nhánh:** `feat/fe-cmp-39-post-creation`. Bản nháp ở `d720eb9`, đã gộp `develop` tại `ec8e737` bằng `d4158e1`. Phần tích hợp FE hiện ở working tree.
+- **Tạo tin:** Tài khoản `APPROVED` có mục “Đăng tin”. Màn `/posts/new` dùng danh mục đang hoạt động từ `GET /categories` và gửi multipart qua `POST /posts` với phiên JWT hiện tại. SELL cần giá, tình trạng và 1–5 ảnh. BUY_REQUEST cần khoảng ngân sách hợp lệ và cho phép không ảnh. Form giữ dữ liệu khi API trả lỗi và chặn gửi lặp trong lúc xử lý.
+- **Xem lại:** Sau khi tạo thành công, “Xem tin vừa đăng” mở `/posts/[id]`, đọc lại bằng `GET /posts/{id}` và hiển thị thông tin theo loại tin. UI dùng bố cục thông tin và ảnh ở hai cột trên desktop, một cột trên điện thoại.
+- **Kiểm chứng:** 68/68 test frontend đạt với API giả lập. ESLint, Prettier và `git diff --check` đạt. TypeScript mã nguồn đạt sau khi loại các type sinh cũ của CMP-38 trong `.next` khỏi lần kiểm tra trong bộ nhớ. Đã kiểm tra bố cục bản xem trước ở desktop, viewport 375 px và màn ngang, cùng focus tới nhóm lỗi.
+- **Nghiệm thu:** Dùng tài khoản test `APPROVED` và ảnh giả để tạo SELL có ảnh, BUY_REQUEST không ảnh rồi mở lại từng tin. Đối chiếu HTTP 201/200, trạng thái `ACTIVE`, đúng loại tin và giá hoặc ngân sách. Thử guest/PENDING bị chặn. Xác nhận với BE trường hợp guard cho ADMIN chưa `APPROVED` đi qua ở server. Smoke test trên môi trường chung, production build, PR và CI còn chờ.
+
+---
 
 ### Cập nhật tài liệu QA — CMP-40 (2026-11-17)
 

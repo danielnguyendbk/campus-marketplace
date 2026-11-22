@@ -3,10 +3,134 @@ import { api, ApiClient, ApiError } from '../services/api';
 import { webcrypto } from 'node:crypto';
 import { createAuthApi } from '../features/auth/api';
 import { createAuthMockAdapter, MOCK_OTP_CODE } from '../features/auth/mock-adapter';
+import { createPostsApi } from '../features/posts/api';
+import type { CreatePostInput } from '../features/posts/types';
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('CMP-39 posts API', () => {
+  const id = 'a23ef463-1a6b-4b2d-a330-0e47edff0217';
+  const date = '2026-11-21T09:00:00Z';
+  const baseUrl = 'http://localhost:4000/api/v1';
+  const fields = {
+    title: 'Giáo trình kiểm thử',
+    description: 'Dữ liệu giả',
+    categoryId: 'BOOKS',
+    province: 'TP. Hồ Chí Minh',
+  };
+  const detail = { ...fields, id, status: 'ACTIVE', createdAt: date, images: [] };
+  const sellDetail = { price: 120000, condition: 'Còn tốt', allowPhoneReveal: false };
+  const buyRequestDetail = { budgetMin: 0, budgetMax: 150000 };
+  const success = (data: unknown, status = 200, meta?: object) =>
+    Response.json({ success: true, data, timestamp: date, meta }, { status });
+
+  it('loads all category pages using the existing authenticated client', async () => {
+    const transport = vi.fn(async (address: string, _init?: RequestInit) => {
+      const { searchParams } = new URL(address);
+      const page = Number(searchParams.get('page'));
+      return success([{ id: `category-${page}`, name: `Danh mục ${page}` }], 200, {
+        page,
+        limit: 100,
+        total: 101,
+        totalPages: 2,
+      });
+    });
+    const client = new ApiClient(baseUrl, transport);
+    client.setToken('post-test-token');
+    await expect(createPostsApi(client).listPostCategories()).resolves.toEqual([
+      { id: 'category-1', name: 'Danh mục 1' },
+      { id: 'category-2', name: 'Danh mục 2' },
+    ]);
+    expect(
+      transport.mock.calls.map(([address]) => new URL(address).searchParams.get('page')),
+    ).toEqual(['1', '2']);
+    expect(new Headers(transport.mock.calls[1][1]?.headers).get('Authorization')).toBe(
+      'Bearer post-test-token',
+    );
+  });
+
+  it('serializes the SELL form as multipart with explicit phone consent and its image', async () => {
+    const transport = vi.fn(async (_address: string, _init?: RequestInit) =>
+      success({ ...detail, postType: 'SELL', sellDetail }, 201),
+    );
+    const client = new ApiClient(baseUrl, transport);
+    client.setToken('post-test-token');
+    const image = new File(['fixture'], 'post.png', { type: 'image/png' });
+    const input: CreatePostInput = { ...fields, ...sellDetail, postType: 'SELL', images: [image] };
+    await expect(createPostsApi(client).createPost(input)).resolves.toMatchObject({
+      id,
+      status: 'ACTIVE',
+      sellDetail,
+    });
+    const [address, init] = transport.mock.calls[0];
+    expect(address).toBe(`${baseUrl}/posts`);
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).has('Content-Type')).toBe(false);
+    const body = init?.body as FormData;
+    expect(body.get('allowPhoneReveal')).toBe('false');
+    expect(body.get('price')).toBe('120000');
+    expect(body.has('budgetMin')).toBe(false);
+    expect(body.getAll('images')).toHaveLength(1);
+    expect((body.get('images') as File).name).toBe('post.png');
+  });
+
+  it('serializes BUY_REQUEST with a zero minimum and without SELL fields', async () => {
+    const transport = vi.fn(async (_address: string, _init?: RequestInit) =>
+      success({ ...detail, postType: 'BUY_REQUEST', buyRequestDetail }, 201),
+    );
+    const client = new ApiClient(baseUrl, transport);
+    const input: CreatePostInput = {
+      ...fields,
+      ...buyRequestDetail,
+      postType: 'BUY_REQUEST',
+      images: [],
+    };
+    await expect(createPostsApi(client).createPost(input)).resolves.toMatchObject({
+      buyRequestDetail,
+    });
+    const body = transport.mock.calls[0][1]?.body as FormData;
+    expect(Object.fromEntries(body)).toEqual({
+      ...fields,
+      postType: 'BUY_REQUEST',
+      budgetMin: '0',
+      budgetMax: '150000',
+    });
+  });
+
+  it('rejects detail data for a different post ID', async () => {
+    const transport = vi.fn(async (_address: string, _init?: RequestInit) =>
+      success({ ...detail, postType: 'SELL', sellDetail }),
+    );
+    const client = new ApiClient(baseUrl, transport);
+    const requestedId = 'f1c37d02-01f6-4125-983a-a743df8785e3';
+    await expect(createPostsApi(client).getPostDetail(requestedId)).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE_DATA',
+    });
+    expect(transport).toHaveBeenCalledWith(
+      `${baseUrl}/posts/${requestedId}`,
+      expect.objectContaining({ method: 'GET', cache: 'no-store' }),
+    );
+  });
+
+  it('blocks create requests before calling the transport for a guest or pending student', async () => {
+    vi.stubGlobal('crypto', webcrypto);
+    const transport = vi.fn(createAuthMockAdapter({ delayMs: 0 }));
+    const client = createAuthApi('mock', transport);
+    const input: CreatePostInput = {
+      ...fields,
+      ...buyRequestDetail,
+      postType: 'BUY_REQUEST',
+      images: [],
+    };
+    await expect(client.createPost(input)).rejects.toMatchObject({ status: 401 });
+    expect(transport).not.toHaveBeenCalled();
+    await client.login({ email: 'sinhvien@ptit.edu.vn', password: 'Campus123!' });
+    await expect(client.createPost(input)).rejects.toMatchObject({ status: 403 });
+    expect(transport).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('ApiClient Request & Envelope Validation Tests', () => {
