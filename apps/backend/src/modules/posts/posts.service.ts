@@ -225,7 +225,7 @@ export class PostsService {
 
     const { post, images } = found;
     if (
-      post.status !== 'ACTIVE' &&
+      (post.status !== 'ACTIVE' || post.owner_verification_status !== 'APPROVED') &&
       viewer.id !== post.owner_id &&
       viewer.role !== 'ADMIN'
     ) {

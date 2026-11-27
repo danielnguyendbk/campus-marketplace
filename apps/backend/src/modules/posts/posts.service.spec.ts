@@ -231,6 +231,43 @@ describe('PostsService', () => {
     expect(HttpException).toBeDefined();
   });
 
+  it('throws 404 POST_NOT_FOUND when getPostById is called by another user for a post whose owner is not APPROVED', async () => {
+    findPostDetailByIdMock.mockResolvedValueOnce({
+      post: {
+        id: 'post-suspended-owner',
+        owner_id: 'other-user-uuid',
+        post_type: 'SELL',
+        title: 'Tai nghe cũ',
+        description: 'Mô tả hợp lệ',
+        category_id: 'ELECTRONICS',
+        province: 'Hà Nội',
+        status: 'ACTIVE',
+        close_reason: null,
+        ended_at: null,
+        created_at: new Date('2026-11-17T06:00:00Z'),
+        updated_at: new Date('2026-11-17T06:00:00Z'),
+        owner_display_name: 'Owner Bị Khóa',
+        owner_verification_status: 'SUSPENDED',
+        owner_reputation_score: '5.0',
+        owner_province: 'Hà Nội',
+        price: '120000.00',
+        condition: 'Tốt',
+        allow_phone_reveal: true,
+        budget_min: null,
+        budget_max: null,
+      },
+      images: [],
+    });
+
+    const err = await catchError(
+      service.getPostById('post-suspended-owner', verifiedUser),
+    );
+    expect(err).toBeInstanceOf(NotFoundException);
+    expect((err?.getResponse() as Record<string, unknown>)?.code).toBe(
+      'POST_NOT_FOUND',
+    );
+  });
+
   it('creates BUY_REQUEST post without images and returns buyRequestDetail without sellDetail', async () => {
     findActiveByIdMock.mockResolvedValueOnce({
       id: 'TEXTBOOK',

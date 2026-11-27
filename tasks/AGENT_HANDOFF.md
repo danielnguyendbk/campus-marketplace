@@ -4,6 +4,31 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Cập nhật Backend — CMP-12: Bảng tin Phân tầng theo Trạng thái Tài khoản (`GET /api/v1/feed`) & Cold-Start Fallback (2026-11-27)
+
+- **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_12_tiered_feed_plan.md`).
+- **Branch:** `feat/cmp-12-13-14` (nền `bc25983`; chỉ phạm vi Backend + tài liệu, không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **`FeedModule` (`apps/backend/src/modules/feed/`):**
+     - `FeedAccessGuard` (`guards/feed-access.guard.ts`): Kiểm tra trực tiếp bảng `users` thời gian thực (chặn `401 UNAUTHORIZED` khi thiếu/xóa tài khoản, `403 ACCOUNT_SUSPENDED` khi bị khóa kể cả với JWT cũ, `403 ACCOUNT_NOT_VERIFIED` khi `REJECTED`), và chặn ngay `PENDING` gửi bất kỳ tham số tìm kiếm/lọc nào ngoài `page`/`limit` trên `GET /api/v1/feed` (`403 ACCOUNT_NOT_VERIFIED`).
+     - `GetFeedQueryDto` (`dto/get-feed-query.dto.ts`): Validate phân trang `page >= 1`, `1 <= limit <= 100` (`400 VALIDATION_FAILED`).
+     - `FeedRepository` & `FeedService`:
+       - Lọc cơ bản trên mọi chế độ: chỉ trả bài `status = 'ACTIVE'`, chưa xóa mềm, và chủ bài đăng có `verification_status = 'APPROVED'`.
+       - Nhánh `PENDING` (`AC1`, `AC2`, `AC5`): Trả `PendingFeedPage` gồm đúng 5 trường tối thiểu `{ id, title, postType, thumbnailUrl, createdAt }` (`additionalProperties: false`), không query `sell_details` / `buy_request_details`.
+       - Nhánh `APPROVED` / `ADMIN` Cold-Start (`AC4`): Khi user chưa có `user_preferences` và chưa có lịch sử hoạt động (`posts`, `conversations`, `phone_reveal_events`), trả `PostPage` theo thứ tự tin mới nhất (`created_at DESC, id DESC`).
+       - Nhánh `APPROVED` / `ADMIN` Cá nhân hóa (`AC3`): Chấm điểm rule-based từ `user_preferences` (`favorite_category_ids` +4, `interest_keywords` `ILIKE` đã escape `%`/`_`/`\` +3), lịch sử hoạt động (+2), cùng `province` (+1), kèm `matchedReasons`.
+     - `FeedController`: Mở endpoint `GET /api/v1/feed` bảo vệ bởi `JwtAuthGuard` + `FeedAccessGuard`, đã đăng ký vào `AppModule`.
+  2. **Siết quyền chi tiết tin (`posts.service.ts`):** `getPostById` trả `404 POST_NOT_FOUND` nếu `owner_verification_status !== 'APPROVED'` đối với người xem không phải chủ bài hoặc `ADMIN`.
+- **Kiểm chứng toàn diện (DoD):**
+  - `pnpm lint`: **PASS** (0 warnings, 0 errors trên `@campus/*`).
+  - `pnpm typecheck`: **PASS** (0 errors).
+  - Frontend Vitest: **PASS 92/92 tests** (2 files).
+  - Backend Unit Jest (`jest --testPathIgnorePatterns "modules.verification.services.storage\.service\.spec\.ts"`): **PASS 291/291 tests** (36 suites, gồm 4 suite mới của `FeedModule` — `feed-access.guard.spec.ts` 15 cases, `feed.repository.spec.ts` 6 cases, `feed.service.spec.ts` 10 cases, `feed.controller.spec.ts` 3 cases — và test mới của `PostsService`).
+  - Backend E2E Jest (`jest --config ./test/jest-e2e.json --testPathIgnorePatterns "cmp37-otp-race-isolated-db"`): **PASS 164/164 tests** (10 suites, gồm `test/feed.e2e-spec.ts` 10 kịch bản dùng in-memory mock DB `InMemoryPostgresForFeed`, không kết nối Supabase thật và không chạy `DROP SCHEMA`). Các kịch bản feed bao phủ: 401 cho guest/token rác/`otp_ticket`/tài khoản đã xóa mềm; 403 `ACCOUNT_SUSPENDED` & `ACCOUNT_NOT_VERIFIED` kể cả khi JWT cũ ghi `APPROVED`; `PendingFeedPage` đúng 5 khóa và loại bài `HIDDEN`/owner chưa duyệt; 403 khi `PENDING` tìm kiếm/lọc, xem chi tiết, đăng tin, mở SĐT, mở chat; 400 `VALIDATION_FAILED` cho `page`/`limit` sai định dạng ở cả `PENDING` và `APPROVED` (kèm `details`); Cold-Start cho user `APPROVED` mới (kể cả JWT cũ `PENDING`) với phân trang ổn định; feed cá nhân hóa qua `PATCH /me/preferences` + lịch sử hội thoại kèm `matchedReasons`; `ADMIN` mang `verification_status = PENDING` vẫn nhận đầy đủ `PostPage`.
+  - `pnpm build`: **PASS** (`nest build` + `next build` 9 routes).
+  - Lưu ý chạy lệnh: trên pnpm 10.14.0, truyền `-- --testPathIgnorePatterns=...` qua `pnpm test` bị chuyển nguyên chuỗi `"--"` vào Jest; hãy chạy trực tiếp `npx jest --testPathIgnorePatterns "<pattern>"` trong `apps/backend` (hoặc `npx jest --config ./test/jest-e2e.json ...` cho E2E).
+- **File thay đổi / thêm mới:** `apps/backend/src/modules/feed/**`, `apps/backend/src/app.module.ts`, `apps/backend/src/modules/posts/posts.service.ts`, `apps/backend/src/modules/posts/posts.service.spec.ts`, `apps/backend/test/feed.e2e-spec.ts`, `docs/api/api_implementation_status.md`, `tasks/AGENT_HANDOFF.md`. Đã commit cục bộ trên nhánh `feat/cmp-12-13-14`; **chưa push và chưa tạo Pull Request**.
+
 ### Đồng bộ PR #6 sau khi PR #11 được merge (2026-11-22)
 
 - Develop đã tiến tới `d17323c` (merge PR #11). Merge develop mới vào nhánh resolve PR #6; conflict chỉ ở các mục bàn giao cùng thêm đầu file. Giữ cả lịch sử health và Admin UI, toàn bộ source/tests tự merge. Không sửa schema/migrations/contract và không merge PR remote.
