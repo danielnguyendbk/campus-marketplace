@@ -3,6 +3,8 @@ import { createAuthMockAdapter } from './mock-adapter';
 import { createMarketplaceApi } from '../marketplace/api';
 import { createPostsApi } from '../posts/api';
 import {
+  canPublishMarketplacePosts,
+  canReadMarketplacePosts,
   isAuthSession,
   type AuthMode,
   type AuthSession,
@@ -34,11 +36,23 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
     client.setToken(null);
     notify();
   }
-  function requireApprovedSession() {
+  function requireSessionUser() {
     if (!currentSession) {
       throw new ApiError('Authentication required', 401, 'UNAUTHORIZED');
     }
-    if (currentSession.user.verificationStatus !== 'APPROVED') {
+    return currentSession.user;
+  }
+  function requirePublishingSession() {
+    const user = requireSessionUser();
+    if (user.role === 'ADMIN') {
+      throw new ApiError('Student role required', 403, 'FORBIDDEN');
+    }
+    if (!canPublishMarketplacePosts(user)) {
+      throw new ApiError('Verification required', 403, 'ACCOUNT_NOT_VERIFIED');
+    }
+  }
+  function requireMarketplaceSession() {
+    if (!canReadMarketplacePosts(requireSessionUser())) {
       throw new ApiError('Verification required', 403, 'ACCOUNT_NOT_VERIFIED');
     }
   }
@@ -72,6 +86,54 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
       };
     },
     getFeed: marketplace.getFeed,
+    async getPersonalProfile(signal?: AbortSignal) {
+      const user = requireSessionUser();
+      const profile = await marketplace.getPersonalProfile(signal);
+      if (profile.id !== user.id)
+        throw new ApiError('Unexpected profile', 200, 'INVALID_RESPONSE_DATA');
+      return profile;
+    },
+    async updatePersonalProfile(...args: Parameters<typeof marketplace.updatePersonalProfile>) {
+      requirePublishingSession();
+      const activeToken = currentSession?.accessToken;
+      const user = requireSessionUser();
+      const profile = await marketplace.updatePersonalProfile(...args);
+      if (profile.id !== user.id)
+        throw new ApiError('Unexpected profile', 200, 'INVALID_RESPONSE_DATA');
+      if (
+        !args[1]?.aborted &&
+        currentSession &&
+        currentSession.accessToken === activeToken &&
+        currentSession.user.displayName !== profile.displayName
+      ) {
+        currentSession = {
+          ...currentSession,
+          user: { ...currentSession.user, displayName: profile.displayName },
+        };
+        notify();
+      }
+      return profile;
+    },
+    async getPreferences(signal?: AbortSignal) {
+      requirePublishingSession();
+      return marketplace.getPreferences(signal);
+    },
+    async updatePreferences(...args: Parameters<typeof marketplace.updatePreferences>) {
+      requirePublishingSession();
+      return marketplace.updatePreferences(...args);
+    },
+    async searchPosts(...args: Parameters<typeof marketplace.searchPosts>) {
+      requireMarketplaceSession();
+      return marketplace.searchPosts(...args);
+    },
+    async getPostMatches(...args: Parameters<typeof marketplace.getPostMatches>) {
+      requireMarketplaceSession();
+      return marketplace.getPostMatches(...args);
+    },
+    async listMarketplaceCategories(...args: Parameters<typeof posts.listPostCategories>) {
+      requireMarketplaceSession();
+      return posts.listPostCategories(...args);
+    },
     listAdminVerifications: marketplace.listAdminVerifications,
     getAdminVerification: marketplace.getAdminVerification,
     reviewAdminVerification: marketplace.reviewAdminVerification,
@@ -85,15 +147,15 @@ export function createAuthApi(mode: AuthMode = 'live', transport?: ApiTransport)
       return marketplace.getAdminEvidenceImage(url, signal);
     },
     async listPostCategories(...args: Parameters<typeof posts.listPostCategories>) {
-      requireApprovedSession();
+      requirePublishingSession();
       return posts.listPostCategories(...args);
     },
     async createPost(...args: Parameters<typeof posts.createPost>) {
-      requireApprovedSession();
+      requirePublishingSession();
       return posts.createPost(...args);
     },
     async getPostDetail(...args: Parameters<typeof posts.getPostDetail>) {
-      requireApprovedSession();
+      requireMarketplaceSession();
       return posts.getPostDetail(...args);
     },
     async getVerification(signal?: AbortSignal) {

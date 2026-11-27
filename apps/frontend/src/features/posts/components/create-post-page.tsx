@@ -5,11 +5,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ApiError } from '../../../services/api';
 import { authApi, type AuthApi } from '../../auth/api';
+import { canPublishMarketplacePosts } from '../../auth/types';
 import { useSession } from '../../auth/use-session';
 import { marketplaceError } from '../../marketplace/api';
 import { MarketplaceShell } from '../../marketplace/components/marketplace-shell';
 import type { CreatePostInput, PostCategory, PostDetail } from '../types';
 import styles from './create-post.module.css';
+import { ProvinceSelect } from './province-select';
 
 const postTypes = [
   { value: 'SELL', label: 'Đăng bán', hint: 'Bán món đồ bạn đang có' },
@@ -20,6 +22,11 @@ const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
 const maxImages = 5;
 const maxImageBytes = 10 * 1024 * 1024;
 const titleLimit = 255;
+const currency = new Intl.NumberFormat('vi-VN', {
+  style: 'currency',
+  currency: 'VND',
+  maximumFractionDigits: 2,
+});
 
 type PostType = CreatePostInput['postType'];
 const fieldNames = [
@@ -34,6 +41,7 @@ const fieldNames = [
   'images',
 ] as const;
 type FieldName = (typeof fieldNames)[number];
+type AmountName = 'price' | 'budgetMin' | 'budgetMax';
 type FieldErrors = Partial<Record<FieldName, string>>;
 type PostImage = { id: number; file: File };
 type CategoryLoad =
@@ -43,6 +51,45 @@ function fieldValue(fields: FormData, name: FieldName) {
   return String(fields.get(name) ?? '').trim();
 }
 
+function parseAmount(value: string) {
+  const normalized = value.replace(/\./g, '').replace(',', '.');
+  return /^\d+(?:\.\d*)?$/.test(normalized) ? Number(normalized) : NaN;
+}
+
+function formatAmountInput(input: HTMLInputElement) {
+  const original = input.value;
+  const raw = original.replace(/[.\s]/g, '');
+  if (!/^\d*(?:,\d*)?$/.test(raw)) return false;
+
+  const [whole, fraction] = raw.split(',');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formatted = fraction === undefined ? grouped : `${grouped || '0'},${fraction}`;
+  if (formatted === original) return true;
+
+  // Match the cursor to the digits after it so that inserting a separator does not move it.
+  let digitsAfter = original
+    .slice(input.selectionStart ?? original.length)
+    .replace(/[.\s]/g, '').length;
+  let cursor = formatted.length;
+  while (cursor > 0 && digitsAfter > 0) {
+    cursor -= 1;
+    if (formatted[cursor] !== '.') digitsAfter -= 1;
+  }
+  input.value = formatted;
+  input.setSelectionRange(cursor, cursor);
+  return true;
+}
+
+function skipGroupingSeparator(event: React.KeyboardEvent<HTMLInputElement>) {
+  const { selectionStart, selectionEnd, value } = event.currentTarget;
+  if (selectionStart === null || selectionStart !== selectionEnd) return;
+  if (event.key === 'Backspace' && value[selectionStart - 1] === '.') {
+    event.currentTarget.setSelectionRange(selectionStart - 1, selectionStart - 1);
+  } else if (event.key === 'Delete' && value[selectionStart] === '.') {
+    event.currentTarget.setSelectionRange(selectionStart + 1, selectionStart + 1);
+  }
+}
+
 function validate(
   fields: FormData,
   postType: PostType,
@@ -50,14 +97,14 @@ function validate(
   categories: PostCategory[],
 ) {
   const value = (name: FieldName) => fieldValue(fields, name);
-  const number = (name: FieldName) => (value(name) ? Number(value(name)) : NaN);
+  const number = (name: AmountName) => parseAmount(value(name));
   const errors: FieldErrors = {};
 
   if (!value('title')) errors.title = 'Nhập tiêu đề tin đăng.';
   else if (value('title').length > titleLimit) errors.title = 'Tiêu đề tối đa 255 ký tự.';
   if (!categories.some(({ id }) => id === value('categoryId')))
     errors.categoryId = 'Chọn một danh mục.';
-  if (!value('province')) errors.province = 'Nhập tỉnh hoặc thành phố.';
+  if (!value('province')) errors.province = 'Chọn tỉnh hoặc thành phố.';
   if (!value('description')) errors.description = 'Nhập mô tả tin đăng.';
 
   if (postType === 'SELL') {
@@ -89,7 +136,7 @@ function postInput(fields: FormData, postType: PostType, images: File[]): Create
     return {
       ...common,
       postType,
-      price: Number(fieldValue(fields, 'price')),
+      price: parseAmount(fieldValue(fields, 'price')),
       condition: fieldValue(fields, 'condition'),
       allowPhoneReveal: fields.has('allowPhoneReveal'),
     };
@@ -97,8 +144,8 @@ function postInput(fields: FormData, postType: PostType, images: File[]): Create
   return {
     ...common,
     postType,
-    budgetMin: Number(fieldValue(fields, 'budgetMin')),
-    budgetMax: Number(fieldValue(fields, 'budgetMax')),
+    budgetMin: parseAmount(fieldValue(fields, 'budgetMin')),
+    budgetMax: parseAmount(fieldValue(fields, 'budgetMax')),
   };
 }
 
@@ -108,6 +155,10 @@ function FieldError({ name, errors }: { name: FieldName; errors: FieldErrors }) 
       {errors[name]}
     </p>
   ) : null;
+}
+
+function RequiredMark() {
+  return <span className={styles.requiredMark} aria-hidden="true" />;
 }
 
 function ImagePreview({ file }: { file: File }) {
@@ -125,8 +176,13 @@ function ImagePreview({ file }: { file: File }) {
 function CreatePostForm({ client }: { client: AuthApi }) {
   const [postType, setPostType] = useState<PostType>('SELL');
   const [title, setTitle] = useState('');
+  const [province, setProvince] = useState('');
+  const [price, setPrice] = useState('');
+  const [budgetMin, setBudgetMin] = useState('');
+  const [budgetMax, setBudgetMax] = useState('');
   const [images, setImages] = useState<PostImage[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [showErrorSummary, setShowErrorSummary] = useState(false);
   const [imageNotice, setImageNotice] = useState('');
   const [categories, setCategories] = useState<CategoryLoad>({ kind: 'loading' });
   const [categoryAttempt, setCategoryAttempt] = useState(0);
@@ -139,11 +195,16 @@ function CreatePostForm({ client }: { client: AuthApi }) {
   const successHeading = useRef<HTMLHeadingElement>(null);
   const submitRequest = useRef<AbortController | null>(null);
   const focusErrors = useRef(false);
+  const touchedFields = useRef(new Set<FieldName>());
   const nextImageId = useRef(0);
   const isSell = postType === 'SELL';
   const invalidFields = Object.entries(errors);
   const availableCategories = categories.kind === 'ready' ? categories.data : [];
   const categoryHintId = availableCategories.length ? undefined : 'post-categories-status';
+  const minimum = parseAmount(budgetMin);
+  const maximum = parseAmount(budgetMax);
+  const validBudget =
+    Number.isFinite(minimum) && Number.isFinite(maximum) && minimum >= 0 && maximum >= minimum;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -169,16 +230,34 @@ function CreatePostForm({ client }: { client: AuthApi }) {
     errorSummary.current?.focus();
   }, [errors]);
 
-  function clearErrors(...names: FieldName[]) {
-    if (!denied) setSubmitError('');
+  function updateErrors(issues: FieldErrors, ...names: FieldName[]) {
     setErrors((current) => {
-      const remaining = { ...current };
-      for (const name of names) delete remaining[name];
-      return remaining;
+      const next = { ...current };
+      for (const name of names) {
+        const message = issues[name];
+        if (message) next[name] = message;
+        else delete next[name];
+      }
+      return next;
     });
   }
 
-  function field(name: FieldName, hintId?: string) {
+  function validateFields(form: HTMLFormElement, names: FieldName[], imageCount = images.length) {
+    updateErrors(validate(new FormData(form), postType, imageCount, availableCategories), ...names);
+  }
+
+  function touchField(name: FieldName, form: HTMLFormElement | null) {
+    if (submitting || !form || touchedFields.current.has(name)) return;
+    touchedFields.current.add(name);
+    validateFields(form, [name]);
+  }
+
+  function field(
+    name: FieldName,
+    hintId?: string,
+    updateValue?: (value: string) => void,
+    groupAmount = false,
+  ) {
     return {
       id: name,
       name,
@@ -186,7 +265,32 @@ function CreatePostForm({ client }: { client: AuthApi }) {
       'aria-invalid': Boolean(errors[name]),
       'aria-describedby':
         [hintId, errors[name] && `${name}-error`].filter(Boolean).join(' ') || undefined,
-      onChange: () => clearErrors(name, ...(name === 'budgetMin' ? (['budgetMax'] as const) : [])),
+      onBlur: (
+        event: React.FocusEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+      ) => touchField(name, event.currentTarget.form),
+      onChange: (
+        event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+      ) => {
+        const input = event.currentTarget;
+        if (groupAmount && input instanceof HTMLInputElement && !formatAmountInput(input)) return;
+        const { value, form } = input;
+        updateValue?.(value);
+        if (!denied) setSubmitError('');
+        if (!value.trim()) touchedFields.current.add(name);
+        const names = touchedFields.current.has(name) ? [name] : [];
+        if (name === 'budgetMin' && touchedFields.current.has('budgetMax')) names.push('budgetMax');
+        if (form && names.length) validateFields(form, names);
+      },
+    };
+  }
+
+  function amountField(name: AmountName, value: string, updateValue: (value: string) => void) {
+    return {
+      ...field(name, undefined, updateValue, true),
+      value,
+      inputMode: 'decimal' as const,
+      lang: 'vi',
+      onKeyDown: skipGroupingSeparator,
     };
   }
 
@@ -206,14 +310,20 @@ function CreatePostForm({ client }: { client: AuthApi }) {
       else accepted.push({ id: nextImageId.current++, file });
     }
 
-    clearErrors('images');
+    const { form } = event.currentTarget;
+    if (!denied) setSubmitError('');
+    touchedFields.current.add('images');
+    if (form) validateFields(form, ['images'], images.length + accepted.length);
     setImages((current) => [...current, ...accepted]);
     setImageNotice([...notices].join(' '));
   }
 
   function removeImage(id: number) {
-    clearErrors('images');
-    setImages((current) => current.filter((image) => image.id !== id));
+    const remaining = images.filter((image) => image.id !== id);
+    const form = imageInput.current?.form;
+    if (!denied) setSubmitError('');
+    if (form) validateFields(form, ['images'], remaining.length);
+    setImages(remaining);
     setImageNotice('');
     imageInput.current?.focus();
   }
@@ -232,7 +342,11 @@ function CreatePostForm({ client }: { client: AuthApi }) {
     setSubmitError('');
     focusErrors.current = hasIssues;
     setErrors(issues);
-    if (hasIssues) return;
+    if (hasIssues) {
+      setShowErrorSummary(true);
+      for (const name of fieldNames) if (issues[name]) touchedFields.current.add(name);
+      return;
+    }
 
     const controller = new AbortController();
     submitRequest.current = controller;
@@ -249,8 +363,14 @@ function CreatePostForm({ client }: { client: AuthApi }) {
       if (controller.signal.aborted) return;
       setCreatedPost(result);
       setTitle('');
+      setProvince('');
+      setPrice('');
+      setBudgetMin('');
+      setBudgetMax('');
       setImages([]);
       setImageNotice('');
+      setShowErrorSummary(false);
+      touchedFields.current.clear();
     } catch (error) {
       if (controller.signal.aborted) return;
       if (error instanceof ApiError && error.status === 401) {
@@ -274,6 +394,8 @@ function CreatePostForm({ client }: { client: AuthApi }) {
         }
         if (Object.keys(fieldErrors).length) {
           focusErrors.current = true;
+          setShowErrorSummary(true);
+          for (const name of fieldNames) if (fieldErrors[name]) touchedFields.current.add(name);
           setErrors(fieldErrors);
           return;
         }
@@ -318,7 +440,7 @@ function CreatePostForm({ client }: { client: AuthApi }) {
 
   return (
     <form className={styles.form} onSubmit={submit} aria-busy={submitting} noValidate>
-      {invalidFields.length > 0 && (
+      {showErrorSummary && invalidFields.length > 0 && (
         <section
           ref={errorSummary}
           className={styles.errorSummary}
@@ -337,42 +459,52 @@ function CreatePostForm({ client }: { client: AuthApi }) {
         </section>
       )}
 
-      <fieldset className={styles.typeSection} disabled={submitting}>
-        <legend>Loại tin</legend>
-        <div className={styles.typeOptions}>
-          {postTypes.map((type) => (
-            <label key={type.value} className={styles.typeOption}>
-              <input
-                type="radio"
-                name="postType"
-                value={type.value}
-                checked={postType === type.value}
-                onChange={() => {
-                  setPostType(type.value);
-                  clearErrors('price', 'condition', 'budgetMin', 'budgetMax', 'images');
-                }}
-              />
-              <span>
-                <strong>{type.label}</strong>
-                <small>{type.hint}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
       <div className={styles.columns}>
         <section className={styles.card} aria-labelledby="post-information-title">
           <h2 id="post-information-title">Thông tin tin đăng</h2>
+          <fieldset className={styles.typeSection} disabled={submitting}>
+            <legend>Loại tin</legend>
+            <div className={styles.typeOptions}>
+              {postTypes.map((type) => (
+                <label key={type.value} className={styles.typeOption}>
+                  <input
+                    type="radio"
+                    name="postType"
+                    value={type.value}
+                    checked={postType === type.value}
+                    onChange={() => {
+                      setPostType(type.value);
+                      setPrice('');
+                      setBudgetMin('');
+                      setBudgetMax('');
+                      if (!denied) setSubmitError('');
+                      const typeFields = [
+                        'price',
+                        'condition',
+                        'budgetMin',
+                        'budgetMax',
+                        'images',
+                      ] as const;
+                      for (const name of typeFields) touchedFields.current.delete(name);
+                      updateErrors({}, ...typeFields);
+                    }}
+                  />
+                  <span>
+                    <strong>{type.label}</strong>
+                    <small>{type.hint}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <div className={styles.field}>
-            <label htmlFor="title">Tiêu đề</label>
+            <label htmlFor="title">
+              Tiêu đề
+              <RequiredMark />
+            </label>
             <input
-              {...field('title', 'post-title-count')}
+              {...field('title', 'post-title-count', setTitle)}
               value={title}
-              onChange={(event) => {
-                setTitle(event.currentTarget.value);
-                clearErrors('title');
-              }}
               maxLength={titleLimit}
               required
             />
@@ -383,7 +515,10 @@ function CreatePostForm({ client }: { client: AuthApi }) {
           </div>
           <div className={styles.pairedFields}>
             <div className={styles.field}>
-              <label htmlFor="categoryId">Danh mục</label>
+              <label htmlFor="categoryId">
+                Danh mục
+                <RequiredMark />
+              </label>
               <select
                 {...field('categoryId', categoryHintId)}
                 defaultValue=""
@@ -424,15 +559,26 @@ function CreatePostForm({ client }: { client: AuthApi }) {
               )}
             </div>
             <div className={styles.field}>
-              <label htmlFor="province">Tỉnh / Thành phố</label>
-              <input {...field('province')} maxLength={100} required />
+              <label id="province-label" htmlFor="province">
+                Tỉnh / Thành phố
+                <RequiredMark />
+              </label>
+              <ProvinceSelect
+                id="province"
+                value={province}
+                disabled={submitting}
+                invalid={Boolean(errors.province)}
+                describedBy={errors.province ? 'province-error' : undefined}
+                onChange={(value) => {
+                  setProvince(value);
+                  touchedFields.current.add('province');
+                  if (!denied) setSubmitError('');
+                  updateErrors({}, 'province');
+                }}
+                onLeave={(form) => touchField('province', form)}
+              />
               <FieldError name="province" errors={errors} />
             </div>
-          </div>
-          <div className={styles.field}>
-            <label htmlFor="description">Mô tả</label>
-            <textarea {...field('description')} rows={4} required />
-            <FieldError name="description" errors={errors} />
           </div>
 
           {isSell ? (
@@ -440,19 +586,22 @@ function CreatePostForm({ client }: { client: AuthApi }) {
               <legend>Giá và tình trạng</legend>
               <div className={styles.pairedFields}>
                 <div className={styles.field}>
-                  <label htmlFor="price">Giá bán (₫)</label>
+                  <label htmlFor="price">
+                    Giá bán (₫)
+                    <RequiredMark />
+                  </label>
                   <input
-                    {...field('price')}
-                    type="number"
-                    inputMode="decimal"
-                    min="0.01"
-                    step="any"
+                    {...amountField('price', price, setPrice)}
+                    placeholder="Ví dụ: 150.000"
                     required
                   />
                   <FieldError name="price" errors={errors} />
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="condition">Tình trạng sản phẩm</label>
+                  <label htmlFor="condition">
+                    Tình trạng sản phẩm
+                    <RequiredMark />
+                  </label>
                   <input {...field('condition')} maxLength={255} required />
                   <FieldError name="condition" errors={errors} />
                 </div>
@@ -472,113 +621,143 @@ function CreatePostForm({ client }: { client: AuthApi }) {
               <legend>Khoảng ngân sách</legend>
               <div className={styles.pairedFields}>
                 <div className={styles.field}>
-                  <label htmlFor="budgetMin">Ngân sách từ (₫)</label>
-                  <input
-                    {...field('budgetMin')}
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="any"
-                    required
-                  />
+                  <label htmlFor="budgetMin">
+                    Ngân sách từ (₫)
+                    <RequiredMark />
+                  </label>
+                  <input {...amountField('budgetMin', budgetMin, setBudgetMin)} required />
                   <FieldError name="budgetMin" errors={errors} />
                 </div>
                 <div className={styles.field}>
-                  <label htmlFor="budgetMax">Ngân sách đến (₫)</label>
-                  <input
-                    {...field('budgetMax')}
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="any"
-                    required
-                  />
+                  <label htmlFor="budgetMax">
+                    Ngân sách đến (₫)
+                    <RequiredMark />
+                  </label>
+                  <input {...amountField('budgetMax', budgetMax, setBudgetMax)} required />
                   <FieldError name="budgetMax" errors={errors} />
                 </div>
               </div>
             </fieldset>
           )}
+          <div className={`${styles.field} ${styles.descriptionField}`}>
+            <label htmlFor="description">
+              Mô tả
+              <RequiredMark />
+            </label>
+            <textarea {...field('description')} rows={4} required />
+            <FieldError name="description" errors={errors} />
+          </div>
         </section>
 
-        <section className={`${styles.card} ${styles.images}`} aria-labelledby="post-images-title">
-          <h2 id="post-images-title">{isSell ? 'Ảnh sản phẩm' : 'Ảnh tham khảo'}</h2>
-          <p id="post-images-hint" className={styles.hint}>
-            {isSell ? 'Thêm từ 1 đến 5 ảnh.' : 'Không bắt buộc. Tối đa 5 ảnh.'} JPEG, PNG hoặc WebP
-            · 10 MiB mỗi ảnh.
-          </p>
-          <label className={styles.imagePicker}>
-            <input
-              ref={imageInput}
-              id="images"
-              name="images"
-              type="file"
-              multiple
-              disabled={submitting}
-              accept={imageTypes.join(',')}
-              aria-labelledby="post-image-picker-label"
-              aria-invalid={Boolean(errors.images || imageNotice)}
-              aria-describedby={[
-                'post-images-hint',
-                errors.images && 'images-error',
-                imageNotice && 'post-image-notice',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onChange={pickImages}
-            />
-            <span aria-hidden="true">+</span>
-            <span id="post-image-picker-label">Chọn ảnh</span>
-          </label>
-          <p className={styles.imageCount} role="status">
-            {images.length}/{maxImages} ảnh
-          </p>
-          <FieldError name="images" errors={errors} />
-          {imageNotice && (
-            <p id="post-image-notice" className={styles.fieldError} role="alert">
-              {imageNotice}
+        <div className={styles.formAside}>
+          {!isSell && (
+            <section className={styles.card} aria-labelledby="buy-preview-title">
+              <h2 id="buy-preview-title">Xem trước nhu cầu</h2>
+              <div className={styles.buyPreview}>
+                <span className={styles.buyLabel}>Tìm mua</span>
+                <p className={styles.previewTitle}>{title.trim() || 'Tiêu đề tin của bạn'}</p>
+                {validBudget ? (
+                  <p className={styles.previewBudget}>
+                    {currency.format(minimum)} – {currency.format(maximum)}
+                  </p>
+                ) : (
+                  <p className={styles.previewHint}>Nhập khoảng ngân sách hợp lệ để xem trước.</p>
+                )}
+                {province.trim() && <p className={styles.previewHint}>{province.trim()}</p>}
+              </div>
+            </section>
+          )}
+
+          <section
+            className={`${styles.card} ${styles.images}`}
+            aria-labelledby="post-images-title"
+          >
+            <h2 id="post-images-title">
+              {isSell ? 'Ảnh sản phẩm' : 'Ảnh tham khảo'}
+              {isSell && <RequiredMark />}
+            </h2>
+            <label
+              className={styles.imagePicker}
+              data-invalid={Boolean(errors.images || imageNotice)}
+            >
+              <input
+                ref={imageInput}
+                id="images"
+                name="images"
+                type="file"
+                multiple
+                disabled={submitting}
+                accept={imageTypes.join(',')}
+                aria-labelledby="post-image-picker-label"
+                aria-invalid={Boolean(errors.images || imageNotice)}
+                aria-describedby={[
+                  'post-images-hint',
+                  errors.images && 'images-error',
+                  imageNotice && 'post-image-notice',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onBlur={(event) => touchField('images', event.currentTarget.form)}
+                onChange={pickImages}
+              />
+              <span aria-hidden="true">+</span>
+              <span id="post-image-picker-label">Chọn ảnh</span>
+            </label>
+            <p id="post-images-hint" className={styles.imageHint}>
+              {isSell ? 'Thêm từ 1 đến 5 ảnh.' : 'Không bắt buộc. Tối đa 5 ảnh.'} JPEG, PNG hoặc
+              WebP · 10 MiB mỗi ảnh.
             </p>
-          )}
-          {images.length > 0 && (
-            <ul className={styles.imageList}>
-              {images.map(({ id, file }) => (
-                <li key={id} className={styles.imageTile}>
-                  <ImagePreview file={file} />
-                  <span className={styles.filename} title={file.name}>
-                    {file.name}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`Bỏ ảnh ${file.name}`}
-                    disabled={submitting}
-                    onClick={() => removeImage(id)}
-                  >
-                    Bỏ ảnh
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+            <p className={styles.imageCount} role="status">
+              {images.length}/{maxImages} ảnh
+            </p>
+            <FieldError name="images" errors={errors} />
+            {imageNotice && (
+              <p id="post-image-notice" className={styles.fieldError} role="alert">
+                {imageNotice}
+              </p>
+            )}
+            {images.length > 0 && (
+              <ul className={styles.imageList}>
+                {images.map(({ id, file }) => (
+                  <li key={id} className={styles.imageTile}>
+                    <ImagePreview file={file} />
+                    <span className={styles.filename} title={file.name}>
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Bỏ ảnh ${file.name}`}
+                      disabled={submitting}
+                      onClick={() => removeImage(id)}
+                    >
+                      Bỏ ảnh
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <div className={styles.actions}>
-        {submitError && (
-          <p className={styles.fieldError} role="alert">
-            {submitError}
-          </p>
-        )}
-        {denied && (
-          <Link className={styles.backLink} href="/verification">
-            Xem hồ sơ xác thực
-          </Link>
-        )}
-        <button
-          className={styles.submit}
-          type="submit"
-          disabled={submitting || availableCategories.length === 0 || denied}
-        >
-          {submitting ? 'Đang đăng tin…' : isSell ? 'Đăng tin bán' : 'Đăng tin tìm mua'}
-        </button>
+          <div className={styles.actions}>
+            {submitError && (
+              <p className={styles.fieldError} role="alert">
+                {submitError}
+              </p>
+            )}
+            {denied && (
+              <Link className={styles.backLink} href="/verification">
+                Xem hồ sơ xác thực
+              </Link>
+            )}
+            <button
+              className={styles.submit}
+              type="submit"
+              disabled={submitting || availableCategories.length === 0 || denied}
+            >
+              {submitting ? 'Đang đăng tin…' : isSell ? 'Đăng tin bán' : 'Đăng tin tìm mua'}
+            </button>
+          </div>
+        </div>
       </div>
     </form>
   );
@@ -587,6 +766,7 @@ function CreatePostForm({ client }: { client: AuthApi }) {
 export function CreatePostPage({ client = authApi }: { client?: AuthApi }) {
   const session = useSession(client);
   const status = session?.user.verificationStatus;
+  const isAdmin = session?.user.role === 'ADMIN';
 
   return (
     <MarketplaceShell client={client}>
@@ -595,8 +775,16 @@ export function CreatePostPage({ client = authApi }: { client?: AuthApi }) {
           <span aria-hidden="true">‹</span> Trang chủ
         </Link>
         <h1 className={styles.heading}>Đăng tin</h1>
-        {status === 'APPROVED' ? (
+        {canPublishMarketplacePosts(session?.user) ? (
           <CreatePostForm client={client} />
+        ) : isAdmin ? (
+          <section className={styles.card} aria-labelledby="posting-access-title">
+            <h2 id="posting-access-title">Đăng tin dành cho sinh viên đã xác thực</h2>
+            <p>Bạn có thể lướt và xem chi tiết các tin hiện có trên Marketplace.</p>
+            <Link className={styles.backLink} href="/">
+              Xem Marketplace
+            </Link>
+          </section>
         ) : (
           <section className={styles.card} aria-labelledby="posting-access-title">
             <h2 id="posting-access-title">

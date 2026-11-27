@@ -40,6 +40,91 @@ const limits: Record<keyof EvidenceFields, number> = {
   province: 100,
 };
 
+const statusCopy = {
+  PENDING: {
+    label: 'Chờ xác thực',
+    title: 'Hồ sơ đã được tiếp nhận',
+    description: 'Bạn có thể xem bảng tin giới hạn trong khi chờ Admin xét duyệt.',
+  },
+  APPROVED: {
+    label: 'Đã xác thực',
+    title: 'Bạn đã được xác thực',
+    description: 'Hồ sơ đã được Admin duyệt. Bạn có thể sử dụng Marketplace.',
+  },
+  REJECTED: {
+    label: 'Cần bổ sung hồ sơ',
+    title: 'Hồ sơ cần bổ sung',
+    description: 'Cập nhật thông tin và chọn ảnh thẻ mới trước khi nộp lại.',
+  },
+  SUSPENDED: {
+    label: 'Đình chỉ',
+    title: 'Tài khoản bị đình chỉ',
+    description: 'Quyền truy cập Marketplace bị hạn chế khi tài khoản đang bị đình chỉ.',
+  },
+};
+
+const submittedDateFormat = new Intl.DateTimeFormat('vi-VN', {
+  dateStyle: 'medium',
+  timeZone: 'Asia/Ho_Chi_Minh',
+});
+
+function VerificationStatusCard({
+  state,
+  submitting,
+  onRefresh,
+}: {
+  state: VerificationState;
+  submitting: boolean;
+  onRefresh: () => void;
+}) {
+  const awaitingSubmission = state.status === 'PENDING' && !state.submittedAt;
+  const status = awaitingSubmission
+    ? {
+        label: 'Chưa nộp hồ sơ',
+        title: 'Hoàn thiện hồ sơ sinh viên',
+        description: 'Điền thông tin và chọn ảnh thẻ sinh viên để gửi Admin xét duyệt.',
+      }
+    : statusCopy[state.status];
+  const submittedDate = Date.parse(state.submittedAt ?? '');
+  const canVisitFeed = state.status === 'PENDING' || state.status === 'APPROVED';
+
+  return (
+    <section
+      className={styles.statusCard}
+      data-status={state.status}
+      aria-labelledby="verification-status-title"
+    >
+      <div className={styles.statusSummary}>
+        <span className={styles.statusBadge}>{status.label}</span>
+        <h2 id="verification-status-title">{status.title}</h2>
+        <p>{status.description}</p>
+        {Number.isFinite(submittedDate) && (
+          <p className={styles.submittedDate}>
+            Đã nộp:{' '}
+            <time dateTime={state.submittedAt}>{submittedDateFormat.format(submittedDate)}</time>
+          </p>
+        )}
+      </div>
+      <div className={styles.statusActions}>
+        {canVisitFeed && (
+          <Link href="/" className={styles.statusLink}>
+            {state.status === 'PENDING' ? 'Xem bảng tin giới hạn' : 'Về trang chủ'}
+          </Link>
+        )}
+        <button
+          type="button"
+          className={styles.textButton}
+          disabled={submitting}
+          onClick={onRefresh}
+        >
+          Kiểm tra lại trạng thái
+        </button>
+      </div>
+      {state.reason && <p className={styles.reason}>Lý do: {state.reason}</p>}
+    </section>
+  );
+}
+
 export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
   const session = useSession(client);
   const [state, setState] = useState<VerificationState | null>(null);
@@ -130,18 +215,20 @@ export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
       if (!request.signal.aborted) setSubmitting(false);
     }
   }
-  const canSubmit = state && ['PENDING', 'REJECTED'].includes(state.status);
+  const canSubmit = state?.status === 'PENDING' || state?.status === 'REJECTED';
   return (
     <MarketplaceShell client={client}>
-      <div className={styles.pageHeading}>
-        <p className={styles.eyebrow}>THÊM MỘT BƯỚC ĐỂ KẾT NỐI</p>
+      <header className={styles.pageHeading}>
         <h1>Hồ sơ xác thực sinh viên</h1>
-        <p>Xác thực email là bước đầu. Hoàn thiện hồ sơ để Admin xác nhận bạn là sinh viên.</p>
-      </div>
+        <p>Theo dõi xét duyệt và gửi minh chứng sinh viên.</p>
+      </header>
       {loading ? (
-        <p role="status">Đang tải trạng thái xác thực…</p>
+        <div className={styles.verificationLoading} role="status">
+          Đang tải trạng thái xác thực…
+        </div>
       ) : !state ? (
         <div className={styles.state}>
+          <h2>Chưa tải được hồ sơ</h2>
           <p role="alert">{error}</p>
           <button
             type="button"
@@ -152,116 +239,74 @@ export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
           </button>
         </div>
       ) : (
-        <div className={styles.verificationLayout}>
-          <aside className={styles.statusCard}>
-            <span className={styles.statusBadge}>
-              {state.status === 'PENDING'
-                ? 'Chờ xác thực'
-                : state.status === 'APPROVED'
-                  ? 'Đã xác thực'
-                  : state.status === 'REJECTED'
-                    ? 'Cần bổ sung hồ sơ'
-                    : 'Tài khoản bị đình chỉ'}
-            </span>
-            <h2>
-              {state.status === 'APPROVED'
-                ? 'Bạn đã được xác thực'
-                : state.submittedAt
-                  ? 'Hồ sơ đã được tiếp nhận'
-                  : 'Hoàn thiện thông tin của bạn'}
-            </h2>
-            <p>
-              {state.status === 'APPROVED'
-                ? 'Hồ sơ đã được Admin duyệt. Ảnh thẻ và minh chứng không hiển thị lại tại đây.'
-                : state.status === 'REJECTED'
-                  ? 'Vui lòng kiểm tra lý do và nộp lại hồ sơ để được xét duyệt.'
-                  : 'Trong thời gian chờ duyệt, bạn vẫn có thể xem bảng tin giới hạn.'}
+        <div className={styles.verificationContent}>
+          <VerificationStatusCard
+            state={state}
+            submitting={submitting}
+            onRefresh={() => {
+              setNotice('');
+              setAttempt((value) => value + 1);
+            }}
+          />
+          {notice && (
+            <p className={styles.successNotice} role="status">
+              {notice}
             </p>
-            {state.reason && <p className={styles.reason}>Lý do: {state.reason}</p>}
-            {state.submittedAt && (
-              <p>
-                Đã nộp:{' '}
-                {new Intl.DateTimeFormat('vi-VN', {
-                  dateStyle: 'medium',
-                  timeZone: 'Asia/Ho_Chi_Minh',
-                }).format(new Date(state.submittedAt))}
-              </p>
-            )}
-            {['PENDING', 'APPROVED'].includes(state.status) && (
-              <Link href="/" className={styles.primaryLink}>
-                {state.status === 'PENDING' ? 'Xem bảng tin giới hạn' : 'Về trang chủ'}{' '}
-                <span aria-hidden="true">→</span>
-              </Link>
-            )}
-            <button
-              type="button"
-              className={styles.textButton}
-              disabled={submitting}
-              onClick={() => {
-                setNotice('');
-                setAttempt((value) => value + 1);
-              }}
+          )}
+          {canSubmit && (
+            <form
+              ref={form}
+              className={styles.verificationLayout}
+              method="post"
+              encType="multipart/form-data"
+              noValidate
+              onSubmit={submit}
+              aria-busy={submitting}
             >
-              Kiểm tra lại trạng thái
-            </button>
-          </aside>
-          <div className={styles.formCard}>
-            {notice && (
-              <p className={styles.successNotice} role="status">
-                {notice}
-              </p>
-            )}
-            {error && (
-              <p className={styles.errorNotice} role="alert">
-                {error}
-              </p>
-            )}
-            {canSubmit ? (
-              <>
-                <h2>{state.submittedAt ? 'Cập nhật và nộp lại hồ sơ' : 'Thông tin sinh viên'}</h2>
+              <section className={styles.formCard} aria-labelledby="verification-fields-title">
+                <h2 id="verification-fields-title">
+                  {state.status === 'REJECTED' || state.submittedAt
+                    ? 'Cập nhật và nộp lại hồ sơ'
+                    : 'Thông tin sinh viên'}
+                </h2>
                 <p className={styles.muted}>
-                  Trường, mã sinh viên và ảnh thẻ là bắt buộc. Bạn có thể bổ sung các thông tin còn
-                  lại để hỗ trợ xét duyệt.
+                  Các trường có dấu * là bắt buộc. Thông tin bổ sung giúp Admin đối chiếu hồ sơ.
                 </p>
-                <form
-                  ref={form}
-                  method="post"
-                  encType="multipart/form-data"
-                  noValidate
-                  onSubmit={submit}
-                  aria-busy={submitting}
-                >
-                  <div className={styles.fieldGrid}>
-                    {(Object.keys(fields) as (keyof EvidenceFields)[]).map((field) => (
-                      <div className={styles.field} key={field}>
-                        <label htmlFor={`evidence-${field}`}>
-                          {labels[field]}
-                          {field === 'school' || field === 'studentCode' ? ' *' : ''}
-                        </label>
-                        <input
-                          id={`evidence-${field}`}
-                          name={field}
-                          value={fields[field]}
-                          maxLength={limits[field]}
-                          required={field === 'school' || field === 'studentCode'}
-                          disabled={submitting}
-                          aria-invalid={Boolean(errors[field])}
-                          aria-describedby={errors[field] ? `error-${field}` : undefined}
-                          onChange={(event) => {
-                            setFields((current) => ({ ...current, [field]: event.target.value }));
-                            setErrors((current) => ({ ...current, [field]: undefined }));
-                          }}
-                        />
-                        {errors[field] && (
-                          <p id={`error-${field}`} className={styles.fieldError}>
-                            {errors[field]}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className={styles.upload}>
-                    <label htmlFor="evidence-cardImage">Ảnh thẻ sinh viên *</label>
+                <div className={styles.fieldGrid}>
+                  {(Object.keys(fields) as (keyof EvidenceFields)[]).map((field) => (
+                    <div className={styles.field} key={field}>
+                      <label htmlFor={`evidence-${field}`}>
+                        {labels[field]}
+                        {field === 'school' || field === 'studentCode' ? ' *' : ''}
+                      </label>
+                      <input
+                        id={`evidence-${field}`}
+                        name={field}
+                        value={fields[field]}
+                        maxLength={limits[field]}
+                        required={field === 'school' || field === 'studentCode'}
+                        disabled={submitting}
+                        aria-invalid={Boolean(errors[field])}
+                        aria-describedby={errors[field] ? `error-${field}` : undefined}
+                        onChange={(event) => {
+                          setFields((current) => ({ ...current, [field]: event.target.value }));
+                          setErrors((current) => ({ ...current, [field]: undefined }));
+                        }}
+                      />
+                      {errors[field] && (
+                        <p id={`error-${field}`} className={styles.fieldError}>
+                          {errors[field]}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className={styles.formCard} aria-labelledby="verification-evidence-title">
+                <h2 id="verification-evidence-title">Minh chứng sinh viên</h2>
+                <div className={styles.upload}>
+                  <label htmlFor="evidence-cardImage">Ảnh thẻ sinh viên *</label>
+                  <div className={styles.filePicker}>
                     <input
                       ref={input}
                       id="evidence-cardImage"
@@ -271,29 +316,43 @@ export function VerificationPage({ client = authApi }: { client?: AuthApi }) {
                       required
                       disabled={submitting}
                       aria-invalid={Boolean(errors.cardImage)}
-                      aria-describedby="image-help image-error"
+                      aria-describedby={errors.cardImage ? 'image-help image-error' : 'image-help'}
                       onChange={(event) => {
                         setImage(event.target.files?.[0] ?? null);
                         setErrors((current) => ({ ...current, cardImage: undefined }));
                       }}
                     />
-                    <p id="image-help">
-                      JPG, JPEG hoặc PNG, tối đa 10 MB. Ảnh chỉ phục vụ Admin xét duyệt, không hiển
-                      thị lại sau khi nộp. Trong bản mô phỏng, chỉ chọn ảnh giả.
-                    </p>
+                    <span aria-hidden="true">{image ? 'Đổi ảnh thẻ' : 'Chọn ảnh thẻ'}</span>
+                  </div>
+                  {image && <p className={styles.fileName}>Tệp đã chọn: {image.name}</p>}
+                  <p id="image-help" className={styles.muted}>
+                    JPG, JPEG hoặc PNG, tối đa 10 MB.
+                  </p>
+                  {errors.cardImage && (
                     <p id="image-error" className={styles.fieldError}>
                       {errors.cardImage}
                     </p>
-                  </div>
-                  <button className={styles.primaryButton} type="submit" disabled={submitting}>
-                    {submitting ? 'Đang nộp hồ sơ…' : 'Nộp hồ sơ xác thực'}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <p>Thông tin minh chứng được bảo vệ và không hiển thị trên trang này.</p>
-            )}
-          </div>
+                  )}
+                </div>
+                <p className={styles.privacyNote}>
+                  Chỉ Admin được xem ảnh khi xét duyệt.{' '}
+                  {client.mode === 'mock' && 'Trong bản mô phỏng, hãy dùng ảnh giả.'}
+                </p>
+                {error && (
+                  <p className={styles.errorNotice} role="alert">
+                    {error}
+                  </p>
+                )}
+                <button
+                  className={`${styles.primaryButton} ${styles.evidenceSubmit}`}
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Đang nộp hồ sơ…' : 'Nộp hồ sơ xác thực'}
+                </button>
+              </section>
+            </form>
+          )}
         </div>
       )}
     </MarketplaceShell>

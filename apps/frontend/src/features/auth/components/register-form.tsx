@@ -13,6 +13,10 @@ import styles from '../auth.module.css';
 type Step = 'email' | 'otp' | 'password';
 type Field = 'email' | 'code' | 'displayName' | 'password' | 'confirmPassword';
 type Errors = Partial<Record<Field, string>>;
+type AuthAction = 'request' | 'verify' | 'register';
+const OTP_LENGTH = 6;
+const OTP_AUTOVERIFY_DELAY_MS = 250;
+
 interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   id: Field;
   label: string;
@@ -20,7 +24,15 @@ interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   hint?: string;
 }
 
-function FieldInput({ id, label, error, hint, ...props }: FieldProps) {
+function FieldInput({
+  id,
+  label,
+  error,
+  hint,
+  'aria-describedby': describedBy,
+  ...props
+}: FieldProps) {
+  const helpId = error || hint ? `register-${id}-help` : undefined;
   return (
     <div className={styles.field}>
       <label htmlFor={`register-${id}`}>{label}</label>
@@ -29,13 +41,133 @@ function FieldInput({ id, label, error, hint, ...props }: FieldProps) {
         name={id}
         id={`register-${id}`}
         aria-invalid={Boolean(error)}
-        aria-describedby={error || hint ? `register-${id}-help` : undefined}
+        aria-describedby={[helpId, describedBy].filter(Boolean).join(' ') || undefined}
       />
       {(error || hint) && (
-        <p id={`register-${id}-help`} className={error ? styles.fieldError : styles.fieldHint}>
+        <p id={helpId} className={error ? styles.fieldError : styles.fieldHint}>
           {error || hint}
         </p>
       )}
+    </div>
+  );
+}
+
+function otpDigits(value: string) {
+  return value.replace(/[^0-9]/g, '').slice(0, OTP_LENGTH);
+}
+
+function OtpField({
+  entryRef,
+  value,
+  onChange,
+  disabled,
+  checking,
+  verified,
+  error,
+  hasRequestError,
+}: {
+  entryRef: React.Ref<HTMLDivElement>;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  checking: boolean;
+  verified: boolean;
+  error?: string;
+  hasRequestError: boolean;
+}) {
+  const [caret, setCaret] = useState<number | null>(null);
+  const activeSlot = caret === null ? null : Math.min(caret, value.length, OTP_LENGTH - 1);
+
+  function readCaret(input: HTMLInputElement) {
+    setCaret(input.selectionStart ?? input.value.length);
+  }
+
+  function updateCode(input: HTMLInputElement) {
+    const code = otpDigits(input.value);
+    if (input.value !== code) {
+      const cursor = input.selectionStart ?? input.value.length;
+      const position = otpDigits(input.value.slice(0, cursor)).length;
+      input.value = code;
+      input.setSelectionRange(position, position);
+    }
+    onChange(code);
+    readCaret(input);
+  }
+
+  function pasteCode(event: React.ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    if (checking || verified) return;
+    const input = event.currentTarget;
+    const digits = otpDigits(event.clipboardData.getData('text'));
+    if (!digits) return;
+    const wholeCode = digits.length === OTP_LENGTH;
+    const start = wholeCode ? 0 : (input.selectionStart ?? input.value.length);
+    const end = wholeCode ? input.value.length : (input.selectionEnd ?? start);
+    const space = OTP_LENGTH - (input.value.length - (end - start));
+    if (space <= 0) return;
+    input.setRangeText(digits.slice(0, space), start, end, 'end');
+    updateCode(input);
+  }
+
+  function selectSlot(event: React.MouseEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const { left, width } = input.getBoundingClientRect();
+    if (event.detail !== 1 || width === 0) return;
+    const slot = Math.floor(((event.clientX - left) / width) * OTP_LENGTH);
+    const start = Math.max(0, Math.min(slot, input.value.length, OTP_LENGTH - 1));
+    input.setSelectionRange(start, Math.min(start + 1, input.value.length));
+    readCaret(input);
+  }
+
+  return (
+    <div className={styles.field}>
+      <label htmlFor="register-code">Mã OTP</label>
+      <div
+        ref={entryRef}
+        className={styles.otpEntry}
+        data-invalid={Boolean(error)}
+        data-disabled={disabled || checking || verified}
+        data-verified={verified ? true : undefined}
+      >
+        {Array.from({ length: OTP_LENGTH }, (_, index) => (
+          <span
+            key={index}
+            className={styles.otpSlot}
+            aria-hidden="true"
+            data-active={activeSlot === index ? true : undefined}
+          >
+            {value[index]}
+          </span>
+        ))}
+        <input
+          className={styles.otpInput}
+          id="register-code"
+          name="code"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={OTP_LENGTH}
+          required
+          disabled={disabled}
+          readOnly={checking || verified}
+          value={value}
+          aria-invalid={Boolean(error)}
+          aria-describedby={
+            hasRequestError ? 'register-code-help register-otp-error' : 'register-code-help'
+          }
+          onChange={(event) => updateCode(event.currentTarget)}
+          onPaste={pasteCode}
+          onClick={selectSlot}
+          onFocus={(event) => readCaret(event.currentTarget)}
+          onSelect={(event) => readCaret(event.currentTarget)}
+          onBlur={() => setCaret(null)}
+        />
+      </div>
+      <p id="register-code-help" className={error ? styles.fieldError : styles.fieldHint}>
+        {error}
+      </p>
     </div>
   );
 }
@@ -54,12 +186,17 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
   const [errors, setErrors] = useState<Errors>({});
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<AuthAction | null>(null);
+  const otpAccepted = step === 'otp' && ticket !== null;
+  const loading = pendingAction !== null || otpAccepted;
+  const checkingOtp = step === 'otp' && pendingAction === 'verify' && !otpAccepted;
   const [showPassword, setShowPassword] = useState(false);
   const [session, setSession] = useState<AuthSession | null>(null);
   const form = useRef<HTMLFormElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const otpEntry = useRef<HTMLDivElement>(null);
   const request = useRef<AbortController | null>(null);
+  const autoVerifyTimer = useRef<ReturnType<typeof setTimeout>>();
   const busy = useRef(false);
   const mounted = useRef(true);
 
@@ -67,12 +204,33 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      clearTimeout(autoVerifyTimer.current);
       request.current?.abort();
     };
   }, []);
   useEffect(() => {
     heading.current?.focus();
   }, [step]);
+  useEffect(() => {
+    if (!otpAccepted) return;
+    const advance = () => {
+      setValues((current) => ({ ...current, code: '' }));
+      setStep('password');
+    };
+    const animations = otpEntry.current?.getAnimations?.({ subtree: true }) ?? [];
+    if (animations.length === 0) {
+      advance();
+      return;
+    }
+
+    let active = true;
+    void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+      if (active) advance();
+    });
+    return () => {
+      active = false;
+    };
+  }, [otpAccepted]);
   useEffect(() => {
     if (!ticket || session) return;
     const timer = setInterval(() => {
@@ -86,11 +244,13 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
     return () => clearInterval(timer);
   }, [ticket, session]);
 
-  const change = (field: Field) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setValues((current) => ({ ...current, [field]: event.target.value }));
+  function updateField(field: Field, value: string) {
+    setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
     setError('');
-  };
+  }
+  const change = (field: Field) => (event: React.ChangeEvent<HTMLInputElement>) =>
+    updateField(field, event.target.value);
   function invalid(next: Errors): boolean {
     setErrors(next);
     const first = Object.keys(next)[0];
@@ -98,7 +258,12 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
     (form.current?.elements.namedItem(first) as HTMLInputElement | null)?.focus();
     return true;
   }
+  function cancelAutoVerify() {
+    clearTimeout(autoVerifyTimer.current);
+    autoVerifyTimer.current = undefined;
+  }
   function resetVerification() {
+    cancelAutoVerify();
     setTicket(null);
     setValues((current) => ({ ...current, code: '', password: '', confirmPassword: '' }));
     setErrors({});
@@ -106,13 +271,10 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
     setNotice('');
     setShowPassword(false);
   }
-  async function run(
-    action: 'request' | 'verify' | 'register',
-    work: (signal: AbortSignal) => Promise<void>,
-  ) {
+  async function run(action: AuthAction, work: (signal: AbortSignal) => Promise<void>) {
     if (busy.current) return;
     busy.current = true;
-    setLoading(true);
+    setPendingAction(action);
     setError('');
     setNotice('');
     const controller = new AbortController();
@@ -130,10 +292,12 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
       }
     } finally {
       busy.current = false;
-      if (mounted.current) setLoading(false);
+      if (mounted.current) setPendingAction(null);
     }
   }
   async function sendOtp() {
+    if (otpAccepted) return;
+    cancelAutoVerify();
     const email = values.email.trim().toLowerCase();
     const emailError = emailValidation(email, true);
     if (invalid(emailError ? { email: emailError } : {})) return;
@@ -146,31 +310,39 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
       setStep('otp');
     });
   }
+  async function verifyOtp(code: string) {
+    cancelAutoVerify();
+    if (busy.current || otpAccepted) return;
+    if (
+      invalid(code.length !== OTP_LENGTH ? { code: 'Vui lòng nhập đủ 6 chữ số của mã OTP.' } : {})
+    )
+      return;
+    await run('verify', async (signal) => {
+      const result = await client.verifyOtp({ email: values.email, code }, signal);
+      if (!mounted.current || signal.aborted) return;
+      setTicket({ ...result, expiresAt: Date.now() + result.expiresIn * 1000 });
+      setErrors({});
+    });
+  }
+  function changeOtp(code: string) {
+    if (busy.current || otpAccepted || code === values.code) return;
+    cancelAutoVerify();
+    updateField('code', code);
+    if (code.length === OTP_LENGTH) {
+      autoVerifyTimer.current = setTimeout(() => {
+        void verifyOtp(code);
+      }, OTP_AUTOVERIFY_DELAY_MS);
+    }
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy.current) return;
+    if (busy.current || otpAccepted) return;
     if (step === 'email') {
       await sendOtp();
       return;
     }
     if (step === 'otp') {
-      const code = values.code.trim();
-      if (
-        invalid(
-          code.length < 4 || code.length > 12
-            ? { code: 'Vui lòng nhập mã OTP từ 4 đến 12 ký tự.' }
-            : {},
-        )
-      )
-        return;
-      await run('verify', async (signal) => {
-        const result = await client.verifyOtp({ email: values.email, code }, signal);
-        if (!mounted.current || signal.aborted) return;
-        setTicket({ ...result, expiresAt: Date.now() + result.expiresIn * 1000 });
-        setValues((current) => ({ ...current, code: '' }));
-        setErrors({});
-        setStep('password');
-      });
+      await verifyOtp(values.code);
       return;
     }
     if (!ticket || Date.now() >= ticket.expiresAt) {
@@ -211,37 +383,41 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
         <SessionResult session={session} registered />
       </>
     );
-  const steps: Step[] = ['email', 'otp', 'password'];
+  const steps: { key: Step; label: string }[] = [
+    { key: 'email', label: 'Email trường' },
+    { key: 'otp', label: 'OTP' },
+    { key: 'password', label: 'Mật khẩu' },
+  ];
+  const currentStepIndex = steps.findIndex(({ key }) => key === step);
   const titles: Record<Step, string> = {
     email: 'Tạo tài khoản sinh viên',
     otp: 'Xác thực email',
-    password: 'Hoàn tất tài khoản',
+    password: 'Tạo mật khẩu',
   };
   return (
     <>
-      <p className={styles.kicker}>BẮT ĐẦU MỘT VÒNG ĐỜI MỚI</p>
-      <h2 ref={heading} tabIndex={-1} className={styles.formTitle}>
+      <ol className={styles.steps} aria-label="Tiến trình đăng ký">
+        {steps.map(({ key, label }, index) => (
+          <li
+            key={key}
+            aria-current={step === key ? 'step' : undefined}
+            data-complete={index < currentStepIndex ? true : undefined}
+          >
+            <span aria-hidden="true">{index < currentStepIndex ? '✓' : index + 1}</span>
+            {label}
+          </li>
+        ))}
+      </ol>
+      <h1 ref={heading} tabIndex={-1} className={styles.formTitle}>
         {titles[step]}
-      </h2>
+      </h1>
       <p className={styles.formDescription}>
         {step === 'email'
           ? 'Tham gia cộng đồng bằng email trường của bạn.'
           : step === 'otp'
-            ? 'Nhập mã được gửi đến email trường để tiếp tục.'
-            : 'Email đã được xác thực. Hãy chọn tên và mật khẩu của bạn.'}
+            ? 'Nhập mã xác thực đã gửi đến email bên dưới.'
+            : 'Hãy chọn tên hiển thị và mật khẩu cho tài khoản của bạn.'}
       </p>
-      <ol className={styles.steps} aria-label="Tiến trình đăng ký">
-        {steps.map((item, index) => (
-          <li
-            key={item}
-            aria-current={step === item ? 'step' : undefined}
-            className={steps.indexOf(step) >= index ? styles.activeStep : undefined}
-          >
-            <span aria-hidden="true">{steps.indexOf(step) > index ? '✓' : index + 1}</span>
-            {['Email', 'Xác thực OTP', 'Mật khẩu'][index]}
-          </li>
-        ))}
-      </ol>
       <AuthModeNotice mode={client.mode} />
       {step !== 'email' && (
         <div className={styles.emailSummary}>
@@ -258,6 +434,11 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
             Đổi email
           </button>
         </div>
+      )}
+      {(checkingOtp || otpAccepted) && (
+        <p className={otpAccepted ? styles.otpAnnouncement : styles.otpFeedback} role="status">
+          {otpAccepted ? 'Mã OTP hợp lệ.' : 'Đang xác thực mã OTP…'}
+        </p>
       )}
       <form
         ref={form}
@@ -286,23 +467,15 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
           />
         )}
         {step === 'otp' && (
-          <FieldInput
-            id="code"
-            label="Mã OTP"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            spellCheck={false}
-            autoCapitalize="none"
-            minLength={4}
-            maxLength={12}
-            required
+          <OtpField
+            entryRef={otpEntry}
             value={values.code}
-            disabled={loading}
-            onChange={change('code')}
+            disabled={pendingAction === 'request'}
+            checking={checkingOtp}
+            verified={otpAccepted}
+            onChange={changeOtp}
             error={errors.code}
-            placeholder="Nhập mã xác thực"
-            hint="Bạn có thể dán toàn bộ mã. Kiểm tra cả thư mục Spam nếu chưa nhận được email."
+            hasRequestError={Boolean(error)}
           />
         )}
         {step === 'password' && ticket && (
@@ -346,15 +519,15 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
               error={errors.confirmPassword}
               placeholder="Nhập lại mật khẩu"
             />
-            <button
-              className={styles.textButton}
-              type="button"
-              disabled={loading}
-              aria-pressed={showPassword}
-              onClick={() => setShowPassword((current) => !current)}
-            >
-              {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-            </button>
+            <label className={styles.passwordVisibility}>
+              <input
+                type="checkbox"
+                checked={showPassword}
+                disabled={loading}
+                onChange={(event) => setShowPassword(event.currentTarget.checked)}
+              />
+              Hiện mật khẩu
+            </label>
           </>
         )}
         {notice && (
@@ -363,24 +536,14 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
           </p>
         )}
         {error && (
-          <p className={styles.errorNotice} role="alert">
+          <p
+            className={styles.errorNotice}
+            id={step === 'otp' ? 'register-otp-error' : undefined}
+            role="alert"
+          >
             {error}
           </p>
         )}
-        <button className={styles.submitButton} type="submit" disabled={loading}>
-          {loading ? (
-            <>
-              <span className={styles.spinner} aria-hidden="true" />
-              Đang xử lý…
-            </>
-          ) : step === 'email' ? (
-            'Gửi mã xác thực'
-          ) : step === 'otp' ? (
-            'Xác thực OTP'
-          ) : (
-            'Tạo tài khoản'
-          )}
-        </button>
         {step === 'otp' && (
           <div className={styles.resendRow}>
             <span>Chưa nhận được mã?</span>
@@ -394,6 +557,20 @@ export function RegisterForm({ client = authApi }: { client?: AuthApi }) {
             </button>
           </div>
         )}
+        <button className={styles.submitButton} type="submit" disabled={loading}>
+          {pendingAction ? (
+            <>
+              <span className={styles.spinner} aria-hidden="true" />
+              {step === 'otp' ? 'Xác thực OTP' : 'Đang xử lý…'}
+            </>
+          ) : step === 'email' ? (
+            'Gửi mã xác thực'
+          ) : step === 'otp' ? (
+            'Xác thực OTP'
+          ) : (
+            'Tạo tài khoản'
+          )}
+        </button>
       </form>
       <p className={styles.switchForm}>
         Đã có tài khoản? <Link href="/login">Đăng nhập</Link>

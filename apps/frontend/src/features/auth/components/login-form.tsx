@@ -87,21 +87,8 @@ export function LoginForm({ client = authApi }: { client?: AuthApi }) {
 
   return (
     <>
-      <span className={styles.formEmblem} aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            d="M7 10V7a5 5 0 0 1 10 0v3M6 10h12a1 1 0 0 1 1 1v9H5v-9a1 1 0 0 1 1-1Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path d="M12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </span>
-      <p className={styles.kicker}>CHÀO MỪNG BẠN TRỞ LẠI</p>
-      <h2 className={styles.formTitle}>Đăng nhập</h2>
-      <p className={styles.formDescription}>Tiếp tục kết nối với cộng đồng sinh viên của bạn.</p>
+      <h1 className={styles.formTitle}>Đăng nhập</h1>
+      <p className={styles.formDescription}>Sử dụng email trường đã đăng ký tài khoản.</p>
 
       <AuthModeNotice mode={client.mode} />
       <form
@@ -127,20 +114,16 @@ export function LoginForm({ client = authApi }: { client?: AuthApi }) {
             value={email}
             disabled={loading}
             aria-invalid={Boolean(fieldErrors.email)}
-            aria-describedby={fieldErrors.email ? 'login-email-error' : 'login-email-hint'}
+            aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
             onChange={(event) => {
               setEmail(event.target.value);
               setFieldErrors((current) => ({ ...current, email: undefined }));
               setError('');
             }}
           />
-          {fieldErrors.email ? (
+          {fieldErrors.email && (
             <p className={styles.fieldError} id="login-email-error">
               {fieldErrors.email}
-            </p>
-          ) : (
-            <p className={styles.fieldHint} id="login-email-hint">
-              Sử dụng email trường đã đăng ký tài khoản.
             </p>
           )}
         </div>
@@ -205,18 +188,7 @@ export function LoginForm({ client = authApi }: { client?: AuthApi }) {
               Đang đăng nhập…
             </>
           ) : (
-            <>
-              Đăng nhập
-              <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path
-                  d="M4 10h12m-5-5 5 5-5 5"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </>
+            'Đăng nhập'
           )}
         </button>
       </form>
@@ -224,24 +196,6 @@ export function LoginForm({ client = authApi }: { client?: AuthApi }) {
       <p className={styles.switchForm}>
         Chưa có tài khoản? <Link href="/register">Đăng ký ngay</Link>
       </p>
-      <div className={styles.trustNote}>
-        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path
-            d="m10 2 6 2v5c0 4-6 8-6 8s-6-4-6-8V4l6-2Z"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinejoin="round"
-          />
-          <path
-            d="m7 9 2 2 4-4"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        <span>Cộng đồng dành cho sinh viên xác thực</span>
-      </div>
     </>
   );
 }

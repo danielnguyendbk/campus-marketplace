@@ -31,7 +31,7 @@ function postImage(value: unknown): PostImage {
 
 function postDetail(value: unknown): PostDetail {
   if (!isRecord(value)) throw invalidPost();
-  const { id, title, description, categoryId, province, status, createdAt, images } = value;
+  const { id, title, description, categoryId, province, status, createdAt, images, owner } = value;
   if (
     typeof id !== 'string' ||
     !postIdPattern.test(id) ||
@@ -49,6 +49,14 @@ function postDetail(value: unknown): PostDetail {
 
   const common = {
     id,
+    owner:
+      isRecord(owner) &&
+      typeof owner.id === 'string' &&
+      owner.id.trim() &&
+      typeof owner.displayName === 'string' &&
+      owner.displayName.trim()
+        ? { id: owner.id, displayName: owner.displayName }
+        : undefined,
     title,
     description,
     categoryId,
