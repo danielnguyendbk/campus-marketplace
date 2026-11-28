@@ -6,6 +6,7 @@ import { StorageModule } from './common/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { FeedModule } from './modules/feed/feed.module';
 import { HealthModule } from './modules/health/health.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { UserModule } from './modules/user/user.module';
@@ -31,6 +32,7 @@ import { VerificationModule } from './modules/verification/verification.module';
     VerificationModule,
     ChatModule,
     UserModule,
+    FeedModule,
   ],
 })
 export class AppModule {}
