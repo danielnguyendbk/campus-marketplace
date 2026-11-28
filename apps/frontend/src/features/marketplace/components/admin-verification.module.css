@@ -1,325 +1,409 @@
+.workspace {
+  --admin-ink: #102c40;
+  --admin-muted: #4a6072;
+  --admin-border: #d4e0e9;
+  --admin-control-border: #72899a;
+  --admin-warning-text: color-mix(in srgb, var(--campus-warning) 84%, #000);
+  --admin-warning-surface: color-mix(in srgb, var(--campus-warning) 8%, #fff);
+  --admin-success-surface: color-mix(in srgb, var(--campus-success) 8%, #fff);
+  --admin-danger-surface: color-mix(in srgb, var(--campus-danger) 8%, #fff);
+  color: var(--admin-ink);
+}
 .heading {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
-
 .heading h1 {
-  margin: 0 0 6px;
-  font-size: clamp(1.75rem, 4vw, 2.35rem);
-  line-height: 1.2;
+  margin-bottom: 6px;
+  font-size: clamp(27px, 4vw, 36px);
   letter-spacing: -0.035em;
+  line-height: 1.15;
 }
-
 .heading p,
-.placeholder p,
 .profile p,
 .evidence p,
 .decision p {
-  margin: 0;
-  color: #505f77;
-  line-height: 1.5;
+  color: var(--admin-muted);
+  font-size: 14px;
+  line-height: 1.55;
 }
-
 .layout {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
-
-.layout > *,
-.panel,
-.queueHeader select {
-  min-width: 0;
+.statistics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
-
-.panel,
-.placeholder {
+.statCard {
+  padding: 13px 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
   background: #fff;
-  border: 1px solid #dfe4ed;
-  border-radius: 16px;
 }
-
-.placeholder {
-  padding: 28px;
-  border-style: dashed;
+.statCard dt {
+  color: var(--admin-muted);
+  font-size: 13px;
 }
-
-.panel h2,
-.placeholder h2 {
-  margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.35;
+.statCard dd {
+  margin-top: 3px;
+  color: var(--campus-primary);
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
-
-.placeholder p {
+.statCard[data-status='PENDING'] dd {
+  color: var(--admin-warning-text);
+}
+.statCard[data-status='APPROVED'] dd {
+  color: var(--campus-success);
+}
+.statCard:is([data-status='REJECTED'], [data-status='SUSPENDED']) dd {
+  color: var(--campus-danger);
+}
+.summaryError {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
   margin-top: 8px;
+  color: var(--campus-danger);
+  font-size: 13px;
 }
-
+.panel {
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  background: #fff;
+}
+.panel h2 {
+  font-size: 20px;
+  line-height: 1.3;
+}
 .queueHeader,
 .detailHeader,
 .detailBody,
+.pagination,
 .state,
-.loading,
-.pagination {
-  padding: 16px;
+.loading {
+  padding: clamp(14px, 2.5vw, 22px);
 }
-
 .queueHeader,
 .detailHeader {
-  border-bottom: 1px solid #e6eaf1;
+  border-bottom: 1px solid var(--admin-border);
 }
-
-.queueHeader label {
-  display: block;
-  margin: 12px 0 5px;
-  font-size: 0.875rem;
+.filterBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 16px;
+  margin-top: 6px;
+}
+.filterBar button {
+  min-height: 44px;
+  padding: 7px 1px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 13px;
   font-weight: 700;
+  cursor: pointer;
 }
-
-.queueHeader select,
+.filterBar button:hover:not(:disabled) {
+  color: var(--campus-primary);
+}
+.filterBar button[aria-pressed='true'] {
+  border-bottom-color: var(--campus-primary);
+  color: var(--campus-primary);
+}
+.mobileFilter {
+  display: none;
+  margin-top: 12px;
+}
+.mobileFilter label,
+.reasonField label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  font-weight: 750;
+}
+.mobileFilter select,
 .reasonField textarea {
   display: block;
   width: 100%;
-  padding: 8px 12px;
   min-height: 44px;
-  border: 1px solid #8996a9;
+  padding: 8px 12px;
+  border: 1px solid var(--admin-control-border);
   border-radius: 8px;
   background: #fff;
+  color: var(--admin-ink);
   font: inherit;
-  color: var(--navy);
 }
-
-.queue,
-.queue li {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.queue li + li {
-  border-top: 1px solid #e6eaf1;
-}
-
-.queue button {
-  display: grid;
-  gap: 5px;
+.queue {
   width: 100%;
-  padding: 12px 16px;
-  border: 0;
-  border-inline-start: 3px solid transparent;
-  background: #fff;
-  color: var(--navy);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
-
-.queue button:hover:not(:disabled),
-.queue button[aria-pressed='true'] {
-  background: #fff8e3;
+.queue .idColumn {
+  width: 12%;
 }
-
-.queue button[aria-pressed='true'] {
-  border-inline-start-color: #9b6c00;
+.idColumn code {
+  color: var(--campus-primary);
+  font-size: 12px;
 }
-
-.queue button:focus-visible {
-  outline-offset: -4px;
+.queue .schoolColumn {
+  width: 18%;
 }
-
-.rowTop,
-.detailHeader,
-.pagination,
-.actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+.schoolColumn .studentCode {
+  display: block;
+  color: var(--admin-muted);
+  font-size: 13px;
 }
-
-.rowTop {
-  justify-content: space-between;
+.queue .dateColumn {
+  width: 16%;
 }
-
-.email,
-.profile p,
-.fields dd,
-.rowTop strong {
+.queue .statusColumn {
+  width: 16%;
+}
+.queue .actionColumn {
+  width: 124px;
+  text-align: end;
+}
+.queue :is(th, td) {
+  padding: 12px clamp(11px, 1.8vw, 21px);
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 14px;
+  text-align: start;
+  vertical-align: middle;
   overflow-wrap: anywhere;
 }
-
-.email,
-.queue time,
-.pagination,
-.fields dt,
-.reasonField p {
-  color: #505f77;
-  font-size: 0.875rem;
+.queue th {
+  padding-block: 10px;
+  background: var(--campus-surface);
+  color: var(--campus-primary);
+  font-size: 13px;
+  font-weight: 750;
 }
-
+.queue tbody tr:focus-within {
+  background: var(--campus-surface);
+}
+.studentCell strong,
+.studentCell span {
+  display: block;
+}
+.studentCell span,
+.queue time {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+.studentCell .mobileDate {
+  display: none;
+}
 .status {
   display: inline-block;
-  width: fit-content;
+  max-width: 100%;
   padding: 4px 8px;
-  border-radius: 7px;
-  background: #fff2c8;
-  color: #654400;
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1.3;
+  border-radius: 6px;
+  background: var(--admin-warning-surface);
+  color: var(--admin-warning-text);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.35;
+  overflow-wrap: normal;
 }
-
 .status[data-status='APPROVED'] {
-  background: #e4f5e9;
-  color: #205b37;
+  background: var(--admin-success-surface);
+  color: var(--campus-success);
 }
-
-.status[data-status='REJECTED'] {
-  background: #fce8e7;
-  color: #8d2623;
+.status:is([data-status='REJECTED'], [data-status='SUSPENDED']) {
+  background: var(--admin-danger-surface);
+  color: var(--campus-danger);
 }
-
-.status[data-status='SUSPENDED'] {
-  background: #eef0f4;
-  color: #3e4758;
+.detailHeader,
+.pagination,
+.actions,
+.decisionBar,
+.profile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
-
+.detailHeader,
+.pagination,
+.decisionBar,
+.profile {
+  justify-content: space-between;
+}
 .pagination {
-  justify-content: space-between;
-  border-top: 1px solid #e6eaf1;
+  color: var(--admin-muted);
+  font-size: 14px;
 }
-
-.detailHeader {
-  justify-content: space-between;
-}
-
 .detailBody {
   display: grid;
-  gap: 20px;
+  gap: 16px;
 }
-
-.profile h3,
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+  align-items: start;
+  gap: 16px;
+}
+.infoCard,
+.evidence,
+.decision {
+  min-width: 0;
+  padding: clamp(14px, 2.2vw, 20px);
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.infoCard h3,
 .evidence h3,
 .decision h3 {
-  margin: 0 0 6px;
+  font-size: 16px;
+  line-height: 1.35;
 }
-
-.profile .status {
-  margin-top: 8px;
+.profile {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--campus-surface);
 }
-
+.profile > div {
+  min-width: 0;
+}
+.profile h4,
+.profile p,
+.fields dd {
+  overflow-wrap: anywhere;
+}
+.profile h4 {
+  margin-bottom: 3px;
+  font-size: 16px;
+}
 .fields {
-  margin: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 16px;
 }
-
-.fields dd {
-  margin: 3px 0 0;
+.fields dt {
+  color: var(--admin-muted);
+  font-size: 13px;
 }
-
+.fields dd {
+  margin-top: 3px;
+  font-size: 14px;
+  font-weight: 650;
+}
 .fields .wideField {
   grid-column: 1 / -1;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--admin-danger-surface);
 }
-
-.evidence,
-.notice {
-  border-radius: 10px;
-  padding: 12px 16px;
-  background: #f1f4f8;
+.fields .wideField dd {
+  color: var(--campus-danger);
 }
-
-.evidence h3 {
-  font-size: 0.9375rem;
+.evidence .evidencePrivacy {
+  margin-top: 4px;
+  color: var(--admin-muted);
+  font-size: 13px;
 }
-
+.evidenceFrame {
+  display: grid;
+  min-height: 180px;
+  margin-top: 12px;
+  padding: 12px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--campus-surface);
+}
 .evidenceImage {
   display: block;
   max-width: 100%;
-  max-height: 420px;
+  max-height: 440px;
   height: auto;
-  margin-top: 8px;
-  border-radius: 6px;
   object-fit: contain;
 }
-
-.evidence button {
+.evidenceError {
+  text-align: center;
+}
+.evidenceError p {
+  color: var(--campus-danger);
+}
+.evidenceError button {
   margin-top: 8px;
 }
-
 .decision {
-  border-top: 1px solid #e6eaf1;
-  padding-top: 16px;
+  background: var(--campus-surface);
 }
-
+.decision[data-decision='REJECTED'] {
+  background: var(--admin-danger-surface);
+}
+.decision form h3 {
+  margin-bottom: 8px;
+}
 .decision form .actions {
   margin-top: 12px;
 }
-
-.reasonField label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 700;
-}
-
 .reasonField textarea {
   resize: vertical;
 }
-
+.reasonField textarea[aria-invalid='true'] {
+  border-color: var(--campus-danger);
+}
 .reasonField p,
 .decision .error {
   margin-top: 6px;
+  font-size: 13px;
 }
-
-.state {
-  margin: 0;
+.state[role='alert'],
+.state [role='alert'],
+.decision .error {
+  color: var(--campus-danger);
 }
-
+.state p {
+  margin-bottom: 10px;
+}
 .loading {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0;
-  color: #505f77;
+  color: var(--admin-muted);
+  font-size: 14px;
 }
-
 .loading::before {
   content: '';
+  flex: none;
   width: 16px;
   height: 16px;
-  border: 2px solid #dfe4ed;
-  border-top-color: #8a6100;
+  border: 2px solid var(--admin-border);
+  border-top-color: var(--campus-primary);
   border-radius: 50%;
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .loading::before {
     animation: spin 800ms linear infinite;
   }
 }
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
-
-.state p {
-  margin: 0 0 10px;
-}
-
-.error,
-.reasonField .error,
-.state [role='alert'],
-.state[role='alert'] {
-  color: #8d2623;
-}
-
 .notice {
-  margin: 0 0 14px;
-  color: #205b37;
-  background: #e4f5e9;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--campus-success) 30%, #fff);
+  border-radius: 8px;
+  background: var(--admin-success-surface);
+  color: var(--campus-success);
+  font-size: 14px;
 }
-
 .visuallyHidden {
   position: absolute;
   width: 1px;
@@ -328,83 +412,118 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-
 .primaryButton,
 .secondaryButton,
-.dangerButton {
+.dangerButton,
+.rejectButton,
+.queueAction {
   min-height: 44px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--navy);
+  border-radius: 7px;
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 750;
   cursor: pointer;
 }
-
 .primaryButton {
-  background: var(--gold);
-}
-
-.primaryButton:hover:not(:disabled) {
-  background: #e7a900;
-}
-
-.secondaryButton {
-  border-color: #8996a9;
-  background: #fff;
-}
-
-.secondaryButton:hover:not(:disabled) {
-  background: #f1f4f8;
-}
-
-.dangerButton {
-  background: #a42b27;
+  background: var(--campus-primary);
   color: #fff;
 }
-
+.primaryButton:hover:not(:disabled) {
+  background: var(--campus-primary-hover);
+}
+.secondaryButton,
+.queueAction {
+  border-color: var(--admin-control-border);
+  background: #fff;
+  color: var(--campus-primary);
+}
+.secondaryButton:hover:not(:disabled),
+.queueAction:hover:not(:disabled) {
+  background: var(--campus-surface);
+}
+.queueAction {
+  padding-inline: 8px;
+  font-size: 13px;
+}
+.queueAction[data-status='PENDING'] {
+  border-color: var(--campus-primary);
+  background: var(--campus-primary);
+  color: #fff;
+}
+.queueAction[data-status='PENDING']:hover:not(:disabled) {
+  background: var(--campus-primary-hover);
+}
+.rejectButton {
+  border-color: var(--campus-danger);
+  background: #fff;
+  color: var(--campus-danger);
+}
+.rejectButton:hover:not(:disabled) {
+  background: var(--admin-danger-surface);
+}
+.dangerButton {
+  background: var(--campus-danger);
+  color: #fff;
+}
 .dangerButton:hover:not(:disabled) {
-  background: #86201d;
+  background: color-mix(in srgb, var(--campus-danger) 86%, #000);
 }
-
-.layout button:disabled,
-.layout select:disabled,
-.layout textarea:disabled {
-  cursor: not-allowed;
+.layout :is(button, select, textarea):disabled {
   opacity: 0.6;
+  cursor: not-allowed;
 }
-
 .layout :is(button, select, textarea, h2, h3):focus-visible {
-  outline: 3px solid #8a6100;
+  outline: 3px solid var(--campus-primary);
   outline-offset: 2px;
 }
-
-.layout .queue button:focus-visible {
-  outline-offset: -4px;
-}
-
-@media (max-width: 899px) {
-  .layout[data-show-detail='true'] [data-panel='queue'],
-  .layout[data-show-detail='false'] [data-panel='detail'] {
+@container (max-width: 760px) {
+  .detailGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .queue .idColumn {
     display: none;
   }
 }
-
-@media (min-width: 900px) {
-  .layout {
-    grid-template-columns: minmax(290px, 2fr) minmax(0, 3fr);
-    align-items: start;
+@container (max-width: 620px) {
+  .statistics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .detailBody {
-    padding: 20px;
+  .filterBar {
+    display: none;
+  }
+  .mobileFilter {
+    display: block;
+  }
+  .queue .dateColumn,
+  .queue .schoolColumn {
+    display: none;
+  }
+  .studentCell .mobileDate {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+  }
+  .queue .statusColumn {
+    width: 96px;
+  }
+  .queue .actionColumn {
+    width: 102px;
   }
 }
-
-@media (max-width: 380px) {
+@container (max-width: 400px) {
+  .queue :is(th, td) {
+    padding-inline: 8px;
+  }
+  .queue .actionColumn {
+    width: 90px;
+  }
+  .queueAction {
+    padding-inline: 6px;
+    font-size: 12px;
+  }
   .fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }

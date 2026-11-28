@@ -1,0 +1,247 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 226px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.sidebar,
+.panel {
+  min-width: 0;
+  padding: clamp(16px, 2.5vw, 24px);
+  border: 1px solid var(--market-border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.sidebar {
+  padding: 12px;
+}
+
+.identity {
+  display: grid;
+  gap: 4px;
+  padding: 8px 9px 12px;
+  margin-bottom: 7px;
+  border-bottom: 1px solid var(--market-border);
+  overflow-wrap: anywhere;
+}
+
+.identity span {
+  color: var(--campus-success);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 4px;
+}
+
+.sidebar a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  color: var(--market-muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.sidebar a:is(:hover, [aria-current='page']) {
+  background: var(--campus-surface);
+  color: var(--campus-primary);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sidebar a {
+    transition: transform 160ms ease-out;
+  }
+
+  .sidebar a:active {
+    transform: scale(0.98);
+  }
+
+  .sidebar a[aria-current='page']:not(:active) {
+    animation: revealProfileSelection 180ms ease-out;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .sidebar a:hover:not([aria-current='page'], :active) {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes revealProfileSelection {
+  from {
+    opacity: 0.85;
+    transform: translateX(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+  max-width: 830px;
+}
+
+.panel > :is(a, button) {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.form > label,
+.provinceField,
+.keywordGroup {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.form label,
+.form legend {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.form input:not([type='checkbox'], [type='hidden']) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 11px;
+  border: 1px solid #72899a;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--market-ink);
+  font: inherit;
+}
+
+.form input[readonly] {
+  background: var(--campus-surface);
+  color: var(--market-muted);
+}
+
+.form fieldset {
+  min-inline-size: 0;
+  border: 0;
+}
+
+.form legend {
+  margin-bottom: 8px;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr));
+  gap: 8px;
+}
+
+.categoryOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid #72899a;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.categoryOption:has(input:checked) {
+  border-color: var(--campus-primary);
+  background: var(--campus-surface);
+  color: var(--campus-primary);
+}
+
+.categoryOption input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--campus-primary);
+}
+
+.keywordGroup p {
+  color: var(--market-muted);
+  font-size: 13px;
+}
+
+.keywordInput,
+.keywordList {
+  display: flex;
+  gap: 8px;
+}
+
+.keywordList {
+  flex-wrap: wrap;
+  list-style: none;
+}
+
+.keywordList li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 10px 5px;
+  border-radius: 8px;
+  background: var(--campus-surface);
+  color: var(--campus-primary);
+  overflow-wrap: anywhere;
+}
+
+.keywordList button,
+.addKeyword {
+  flex: none;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--market-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--campus-primary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.keywordList button {
+  border: 0;
+  background: transparent;
+}
+
+.form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.provinceField > button {
+  justify-self: start;
+  font-size: 13px;
+}
+
+.error {
+  color: var(--campus-danger);
+}
+
+.success {
+  color: var(--campus-success);
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .sidebar nav {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}

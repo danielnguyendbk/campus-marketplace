@@ -1,14 +1,21 @@
 :root {
-  --bg-primary: #f8fafc;
+  --campus-primary: #12466d;
+  --campus-surface: #eaf3f8;
+  --campus-success: #097b61;
+  --campus-warning: #b65c16;
+  --campus-danger: #b43b46;
+  --campus-primary-hover: color-mix(in srgb, var(--campus-primary) 86%, #000);
+
+  --bg-primary: var(--campus-surface);
   --bg-surface: #ffffff;
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --success: #16a34a;
-  --warning: #d97706;
-  --error: #dc2626;
+  --primary: var(--campus-primary);
+  --primary-hover: var(--campus-primary-hover);
+  --success: var(--campus-success);
+  --warning: var(--campus-warning);
+  --error: var(--campus-danger);
   --info: #0284c7;
 }
 
