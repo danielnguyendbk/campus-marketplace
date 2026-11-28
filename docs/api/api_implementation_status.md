@@ -38,7 +38,7 @@ Tài liệu này theo dõi trạng thái triển khai thực tế của toàn b�
 | 17 | `POST` | `/posts/{id}/sold` | Post Lifecycle | Đánh dấu bài đăng đã bán (bài SELL) | Contract Defined | `TASK-BE-POST-06` |
 | 18 | `POST` | `/posts/{id}/close` | Post Lifecycle | Đóng tin tìm mua (bài BUY_REQUEST) | Contract Defined | `TASK-BE-POST-07` |
 | 19 | `GET` | `/feed` | Feed & Matching | Bảng tin (PendingFeedPage / ApprovedFeed) | **Implemented & Tested (CMP-12)** | `BE-02-T07` |
-| 20 | `GET` | `/posts/{id}/matches` | Feed & Matching | Gợi ý đồ dùng tương thích | Contract Defined | `TASK-BE-FEED-02` |
+| 20 | `GET` | `/posts/{id}/matches` | Feed & Matching | Gợi ý đồ dùng tương thích | Implemented & Tested (CMP-14) | `TASK-BE-FEED-02` |
 | 21 | `POST` | `/posts/{id}/reveal-phone` | Contact | Hiện SĐT người bán (ghi nhận event) | Contract Defined | `TASK-BE-CONT-01` |
 | 22 | `POST` | `/conversations` | Conversations & Chat | Bắt đầu trò chuyện về bài đăng | Contract Defined | `TASK-BE-CHAT-01` |
 | 23 | `GET` | `/conversations` | Conversations & Chat | Danh sách hội thoại của người dùng | Contract Defined | `TASK-BE-CHAT-02` |

@@ -7,6 +7,13 @@ export const FEED_MATCH_REASONS = {
   SAME_PROVINCE: 'Cùng khu vực',
 } as const;
 
+export const POST_MATCH_REASONS = {
+  CATEGORY: 'Khớp danh mục',
+  PRICE_BUDGET: 'Giá phù hợp ngân sách',
+  KEYWORD: 'Khớp từ khóa',
+  PROVINCE: 'Cùng khu vực',
+} as const;
+
 /**
  * OpenAPI v1.2 #/components/schemas/PendingFeedItem (additionalProperties: false).
  * Strictly 5 keys ONLY: id, title, postType, thumbnailUrl, createdAt.

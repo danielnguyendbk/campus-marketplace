@@ -4,6 +4,31 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
 
 ---
 
+### Cập nhật Backend — CMP-14: Gợi ý Tin Đối ứng Hai chiều `SELL ↔ BUY_REQUEST` (`GET /api/v1/posts/:id/matches`) (2026-11-28)
+
+- **Người thực hiện:** Backend Agent (theo kế hoạch đã duyệt `cmp_14_post_matching_plan.md`).
+- **Branch:** `feat/cmp-12-13-14` (nền `ff761fc`; chỉ phạm vi Backend + tài liệu, tuyệt đối không sửa `apps/frontend/`, `packages/api-contract/openapi.yaml`, `database/`).
+- **Nội dung đã triển khai:**
+  1. **`POST_MATCH_REASONS` (`apps/backend/src/modules/feed/feed.types.ts`):** Bổ sung hằng số lý do đối ứng chuẩn OpenAPI v1.2 (`Khớp danh mục`, `Giá phù hợp ngân sách`, `Khớp từ khóa`, `Cùng khu vực`).
+  2. **`MatchingRepository` (`apps/backend/src/modules/feed/repositories/matching.repository.ts`):**
+     - `findSourcePostForMatching(postId)`: Truy vấn bài gốc kèm `verification_status` của chủ bài, `sell_details.price`, `buy_request_details.budget_min`/`budget_max`.
+     - `findCounterpartMatchesPaginated(params)`: Bộ lọc bắt buộc chỉ nhận tin đối ứng (`SELL ↔ BUY_REQUEST`) cùng `category_id`, khác `owner_id`, `status = 'ACTIVE'`, `deleted_at IS NULL`, chủ bài `verification_status = 'APPROVED'`; chấm điểm rule-based (`category` +4, `price BETWEEN budget_min AND budget_max` +3, từ khóa trên `title`/`description` bằng `ILIKE ANY` +2, cùng `province` +1), sắp xếp `ORDER BY relevance_score DESC, created_at DESC, id DESC`.
+  3. **`MatchingService` (`apps/backend/src/modules/feed/services/matching.service.ts`):**
+     - Ném `404 POST_NOT_FOUND` nếu bài gốc không tồn tại, đã xóa mềm, `status !== 'ACTIVE'`, hoặc chủ bài có `verification_status !== 'APPROVED'`.
+     - Chuyển hướng hai chiều (`SELL → BUY_REQUEST`, `BUY_REQUEST → SELL`), trích xuất và escape ký tự wildcard LIKE (`\`, `%`, `_`) tối đa 10 từ khóa từ tiêu đề (lọc stop-words tiếng Việt, độ dài `>= 2`), map sang `PostPage` kèm `matchedReasons`.
+  4. **`MatchingController` & `FeedModule` (`apps/backend/src/modules/feed/matching.controller.ts`, `feed.module.ts`):**
+     - Tách controller `@Controller('posts')` độc lập với `FeedController` (giữ nguyên route `/feed` và pass `feed.controller.spec.ts`), mở `GET /api/v1/posts/:id/matches` bảo vệ bởi `JwtAuthGuard` + `VerificationGuard` và validate `:id` UUID v4 (`400 VALIDATION_FAILED`) + `GetFeedQueryDto`.
+- **Kiểm chứng toàn diện (DoD):**
+  - `npx -y pnpm@10.14.0 lint`: **PASS** (0 warnings, 0 errors trên `@campus/*`).
+  - `npx -y pnpm@10.14.0 typecheck`: **PASS** (0 errors trên `@campus/*`).
+  - Frontend Vitest (`npx -y pnpm@10.14.0 --filter @campus/frontend test`): **PASS 92/92 tests** (2 files).
+  - Backend Unit Jest (`npx jest --testPathIgnorePatterns "modules.verification.services.storage\.service\.spec\.ts"`): **PASS 306/306 tests** (39 suites, gồm 3 suite mới của CMP-14: `matching.repository.spec.ts` 5 cases, `matching.service.spec.ts` 8 cases, `matching.controller.spec.ts` 2 cases).
+  - Backend E2E Jest (`npx jest --config ./test/jest-e2e.json --testPathIgnorePatterns "cmp37-otp-race-isolated-db"`): **PASS 170/170 tests** (11 suites, gồm `test/post-matches.e2e-spec.ts` 6 kịch bản dùng `InMemoryPostgresForMatching`, không chạm Supabase thật và không chạy `DROP SCHEMA`): bao phủ AC1 (`SELL → BUY_REQUEST`), AC2 (`BUY_REQUEST → SELL`), AC3 (scoring + exclusions + newest-first tie-breaker + `400 VALIDATION_FAILED` + `404 POST_NOT_FOUND`), AC4 (401 Guest, 403 `PENDING`/`REJECTED`/`SUSPENDED`, `APPROVED` mở tiếp `GET /api/v1/posts/:matchedId`), AC5 (luồng người dùng mới chưa có lịch sử hoạt động khám phá qua `GET /api/v1/feed` → `/posts/:id/matches` → `/posts/:matchedId`).
+  - `npx -y pnpm@10.14.0 build`: **PASS** (`nest build` + `next build` 9/9 routes).
+- **File thay đổi / thêm mới:** `apps/backend/src/modules/feed/feed.types.ts`, `apps/backend/src/modules/feed/feed.module.ts`, `apps/backend/src/modules/feed/matching.controller.ts`, `apps/backend/src/modules/feed/services/matching.service.ts`, `apps/backend/src/modules/feed/repositories/matching.repository.ts`, `apps/backend/src/modules/feed/repositories/matching.repository.spec.ts`, `apps/backend/src/modules/feed/services/matching.service.spec.ts`, `apps/backend/src/modules/feed/matching.controller.spec.ts`, `apps/backend/test/post-matches.e2e-spec.ts`, `docs/api/api_implementation_status.md`, `tasks/AGENT_HANDOFF.md`.
+
+---
+
 ### Cập nhật Backend — CMP-12: Bảng tin Phân tầng theo Trạng thái Tài khoản (`GET /api/v1/feed`) & Cold-Start Fallback (2026-11-27)
 
 - **Người thực hiện:** Backend Agent (theo kế hoạch `cmp_12_tiered_feed_plan.md`).
