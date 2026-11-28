@@ -54,6 +54,15 @@ Tài liệu này là kênh bàn giao trạng thái công việc giữa các AI A
   - Lưu ý chạy lệnh: trên pnpm 10.14.0, truyền `-- --testPathIgnorePatterns=...` qua `pnpm test` bị chuyển nguyên chuỗi `"--"` vào Jest; hãy chạy trực tiếp `npx jest --testPathIgnorePatterns "<pattern>"` trong `apps/backend` (hoặc `npx jest --config ./test/jest-e2e.json ...` cho E2E).
 - **File thay đổi / thêm mới:** `apps/backend/src/modules/feed/**`, `apps/backend/src/app.module.ts`, `apps/backend/src/modules/posts/posts.service.ts`, `apps/backend/src/modules/posts/posts.service.spec.ts`, `apps/backend/test/feed.e2e-spec.ts`, `docs/api/api_implementation_status.md`, `tasks/AGENT_HANDOFF.md`. Đã commit cục bộ trên nhánh `feat/cmp-12-13-14`; **chưa push và chưa tạo Pull Request**.
 
+### Bàn giao Frontend — `feat/fe-redesign` (2026-11-27)
+
+- **Nhánh:** `feat/fe-redesign` dựa trên `develop` tại `bc25983`. Thạch sẽ mở PR về `develop` sau khi nhánh được đẩy lên GitHub.
+- **Redesign:** Cập nhật bố cục đăng nhập/đăng ký, trang chủ, nộp và xét duyệt hồ sơ xác minh, tạo tin và chi tiết tin. Mã và tài nguyên giao diện nằm trong `apps/frontend/src/app/` và `apps/frontend/src/features/`.
+- **CMP-12, CMP-13, CMP-14:** Trang chủ hiển thị bảng tin theo quyền và mở chi tiết cho tài khoản đủ quyền. `/search` có từ khóa, bộ lọc và phân trang. Chi tiết tin hiển thị gợi ý `SELL` ↔ `BUY_REQUEST`. Bản mock hỗ trợ ba luồng này. Tích hợp với backend thật còn chờ các route `GET /feed`, `GET /posts` và `GET /posts/{id}/matches` trên `develop`.
+- **CMP-21:** `/profile` cho sinh viên đã xác minh sửa tên hiển thị, tỉnh/thành, danh mục và từ khóa yêu thích qua `/me` và `/me/preferences`. Cần smoke test lưu và mở lại trên backend thật. Ca bảng tin đổi theo sở thích phụ thuộc CMP-12.
+- **CMP-15, CMP-16, CMP-17:** Trang `/messages` và hộp chat dùng hội thoại cục bộ. Bản minh họa cho phép gửi tin, chọn và xem trước tệp, hiển thị tệp hết hạn, và bật hoặc ẩn số điện thoại mẫu từ chi tiết tin bán. Cần tích hợp API hội thoại, tin nhắn, tệp và xem số điện thoại, rồi kiểm thử quyền và demo end-to-end với hai tài khoản test.
+- **Kiểm chứng:** Vitest frontend 119/119 PASS trên 2 file test, ESLint và TypeScript frontend PASS, `git diff --check` PASS. Kết quả Vitest dùng mock. Production build, E2E backend và smoke test với backend thật còn chờ.
+
 ### Đồng bộ PR #6 sau khi PR #11 được merge (2026-11-22)
 
 - Develop đã tiến tới `d17323c` (merge PR #11). Merge develop mới vào nhánh resolve PR #6; conflict chỉ ở các mục bàn giao cùng thêm đầu file. Giữ cả lịch sử health và Admin UI, toàn bộ source/tests tự merge. Không sửa schema/migrations/contract và không merge PR remote.

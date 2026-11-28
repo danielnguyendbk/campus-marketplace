@@ -35,6 +35,7 @@ export interface PostImage {
 
 export type PostDetail = PostFields & {
   id: string;
+  owner?: { id: string; displayName: string };
   status: PostStatus;
   createdAt: string;
   images: PostImage[];

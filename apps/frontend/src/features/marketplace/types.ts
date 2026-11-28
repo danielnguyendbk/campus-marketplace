@@ -8,6 +8,48 @@ export interface FeedItem {
   createdAt: string;
 }
 
+export interface PostSearchQuery {
+  q?: string;
+  type?: FeedItem['postType'];
+  categoryId?: string;
+  province?: string;
+  min?: number;
+  max?: number;
+  page?: number;
+}
+
+export interface SearchPost extends FeedItem {
+  categoryId: string;
+  province: string;
+  status: 'ACTIVE';
+  price?: number | null;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  matchedReasons?: string[];
+}
+
+export interface PersonalProfile {
+  id: string;
+  displayName: string;
+  schoolEmail: string;
+  province: string | null;
+  verificationStatus: VerificationStatus;
+}
+
+export interface ProfileUpdate {
+  displayName: string;
+  province: string;
+}
+
+export interface PreferencesUpdate {
+  favoriteCategoryIds: string[];
+  interestKeywords: string[];
+}
+
+export interface MarketplacePreferences extends PreferencesUpdate {
+  updatedAt: string;
+}
+
 export interface VerificationState {
   status: VerificationStatus;
   reason?: string | null;

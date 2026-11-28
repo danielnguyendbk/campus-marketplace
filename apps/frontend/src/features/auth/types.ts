@@ -36,6 +36,20 @@ export interface AuthSession {
   };
 }
 
+type MarketplaceUser = Pick<AuthSession['user'], 'role' | 'verificationStatus'>;
+
+export function canReadMarketplacePosts(user?: MarketplaceUser): boolean {
+  return Boolean(
+    user &&
+    (user.verificationStatus === 'APPROVED' ||
+      (user.role === 'ADMIN' && user.verificationStatus !== 'SUSPENDED')),
+  );
+}
+
+export function canPublishMarketplacePosts(user?: MarketplaceUser): boolean {
+  return user?.role === 'USER' && user.verificationStatus === 'APPROVED';
+}
+
 export function isAuthSession(value: unknown): value is AuthSession {
   if (!value || typeof value !== 'object') return false;
   const session = value as Record<string, unknown>;
